@@ -1,0 +1,39 @@
+HOW TO GET YOUR FIREBASE CREDENTIALS
+=====================================
+
+1. Go to Firebase Console: https://console.firebase.google.com/project/therfpqueen-f11fd
+
+2. Click on the gear icon (Settings) → Project Settings
+
+3. Scroll down to "Your apps" section
+
+4. If you don't have a web app yet:
+   - Click "Add app" → Select Web (</> icon)
+   - Give it a nickname like "RFP Matcher Web"
+   - Don't check "Firebase Hosting" yet
+   - Click "Register app"
+
+5. You'll see your Firebase configuration object. Copy these values:
+
+   const firebaseConfig = {
+     apiKey: "AIzaSyDbkrUWV13zBvl4L2lu5Qw5aLYbC9LCjJk",
+     authDomain: "therfpqueen-f11fd.firebaseapp.com",
+     projectId: "therfpqueen-f11fd",
+     storageBucket: "therfpqueen-f11fd.firebasestorage.app",
+     messagingSenderId: "173138212955",
+     appId: "1:173138212955:web:ee50eb8f8911cf2d14677e",
+     measurementId: "G-PWXR6YZMGH"
+   };
+
+6. Create a file called .env.local in the webapp folder and paste these values:
+
+NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key_here
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=therfpqueen-f11fd.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=therfpqueen-f11fd
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=therfpqueen-f11fd.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id_here
+NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id_here
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=your_measurement_id_here
+
+7. Save the file and restart your dev server!
+

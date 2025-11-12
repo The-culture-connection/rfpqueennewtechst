@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Large CSV data files (keep locally, don't push to GitHub)
+Opportunities/*.csv
+Opportunities/*.txt
+# But keep the README
+!Opportunities/README.md
