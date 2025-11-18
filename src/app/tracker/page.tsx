@@ -102,6 +102,12 @@ export default function TrackerPage() {
               >
                 Back to Dashboard
               </button>
+              <button
+                onClick={() => router.push('/profile')}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+              >
+                Edit Profile
+              </button>
             </div>
           </div>
         </div>

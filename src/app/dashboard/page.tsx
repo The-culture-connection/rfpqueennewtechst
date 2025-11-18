@@ -16,6 +16,7 @@ export default function DashboardPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [passedIds, setPassedIds] = useState<string[]>([]);
   const [actionLoading, setActionLoading] = useState(false);
+  const [progressLoaded, setProgressLoaded] = useState(false);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -23,6 +24,73 @@ export default function DashboardPage() {
       router.push('/login');
     }
   }, [user, loading, router]);
+
+  // Load saved progress when opportunities are ready
+  useEffect(() => {
+    async function loadProgress() {
+      if (!user || !opportunities.length || progressLoaded) return;
+
+      try {
+        const progressRef = doc(db, 'profiles', user.uid, 'dashboard', 'progress');
+        const progressDoc = await getDoc(progressRef);
+
+        if (progressDoc.exists()) {
+          const data = progressDoc.data();
+          const savedPassedIds = data.passedIds || [];
+          const savedCurrentId = data.currentOpportunityId;
+
+          // Restore passed IDs
+          setPassedIds(savedPassedIds);
+
+          // Find the index of the saved opportunity
+          if (savedCurrentId) {
+            const savedIndex = opportunities.findIndex(opp => opp.id === savedCurrentId);
+            if (savedIndex !== -1) {
+              setCurrentIndex(savedIndex);
+              console.log(`✅ Resumed from opportunity ${savedIndex + 1}`);
+            }
+          }
+        }
+
+        setProgressLoaded(true);
+      } catch (err) {
+        console.error('Error loading progress:', err);
+        setProgressLoaded(true);
+      }
+    }
+
+    loadProgress();
+  }, [user, opportunities, progressLoaded]);
+
+  // Save progress whenever position changes (but only after progress is loaded)
+  useEffect(() => {
+    async function saveProgress() {
+      // Don't save until progress has been loaded from Firestore
+      if (!user || !progressLoaded || !opportunities.length) return;
+
+      // Recalculate available opportunities
+      const available = opportunities.filter(opp => !passedIds.includes(opp.id));
+      const currentOpportunity = available[currentIndex];
+      if (!currentOpportunity) return;
+
+      try {
+        const progressRef = doc(db, 'profiles', user.uid, 'dashboard', 'progress');
+        await setDoc(progressRef, {
+          currentOpportunityId: currentOpportunity.id,
+          passedIds: passedIds,
+          lastUpdated: new Date().toISOString(),
+        });
+        console.log(`💾 Progress saved: Opportunity ${currentIndex + 1}`);
+      } catch (err) {
+        console.error('Error saving progress:', err);
+      }
+    }
+
+    // Only save if progressLoaded is true (prevents overwriting on initial load)
+    if (progressLoaded) {
+      saveProgress();
+    }
+  }, [currentIndex, passedIds, user, progressLoaded, opportunities]);
 
   if (loading || !userProfile) {
     return (
@@ -54,6 +122,30 @@ export default function DashboardPage() {
   // Filter out passed opportunities
   const availableOpportunities = opportunities.filter(opp => !passedIds.includes(opp.id));
   const currentOpportunity = availableOpportunities[currentIndex];
+
+  // Reset progress and start over
+  const handleStartOver = async () => {
+    if (!user) return;
+    
+    if (confirm('Are you sure you want to start over? This will reset your progress.')) {
+      try {
+        setPassedIds([]);
+        setCurrentIndex(0);
+        
+        // Clear progress from Firestore
+        const progressRef = doc(db, 'profiles', user.uid, 'dashboard', 'progress');
+        await setDoc(progressRef, {
+          currentOpportunityId: opportunities[0]?.id || null,
+          passedIds: [],
+          lastUpdated: new Date().toISOString(),
+        });
+        
+        console.log('✅ Progress reset');
+      } catch (err) {
+        console.error('Error resetting progress:', err);
+      }
+    }
+  };
 
   const handlePass = async (id: string) => {
     setPassedIds([...passedIds, id]);
@@ -174,6 +266,20 @@ export default function DashboardPage() {
                 My Tracker
               </button>
               <button
+                onClick={() => router.push('/profile')}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                title="Edit your profile and preferences"
+              >
+                Edit Profile
+              </button>
+              <button
+                onClick={handleStartOver}
+                className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors"
+                title="Reset progress and start from beginning"
+              >
+                Start Over
+              </button>
+              <button
                 onClick={() => router.push('/')}
                 className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
               >
@@ -186,6 +292,18 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        {/* Resume indicator */}
+        {currentIndex > 0 && progressLoaded && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 flex items-center gap-2">
+            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-sm text-blue-800">
+              Resumed from where you left off (Opportunity {currentIndex + 1})
+            </p>
+          </div>
+        )}
+
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow p-4">

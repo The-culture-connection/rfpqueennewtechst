@@ -64,9 +64,14 @@ export function normalizeOpportunity(row: Record<string, string>, source: string
   const agency = row['Agency'] || row['agency'] || row['Department'] || row['department'] || row['Organization'] || '';
   const city = row['City'] || row['city'] || row['parsedCity'] || '';
   const state = row['State'] || row['state'] || row['parsedState'] || '';
-  const url = row['URL'] || row['url'] || row['Link'] || row['link'] || row['Synopsis URL'] || row['synopsisUrl'] || '';
+  let url = row['URL'] || row['url'] || row['Link'] || row['link'] || row['Synopsis URL'] || row['synopsisUrl'] || '';
   const amount = row['Amount'] || row['amount'] || row['Award Amount'] || row['Estimated Value'] || '';
   const type = row['Type'] || row['type'] || (source === 'grantwatch' ? 'Grant' : 'RFP');
+  
+  // Fix malformed RFPMart URLs (missing slash after .com)
+  if (url && url.includes('rfpmart.com') && !url.includes('rfpmart.com/')) {
+    url = url.replace('rfpmart.com', 'rfpmart.com/');
+  }
   
   return {
     id: `${source}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
