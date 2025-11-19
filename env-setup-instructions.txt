@@ -35,5 +35,21 @@ NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id_here
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id_here
 NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=your_measurement_id_here
 
-7. Save the file and restart your dev server!
+7. Add Firebase Admin SDK credentials (for server-side operations):
+
+# Get service account key from Firebase Console → Project Settings → Service Accounts
+# Click "Generate new private key" and download the JSON file
+# Copy these values from the JSON:
+
+FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+
+8. Add OpenAI API Key (for AI-based document extraction):
+
+# Get your API key from: https://platform.openai.com/api-keys
+# Create account if needed, then click "Create new secret key"
+
+OPENAI_API_KEY=sk-your-actual-key-here
+
+9. Save the file and restart your dev server!
 

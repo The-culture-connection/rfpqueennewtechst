@@ -2,7 +2,6 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  reactCompiler: true,
   webpack: (config, { isServer }) => {
     if (isServer) {
       // Externalize canvas to avoid webpack bundling issues

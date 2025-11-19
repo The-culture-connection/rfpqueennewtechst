@@ -19,7 +19,7 @@ export interface UserProfile {
   uid: string;
   email: string;
   entityName: string;
-  entityType: string;
+  entityType: EntityType;
   fundingType: FundingType[];
   timeline: Timeline;
   interestsMain: Interest[];
@@ -74,6 +74,6 @@ export interface OnboardingData {
   timeline?: Timeline;
   interests?: Interest[];
   entityName?: string;
-  entityType?: string;
+  entityType?: EntityType;
 }
 
