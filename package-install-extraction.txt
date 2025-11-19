@@ -1,0 +1,11 @@
+# Install these packages for text extraction:
+
+cd webapp
+npm install pdf-parse mammoth pptxgenjs
+
+# pdf-parse: Extract text from PDFs
+# mammoth: Extract text from DOCX files  
+# pptxgenjs: Read PPTX slides (alternative: use officegen)
+
+# Note: These are server-side only, will be used in API routes
+

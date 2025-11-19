@@ -1,56 +1,127 @@
 import { NextResponse } from 'next/server';
-import { doc, updateDoc, setDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getAdminFirestore } from '@/lib/firebaseAdmin';
+import { extractTextFromFile } from '@/lib/extraction/textExtractors';
+import { extractFieldsWithAI, AIExtractedFields } from '@/lib/extraction/aiExtractor';
+import { DocumentType } from '@/types/documents';
+
+/**
+ * Merge all profile fragments into a master business profile
+ * This combines data from all uploaded documents into one unified profile
+ */
+async function mergeProfileFragments(userId: string) {
+  console.log(`🔄 Merging profile fragments for user ${userId}...`);
+  
+  const db = getAdminFirestore();
+  
+  // Get all profile fragments
+  const fragmentsSnapshot = await db
+    .collection('profiles')
+    .doc(userId)
+    .collection('profileFragments')
+    .get();
+  
+  if (fragmentsSnapshot.empty) {
+    console.log('⚠️ No profile fragments found');
+    return;
+  }
+  
+  const fragments = fragmentsSnapshot.docs.map(doc => doc.data() as AIExtractedFields);
+  
+  // Merge logic
+  const mergedProfile: any = {
+    companyOverview: null,
+    mission: null,
+    vision: null,
+    servicesCapabilities: [],
+    pastPerformance: [],
+    teamExperience: [],
+    approachMethodology: null,
+    pricingModel: null,
+    certifications: [],
+    problemStatementExamples: [],
+    proposedSolutionExamples: [],
+    outcomesImpact: [],
+    lastUpdated: new Date().toISOString(),
+  };
+  
+  fragments.forEach(fragment => {
+    // Take first non-null for single-value fields
+    if (!mergedProfile.companyOverview && fragment.companyOverview) {
+      mergedProfile.companyOverview = fragment.companyOverview;
+    }
+    if (!mergedProfile.mission && fragment.mission) {
+      mergedProfile.mission = fragment.mission;
+    }
+    if (!mergedProfile.vision && fragment.vision) {
+      mergedProfile.vision = fragment.vision;
+    }
+    if (!mergedProfile.approachMethodology && fragment.approachMethodology) {
+      mergedProfile.approachMethodology = fragment.approachMethodology;
+    }
+    if (!mergedProfile.pricingModel && fragment.pricingModel) {
+      mergedProfile.pricingModel = fragment.pricingModel;
+    }
+    
+    // Concatenate and dedupe arrays
+    if (fragment.servicesCapabilities) {
+      mergedProfile.servicesCapabilities.push(...fragment.servicesCapabilities);
+    }
+    if (fragment.pastPerformance) {
+      mergedProfile.pastPerformance.push(...fragment.pastPerformance);
+    }
+    if (fragment.teamExperience) {
+      mergedProfile.teamExperience.push(...fragment.teamExperience);
+    }
+    if (fragment.certifications) {
+      mergedProfile.certifications.push(...fragment.certifications);
+    }
+    if (fragment.problemStatement) {
+      mergedProfile.problemStatementExamples.push(fragment.problemStatement);
+    }
+    if (fragment.proposedSolution) {
+      mergedProfile.proposedSolutionExamples.push(fragment.proposedSolution);
+    }
+    if (fragment.outcomesImpact) {
+      mergedProfile.outcomesImpact.push(...fragment.outcomesImpact);
+    }
+  });
+  
+  // Deduplicate arrays (simple string comparison)
+  mergedProfile.servicesCapabilities = [...new Set(mergedProfile.servicesCapabilities)];
+  mergedProfile.certifications = [...new Set(mergedProfile.certifications)];
+  
+  // Store merged profile
+  await db
+    .collection('profiles')
+    .doc(userId)
+    .collection('businessProfile')
+    .doc('master')
+    .set(mergedProfile, { merge: true });
+  
+  console.log(`✅ Profile merged successfully. Fields: ${Object.keys(mergedProfile).filter(k => {
+    const val = mergedProfile[k];
+    return val && (typeof val === 'string' || (Array.isArray(val) && val.length > 0));
+  }).length}`);
+}
 
 export async function POST(request: Request) {
   try {
     const { documentId, storageUrl, documentType, userId } = await request.json();
 
     // Update status to processing (nested under user profile)
-    const docRef = doc(db, 'profiles', userId, 'documents', documentId);
-    await updateDoc(docRef, {
+    const db = getAdminFirestore();
+    const docRef = db.collection('profiles').doc(userId).collection('documents').doc(documentId);
+    await docRef.update({
       processingStatus: 'processing',
     });
 
-    // TODO: Implement actual text extraction
-    // For now, we'll simulate it with a placeholder
-    // In production, you would:
-    // 1. Download the file from storageUrl
-    // 2. Extract text based on file type (PDF, image, etc.)
-    // 3. Use OpenAI to organize the extracted text
-    // 4. Store structured data in Firestore
+    console.log(`📄 Processing document ${documentId} of type ${documentType}`);
+    console.log(`📥 Storage URL: ${storageUrl}`);
     
-    console.log(`Processing document ${documentId} of type ${documentType}`);
-    console.log(`Storage URL: ${storageUrl}`);
-    
-    // Simulate processing delay
-    setTimeout(async () => {
-      try {
-        // Store placeholder extracted data (nested under user profile)
-        const extractedDataRef = doc(db, 'profiles', userId, 'extractedData', documentId);
-        await setDoc(extractedDataRef, {
-          documentId,
-          documentType,
-          userId,
-          rawText: '[Text extraction will be implemented with pdf-parse and Tesseract.js]',
-          extractedAt: new Date().toISOString(),
-          confidence: 0,
-        });
-
-        // Update status to completed
-        await updateDoc(docRef, {
-          processingStatus: 'completed',
-          extractedAt: new Date().toISOString(),
-        });
-        
-        console.log(`✅ Document ${documentId} processed successfully`);
-      } catch (error) {
-        console.error('Error in delayed processing:', error);
-        await updateDoc(docRef, {
-          processingStatus: 'failed',
-        });
-      }
-    }, 3000);
+    // Process in background (don't block the response)
+    processDocument(documentId, storageUrl, documentType, userId).catch(error => {
+      console.error('Background processing error:', error);
+    });
 
     return NextResponse.json({
       success: true,
@@ -58,11 +129,79 @@ export async function POST(request: Request) {
       documentId,
     });
   } catch (error) {
-    console.error('Error processing document:', error);
+    console.error('Error starting document processing:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to process document' },
+      { success: false, error: 'Failed to start document processing' },
       { status: 500 }
     );
+  }
+}
+
+async function processDocument(
+  documentId: string,
+  storageUrl: string,
+  documentType: DocumentType,
+  userId: string
+) {
+  const db = getAdminFirestore();
+  const docRef = db.collection('profiles').doc(userId).collection('documents').doc(documentId);
+  
+  try {
+    // Step 1: Download file from Storage
+    console.log(`⬇️ Downloading file from storage...`);
+    const response = await fetch(storageUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to download file: ${response.statusText}`);
+    }
+    const fileBuffer = Buffer.from(await response.arrayBuffer());
+    
+    // Get file type from response headers or document metadata
+    const fileType = response.headers.get('content-type') || 'application/pdf';
+    console.log(`📋 File type: ${fileType}`);
+
+    // Step 2: Extract raw text
+    console.log(`🔤 Extracting text...`);
+    const rawText = await extractTextFromFile(fileBuffer, fileType);
+    console.log(`✅ Extracted ${rawText.length} characters of text`);
+
+    // Step 3: Extract fields using AI
+    console.log(`🤖 Extracting fields with AI...`);
+    const extractedFields = await extractFieldsWithAI(rawText, documentType);
+    console.log(`✅ AI extraction complete. Extracted ${Object.keys(extractedFields).filter(k => extractedFields[k as keyof typeof extractedFields] !== null).length} fields`);
+
+    // Step 4: Store profile fragment in Firestore (Admin SDK)
+    // Each document contributes a "fragment" to the user's master business profile
+    const profileFragmentRef = db.collection('profiles').doc(userId).collection('profileFragments').doc(documentId);
+    await profileFragmentRef.set({
+      documentId,
+      documentType,
+      userId,
+      rawText: rawText.slice(0, 10000), // Store first 10k chars for reference
+      ...extractedFields,
+      extractedAt: new Date().toISOString(),
+    });
+
+    // Step 5: Update document status to completed
+    await docRef.update({
+      processingStatus: 'completed',
+      extractedAt: new Date().toISOString(),
+    });
+
+    // Step 6: Trigger profile merge (async, don't wait)
+    // This will combine all profile fragments into a master businessProfile
+    mergeProfileFragments(userId).catch(err => {
+      console.error('Error merging profile fragments:', err);
+    });
+    
+    console.log(`✅ Document ${documentId} processed successfully`);
+    
+  } catch (error: any) {
+    console.error(`❌ Error processing document ${documentId}:`, error);
+    
+    // Update status to failed
+    await docRef.update({
+      processingStatus: 'failed',
+    });
   }
 }
 

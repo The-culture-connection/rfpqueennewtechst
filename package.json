@@ -14,10 +14,18 @@
   },
   "dependencies": {
     "@types/uuid": "^10.0.0",
+    "canvas": "^3.2.0",
     "firebase": "^10.7.1",
+    "firebase-admin": "^13.6.0",
+    "jszip": "^3.10.1",
+    "mammoth": "^1.11.0",
     "next": "^15.0.0",
+    "openai": "^6.9.1",
+    "pdf-parse": "^2.4.5",
+    "pdf2json": "^4.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "tesseract.js": "^6.0.1",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
