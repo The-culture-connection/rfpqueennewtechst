@@ -258,12 +258,19 @@ export default function DashboardPage() {
                 Welcome back, {userProfile.entityName}!
               </p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-3 flex-wrap">
               <button
                 onClick={() => router.push('/tracker')}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
               >
                 My Tracker
+              </button>
+              <button
+                onClick={() => router.push('/documents')}
+                className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+                title="Upload and manage your documents"
+              >
+                Documents
               </button>
               <button
                 onClick={() => router.push('/profile')}

@@ -1,5 +1,9 @@
 # Opportunities CSV Files
-
+# run all scraping functions: cd C:\Users\grace\my-firebase-project
+# .\run-all-scrapers.ps1
+# Generate access token for all 4 files
+# Download sam and grants from website
+# Grants just go to search and there is button to download all 
 ## 📁 File Organization
 
 To optimize performance, organize your CSV files by funding type in the filename:

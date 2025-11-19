@@ -23,7 +23,11 @@ export function useOpportunities(profile: UserProfile | null) {
         console.log('User funding types:', profile.fundingType);
         
         // Build query params - only load CSVs matching user's funding types
-        const fundingTypesParam = profile.fundingType.join(',');
+        // Safety check: if fundingType is undefined or empty, default to all types
+        const fundingTypes = profile.fundingType && profile.fundingType.length > 0 
+          ? profile.fundingType 
+          : ['grants', 'rfps', 'contracts'];
+        const fundingTypesParam = fundingTypes.join(',');
         const url = `/api/opportunities?limit=5000&hasDeadline=false&fundingTypes=${fundingTypesParam}`;
         
         console.log('Fetching from:', url);
