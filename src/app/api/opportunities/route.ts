@@ -2,10 +2,6 @@ import { NextResponse } from 'next/server';
 import { parseCSV, normalizeOpportunity } from '@/lib/csvParser';
 import { getAdminStorage } from '@/lib/firebaseAdmin';
 
-// Explicitly set runtime for Vercel serverless functions
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
-
 export async function GET(request: Request) {
   // Log immediately - this confirms the route handler is being called
   const requestUrl = request.url;
@@ -435,4 +431,3 @@ function determineSource(fileName: string): string {
   // Default to filename without extension
   return name.replace(/\.[^/.]+$/, '');
 }
-

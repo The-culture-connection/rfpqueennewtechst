@@ -1,5 +1,18 @@
 # Vercel 404 Error - Fixes Applied
 
+## ⚠️ CRITICAL: Check Build Output
+
+**IMPORTANT:** After deploying, check the Vercel build logs and verify the route appears in the route list. Look for:
+
+```
+Route (app)                                 Size  First Load JS
+...
+├ ƒ /api/opportunities                    127 B         102 kB
+```
+
+✅ **If you see this line** → Route is included, should work
+❌ **If this line is missing** → Route wasn't built (see troubleshooting below)
+
 ## Summary
 Applied fixes to help diagnose and resolve the 404 error on the `/api/opportunities` route in Vercel.
 
@@ -125,13 +138,39 @@ npm run build
 
 ## Common Issues and Solutions
 
-### Issue: 404 on Health Check
+### Issue: Route Missing from Build Output
+**Symptoms:** Route doesn't appear in Vercel build logs route list
+
 **Possible causes:**
-1. File not in correct location
+1. **Route file not committed/pushed**
+   ```bash
+   # Check if file is tracked
+   git ls-files src/app/api/opportunities/route.ts
+   
+   # If empty, add and commit
+   git add src/app/api/opportunities/route.ts
+   git commit -m "Add opportunities API route"
+   git push
+   ```
+
+2. **Deployment from old commit**
+   - Check git log to see when route was added
+   - Ensure latest code is pushed to main branch
+   - Force a new deployment if needed
+
+3. **Build error preventing route inclusion**
+   - Check Vercel build logs for TypeScript errors
+   - Run `npm run build` locally to catch errors
+   - Fix any compilation errors
+
+4. **File in wrong location**
    - ✅ Should be: `src/app/api/opportunities/route.ts`
    - ❌ NOT: `src/pages/api/opportunities.ts`
    - ❌ NOT: `src/app/api/opportunities.ts`
 
+### Issue: 404 on Health Check
+**Possible causes:**
+1. Route not included in build (see above)
 2. Build failing silently
    - Check Vercel build logs
    - Look for TypeScript errors
@@ -170,15 +209,22 @@ npm run build
 
 2. **Wait for Vercel deployment to complete**
 
-3. **Test health check:**
+3. **✅ VERIFY ROUTE IN BUILD OUTPUT (CRITICAL STEP):**
+   - Go to Vercel Dashboard → Your Project → Latest Deployment
+   - Scroll to build logs
+   - Look for the "Route (app)" section
+   - **Verify you see:** `├ ƒ /api/opportunities`
+   - If missing, see "Issue: Route Missing from Build" below
+
+4. **Test health check:**
    - Go to: `https://your-domain/api/opportunities?health=true`
    - Should return JSON response
 
-4. **Check logs:**
+5. **Check logs:**
    - Trigger a request from your app
    - Check Vercel logs for `[API]` entries
 
-5. **If still 404:**
+6. **If still 404:**
    - Verify route file location
    - Check build logs for errors
    - Confirm correct Vercel project/deployment
