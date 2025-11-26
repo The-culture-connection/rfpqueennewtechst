@@ -45,3 +45,5 @@ Opportunities/*.csv
 Opportunities/*.txt
 # But keep the README
 !Opportunities/README.md
+
+.vercel

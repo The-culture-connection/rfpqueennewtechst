@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { promises as fs } from 'fs';
-import path from 'path';
 import { parseCSV, normalizeOpportunity } from '@/lib/csvParser';
+import { getAdminStorage } from '@/lib/firebaseAdmin';
 
 export async function GET(request: Request) {
   try {
@@ -10,30 +9,112 @@ export async function GET(request: Request) {
     const hasDeadline = searchParams.get('hasDeadline') === 'true';
     const fundingTypes = searchParams.get('fundingTypes')?.split(',') || []; // e.g., "grants,rfps"
     
-    const opportunitiesDir = path.join(process.cwd(), 'Opportunities');
+    // Get Firebase Storage
+    let storage, bucket, files;
+    try {
+      storage = getAdminStorage();
+      // Use the correct bucket name - default to firebasestorage.app format
+      // The bucket name should be: therpqueen-f11fd.firebasestorage.app
+      let bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+      if (!bucketName) {
+        bucketName = 'therfpqueen-f11fd.firebasestorage.app';
+      }
+      // Remove gs:// prefix if present (in case env var includes it)
+      bucketName = bucketName.replace(/^gs:\/\//, '').replace(/\/$/, '');
+      bucket = storage.bucket(bucketName);
+      console.log(`Accessing bucket: ${bucketName}, looking for files in exports/ folder`);
+      
+      // List all files in the exports folder
+      [files] = await bucket.getFiles({ prefix: 'exports/' });
+      console.log(`Found ${files.length} total files in Firebase Storage exports/ folder`);
+      
+      // If no files found with prefix, try without prefix to see what's in the bucket
+      if (files.length === 0) {
+        console.log('No files found in exports/ folder, listing all files in bucket...');
+        const [allFiles] = await bucket.getFiles();
+        console.log(`Total files in bucket: ${allFiles.length}`);
+        console.log(`Sample file names: ${allFiles.slice(0, 5).map(f => f.name).join(', ')}`);
+        
+        // Try different path variations
+        const pathVariations = ['exports/', 'exports', '/exports/', '/exports'];
+        for (const pathPrefix of pathVariations) {
+          const [pathFiles] = await bucket.getFiles({ prefix: pathPrefix });
+          if (pathFiles.length > 0) {
+            console.log(`Found ${pathFiles.length} files with prefix: ${pathPrefix}`);
+            files = pathFiles;
+            break;
+          }
+        }
+        
+        // If still no files, filter all files for CSV
+        if (files.length === 0) {
+          files = allFiles.filter(file => {
+            const name = file.name.toLowerCase();
+            return name.endsWith('.csv') || name.endsWith('.txt');
+          });
+          console.log(`Found ${files.length} CSV files in bucket (any location)`);
+        }
+      }
+    } catch (storageError: any) {
+      console.error('Error accessing Firebase Storage:', storageError);
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Failed to access Firebase Storage',
+          details: storageError.message 
+        },
+        { status: 500 }
+      );
+    }
     
-    // Read all files in the Opportunities directory
-    const files = await fs.readdir(opportunitiesDir);
+    if (!files || files.length === 0) {
+      console.warn('No files found in exports/ folder');
+      // Try to list all files to debug
+      try {
+        const [allFiles] = await bucket.getFiles();
+        console.log(`Debug: Total files in bucket: ${allFiles.length}`);
+        if (allFiles.length > 0) {
+          console.log(`Debug: First 10 file names: ${allFiles.slice(0, 10).map(f => f.name).join(', ')}`);
+        }
+      } catch (e) {
+        console.error('Debug: Error listing all files:', e);
+      }
+      return NextResponse.json({
+        success: true,
+        count: 0,
+        opportunities: [],
+        hasMore: false,
+        message: 'No CSV files found in Firebase Storage exports folder',
+        debug: {
+          bucket: bucketName,
+          prefix: 'exports/',
+          totalFilesInBucket: 'Check logs for details'
+        }
+      });
+    }
     
     // Filter for CSV files only
-    let csvFiles = files.filter(file => 
-      file.toLowerCase().endsWith('.csv') || file.toLowerCase().endsWith('.txt')
-    );
+    let csvFiles = files.filter(file => {
+      const fileName = file.name.toLowerCase();
+      return fileName.endsWith('.csv') || fileName.endsWith('.txt');
+    });
     
     // Filter CSV files based on funding types if provided
     if (fundingTypes.length > 0) {
-      csvFiles = csvFiles.filter(fileName => {
-        const nameLower = fileName.toLowerCase();
+      csvFiles = csvFiles.filter(file => {
+        // Get filename without path (remove 'exports/' prefix)
+        const fileName = file.name.replace('exports/', '').toLowerCase();
         
         // Check if filename matches any of the requested funding types
         return fundingTypes.some(type => {
           switch (type.toLowerCase()) {
             case 'grants':
-              return nameLower.includes('grant');
+              return fileName.includes('grant');
             case 'rfps':
-              return nameLower.includes('rfp');
+              return fileName.includes('rfp');
             case 'contracts':
-              return nameLower.includes('contract') || nameLower.includes('sam');
+              // Match "contract" or "govcontract" (like Govcontracts.csv)
+              return fileName.includes('contract') || fileName.includes('sam') || fileName.includes('govcontract');
             default:
               return false;
           }
@@ -41,17 +122,23 @@ export async function GET(request: Request) {
       });
       
       console.log(`Found ${csvFiles.length} CSV/TXT files matching funding types: ${fundingTypes.join(', ')}`);
+      console.log(`Matching files: ${csvFiles.map(f => f.name.replace('exports/', '')).join(', ')}`);
     } else {
-      console.log(`Found ${csvFiles.length} CSV/TXT files in Opportunities folder`);
+      console.log(`Found ${csvFiles.length} CSV/TXT files in Firebase Storage exports folder`);
+      console.log(`All files: ${csvFiles.map(f => f.name.replace('exports/', '')).join(', ')}`);
     }
     
     const allOpportunities = [];
     let totalProcessed = 0;
     
-    for (const fileName of csvFiles) {
+    for (const file of csvFiles) {
       try {
-        const filePath = path.join(opportunitiesDir, fileName);
-        const csvContent = await fs.readFile(filePath, 'utf-8');
+        // Download file from Firebase Storage
+        const [fileContent] = await file.download();
+        const csvContent = fileContent.toString('utf-8');
+        
+        // Get filename from Storage path (remove 'exports/' prefix)
+        const fileName = file.name.replace('exports/', '');
         
         // Determine source from filename
         const source = determineSource(fileName);
@@ -106,6 +193,7 @@ export async function GET(request: Request) {
           break;
         }
       } catch (err) {
+        const fileName = file.name.replace('exports/', '');
         console.error(`Error processing ${fileName}:`, err);
       }
     }
@@ -118,10 +206,15 @@ export async function GET(request: Request) {
       opportunities: allOpportunities,
       hasMore: totalProcessed >= limit,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error loading opportunities:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to load opportunities' },
+      { 
+        success: false, 
+        error: 'Failed to load opportunities',
+        details: error?.message || 'Unknown error',
+        stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+      },
       { status: 500 }
     );
   }

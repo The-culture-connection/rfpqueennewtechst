@@ -1,0 +1,48 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // User profiles - requires authentication
+    match /profiles/{userId} {
+      // Users can read and write their own profile
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Dashboard progress tracking
+      match /dashboard/progress {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Opportunity tracker (saved/applied)
+      match /tracker/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // User uploaded documents metadata (nested under profile)
+      match /documents/{documentId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Extracted document data (nested under profile) - DEPRECATED, kept for backward compatibility
+      match /extractedData/{documentId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Profile fragments - AI-extracted data per document
+      match /profileFragments/{documentId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Master business profile - merged from all fragments
+      match /businessProfile/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

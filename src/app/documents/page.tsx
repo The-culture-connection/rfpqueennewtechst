@@ -59,6 +59,10 @@ export default function DocumentsPage() {
     const uploadKey = `${documentType}-${fileId}`; // Key for tracking upload progress
     
     try {
+      // Check if document of this type already exists
+      const existingDoc = documents.find(d => d.documentType === documentType);
+      const isReplacement = !!existingDoc;
+      
       // Create storage reference using document type as filename
       // Format: Userdocuments/{uid}/{documentType}-{uuid}.{extension}
       // This makes files easier to identify and organize for extraction
@@ -85,28 +89,48 @@ export default function DocumentsPage() {
           // Upload completed
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           
-          // Save metadata to Firestore (nested under user's profile)
+          let docRefId: string;
           const docsRef = collection(db, 'profiles', user.uid, 'documents');
-          const docRef = await addDoc(docsRef, {
-            userId: user.uid,
-            documentType,
-            fileName: file.name,
-            fileSize: file.size,
-            fileType: file.type,
-            uploadedAt: new Date().toISOString(),
-            storageUrl: downloadURL,
-            processingStatus: 'pending',
-          } as Omit<DocumentMetadata, 'id'>);
+          
+          if (isReplacement && existingDoc) {
+            // UPDATE existing document instead of creating new one
+            console.log(`Replacing existing document: ${existingDoc.id}`);
+            const docRef = doc(db, 'profiles', user.uid, 'documents', existingDoc.id);
+            await updateDoc(docRef, {
+              fileName: file.name,
+              fileSize: file.size,
+              fileType: file.type,
+              uploadedAt: new Date().toISOString(),
+              storageUrl: downloadURL,
+              processingStatus: 'pending',
+            });
+            docRefId = existingDoc.id;
+          } else {
+            // CREATE new document
+            console.log(`Creating new document of type: ${documentType}`);
+            const docRef = await addDoc(docsRef, {
+              userId: user.uid,
+              documentType,
+              fileName: file.name,
+              fileSize: file.size,
+              fileType: file.type,
+              uploadedAt: new Date().toISOString(),
+              storageUrl: downloadURL,
+              processingStatus: 'pending',
+            } as Omit<DocumentMetadata, 'id'>);
+            docRefId = docRef.id;
+          }
           
           // Trigger text extraction (Cloud Function)
           await fetch('/api/extract-document', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              documentId: docRef.id,
+              documentId: docRefId,
               storageUrl: downloadURL,
               documentType,
               userId: user.uid,
+              isReplacement, // Tell the API this is a replacement
             }),
           });
           
@@ -120,7 +144,7 @@ export default function DocumentsPage() {
           // Reload documents
           await loadDocuments();
           
-          alert('Document uploaded successfully! Processing text extraction...');
+          alert(`Document ${isReplacement ? 'replaced' : 'uploaded'} successfully! Processing text extraction...`);
         }
       );
     } catch (error) {

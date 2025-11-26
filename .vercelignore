@@ -1,0 +1,49 @@
+# Dependencies
+node_modules
+
+# Testing
+tests
+playwright-report
+*.spec.ts
+*.test.ts
+*.test.tsx
+
+# Documentation
+*.md
+!README.md
+
+# Development files
+.env.local
+.env*.local
+env.template
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor directories
+.vscode
+.idea
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Firebase (handled separately)
+firebase.json
+.firebaserc
+
+# Playwright
+playwright.config.ts
+
+# Build output
+.next
+out
+dist
+
+# Large data files - Opportunities folder (these are huge CSV files)
+Opportunities/
+!Opportunities/README.md
+
+
+

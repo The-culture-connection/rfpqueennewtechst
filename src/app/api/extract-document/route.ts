@@ -106,7 +106,7 @@ async function mergeProfileFragments(userId: string) {
 
 export async function POST(request: Request) {
   try {
-    const { documentId, storageUrl, documentType, userId } = await request.json();
+    const { documentId, storageUrl, documentType, userId, isReplacement } = await request.json();
 
     // Update status to processing (nested under user profile)
     const db = getAdminFirestore();
@@ -115,11 +115,11 @@ export async function POST(request: Request) {
       processingStatus: 'processing',
     });
 
-    console.log(`📄 Processing document ${documentId} of type ${documentType}`);
+    console.log(`📄 Processing document ${documentId} of type ${documentType}${isReplacement ? ' (REPLACEMENT)' : ''}`);
     console.log(`📥 Storage URL: ${storageUrl}`);
     
     // Process in background (don't block the response)
-    processDocument(documentId, storageUrl, documentType, userId).catch(error => {
+    processDocument(documentId, storageUrl, documentType, userId, isReplacement).catch(error => {
       console.error('Background processing error:', error);
     });
 
@@ -141,7 +141,8 @@ async function processDocument(
   documentId: string,
   storageUrl: string,
   documentType: DocumentType,
-  userId: string
+  userId: string,
+  isReplacement: boolean = false
 ) {
   const db = getAdminFirestore();
   const docRef = db.collection('profiles').doc(userId).collection('documents').doc(documentId);
@@ -171,15 +172,32 @@ async function processDocument(
 
     // Step 4: Store profile fragment in Firestore (Admin SDK)
     // Each document contributes a "fragment" to the user's master business profile
+    // Use documentId as the fragment ID so replacements overwrite the old data
     const profileFragmentRef = db.collection('profiles').doc(userId).collection('profileFragments').doc(documentId);
-    await profileFragmentRef.set({
-      documentId,
-      documentType,
-      userId,
-      rawText: rawText.slice(0, 10000), // Store first 10k chars for reference
-      ...extractedFields,
-      extractedAt: new Date().toISOString(),
-    });
+    
+    if (isReplacement) {
+      console.log(`🔄 Replacing existing profile fragment for document ${documentId}`);
+      // Use set() to completely replace the old fragment
+      await profileFragmentRef.set({
+        documentId,
+        documentType,
+        userId,
+        rawText: rawText.slice(0, 10000), // Store first 10k chars for reference
+        ...extractedFields,
+        extractedAt: new Date().toISOString(),
+        replacedAt: new Date().toISOString(),
+      });
+    } else {
+      console.log(`➕ Creating new profile fragment for document ${documentId}`);
+      await profileFragmentRef.set({
+        documentId,
+        documentType,
+        userId,
+        rawText: rawText.slice(0, 10000), // Store first 10k chars for reference
+        ...extractedFields,
+        extractedAt: new Date().toISOString(),
+      });
+    }
 
     // Step 5: Update document status to completed
     await docRef.update({
@@ -189,11 +207,13 @@ async function processDocument(
 
     // Step 6: Trigger profile merge (async, don't wait)
     // This will combine all profile fragments into a master businessProfile
+    // This is especially important for replacements to update the master profile
+    console.log(`🔄 Triggering profile merge...`);
     mergeProfileFragments(userId).catch(err => {
       console.error('Error merging profile fragments:', err);
     });
     
-    console.log(`✅ Document ${documentId} processed successfully`);
+    console.log(`✅ Document ${documentId} processed successfully${isReplacement ? ' (REPLACED)' : ''}`);
     
   } catch (error: any) {
     console.error(`❌ Error processing document ${documentId}:`, error);
