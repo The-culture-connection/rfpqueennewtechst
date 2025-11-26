@@ -4,10 +4,44 @@ import { getAdminStorage } from '@/lib/firebaseAdmin';
 
 export async function GET(request: Request) {
   try {
+    console.log('[API] Opportunities route called');
+    
+    // Validate environment variables first
+    const requiredEnvVars = {
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL,
+      FIREBASE_PRIVATE_KEY: process.env.FIREBASE_PRIVATE_KEY ? 'SET' : 'MISSING',
+      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    };
+    console.log('[API] Environment variables check:', requiredEnvVars);
+    
+    // Check for missing environment variables
+    const missingVars: string[] = [];
+    if (!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) missingVars.push('NEXT_PUBLIC_FIREBASE_PROJECT_ID');
+    if (!process.env.FIREBASE_CLIENT_EMAIL) missingVars.push('FIREBASE_CLIENT_EMAIL');
+    if (!process.env.FIREBASE_PRIVATE_KEY) missingVars.push('FIREBASE_PRIVATE_KEY');
+    if (!process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) missingVars.push('NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET');
+    
+    if (missingVars.length > 0) {
+      console.error('[ERROR] Missing required environment variables:', missingVars);
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Configuration Error',
+          message: 'Missing required Firebase environment variables',
+          missingVariables: missingVars,
+          fix: `Set these environment variables in Render Dashboard → Environment: ${missingVars.join(', ')}`,
+          details: 'The API route cannot access Firebase Storage without proper credentials.'
+        },
+        { status: 500 }
+      );
+    }
+    
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '5000'); // Default to 5000
     const hasDeadline = searchParams.get('hasDeadline') === 'true';
     const fundingTypes = searchParams.get('fundingTypes')?.split(',') || []; // e.g., "grants,rfps"
+    console.log('[API] Request params:', { limit, hasDeadline, fundingTypes });
     
     // Get Firebase Storage
     let storage, bucket, files;
@@ -22,13 +56,18 @@ export async function GET(request: Request) {
     bucketName = bucketName.replace(/^gs:\/\//, '').split('/')[0]; // Get just the bucket name, remove /exports if present
     
     try {
+      console.log('[API] Initializing Firebase Admin Storage...');
       storage = getAdminStorage();
+      console.log('[API] Firebase Admin Storage initialized successfully');
+      
       // Use the correct bucket name - default to firebasestorage.app format
       // The bucket name should be: therpqueen-f11fd.firebasestorage.app
-      bucket = storage.bucket(bucketName);
       console.log(`[DEBUG] Bucket name from env: ${process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}`);
       console.log(`[DEBUG] Using bucket: ${bucketName}`);
       console.log(`[DEBUG] Looking for files with prefix: exports/`);
+      
+      bucket = storage.bucket(bucketName);
+      console.log(`[API] Bucket reference created: ${bucketName}`);
       
       // List all files in the exports folder
       [files] = await bucket.getFiles({ prefix: 'exports/' });
@@ -65,12 +104,52 @@ export async function GET(request: Request) {
         }
       }
     } catch (storageError: any) {
-      console.error('Error accessing Firebase Storage:', storageError);
+      console.error('[ERROR] Error accessing Firebase Storage:', storageError);
+      console.error('[ERROR] Error type:', storageError?.name);
+      console.error('[ERROR] Error message:', storageError?.message);
+      console.error('[ERROR] Error code:', storageError?.code);
+      console.error('[ERROR] Stack:', storageError?.stack);
+      
+      // Provide specific error messages based on error type
+      let errorMessage = 'Failed to access Firebase Storage';
+      let fix = '';
+      let details = storageError?.message || 'Unknown error';
+      
+      if (storageError?.message?.includes('Missing Firebase Admin credentials')) {
+        errorMessage = 'Firebase Admin SDK Configuration Error';
+        details = 'Firebase Admin SDK cannot be initialized. Check environment variables.';
+        fix = 'Verify all Firebase environment variables are set in Render Dashboard → Environment';
+      } else if (storageError?.message?.includes('Invalid credential') || storageError?.code === 'auth/invalid-credential') {
+        errorMessage = 'Invalid Firebase Credentials';
+        details = 'The Firebase service account credentials are invalid or malformed.';
+        fix = 'Check FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY in Render. Private key must include \\n for newlines.';
+      } else if (storageError?.code === 7 || storageError?.message?.includes('Permission denied')) {
+        errorMessage = 'Firebase Storage Permission Denied';
+        details = 'The service account does not have permission to access Firebase Storage.';
+        fix = 'Go to Firebase Console → IAM & Admin → Service Accounts → Grant "Storage Admin" role to your service account';
+      } else if (storageError?.code === 5 || storageError?.message?.includes('Not found')) {
+        errorMessage = 'Firebase Storage Bucket Not Found';
+        details = `Bucket "${bucketName}" does not exist or cannot be accessed.`;
+        fix = `Verify bucket name "${bucketName}" is correct. Check NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET in Render. Should be: therpqueen-f11fd.firebasestorage.app`;
+      } else if (storageError?.code === 14 || storageError?.message?.includes('UNAVAILABLE')) {
+        errorMessage = 'Firebase Storage Unavailable';
+        details = 'Firebase Storage service is temporarily unavailable.';
+        fix = 'Wait a few minutes and try again. Check Firebase status page.';
+      } else if (storageError?.message?.includes('timeout') || storageError?.code === 4) {
+        errorMessage = 'Firebase Storage Request Timeout';
+        details = 'The request to Firebase Storage timed out. This may happen with large files.';
+        fix = 'Try reducing the limit parameter or check network connectivity.';
+      }
+      
       return NextResponse.json(
         { 
           success: false, 
-          error: 'Failed to access Firebase Storage',
-          details: storageError.message 
+          error: errorMessage,
+          details: details,
+          fix: fix,
+          type: storageError?.name || 'Error',
+          code: storageError?.code,
+          bucket: bucketName
         },
         { status: 500 }
       );
@@ -142,19 +221,46 @@ export async function GET(request: Request) {
     
     for (const file of csvFiles) {
       try {
+        console.log(`[API] Processing file: ${file.name}`);
+        
         // Download file from Firebase Storage
-        const [fileContent] = await file.download();
-        const csvContent = fileContent.toString('utf-8');
+        let fileContent: Buffer;
+        let csvContent: string;
+        
+        try {
+          [fileContent] = await file.download();
+          csvContent = fileContent.toString('utf-8');
+          console.log(`[API] Downloaded ${file.name}, size: ${fileContent.length} bytes`);
+        } catch (downloadError: any) {
+          console.error(`[ERROR] Failed to download file ${file.name}:`, downloadError);
+          throw new Error(`Failed to download file ${file.name}: ${downloadError?.message || 'Unknown error'}`);
+        }
+        
+        if (!csvContent || csvContent.length === 0) {
+          console.warn(`[WARN] File ${file.name} is empty, skipping`);
+          continue;
+        }
         
         // Get filename from Storage path (remove 'exports/' prefix)
-        const fileName = file.name.replace('exports/', '');
+        const fileName = file.name.replace(/^exports\//, '').replace(/^\//, '');
         
         // Determine source from filename
         const source = determineSource(fileName);
         
         // Parse CSV
-        const rows = parseCSV(csvContent);
-        console.log(`Parsed ${rows.length} rows from ${fileName}`);
+        let rows: Record<string, string>[];
+        try {
+          rows = parseCSV(csvContent);
+          console.log(`[API] Parsed ${rows.length} rows from ${fileName}`);
+        } catch (parseError: any) {
+          console.error(`[ERROR] Failed to parse CSV from ${fileName}:`, parseError);
+          throw new Error(`CSV parsing error in ${fileName}: ${parseError?.message || 'Invalid CSV format'}`);
+        }
+        
+        if (!rows || rows.length === 0) {
+          console.warn(`[WARN] No rows parsed from ${fileName}, skipping`);
+          continue;
+        }
         
         // Normalize each row
         for (const row of rows) {
@@ -201,9 +307,13 @@ export async function GET(request: Request) {
         if (totalProcessed >= limit) {
           break;
         }
-      } catch (err) {
-        const fileName = file.name.replace('exports/', '');
-        console.error(`Error processing ${fileName}:`, err);
+      } catch (err: any) {
+        const fileName = file.name.replace(/^exports\//, '').replace(/^\//, '');
+        console.error(`[ERROR] Error processing file ${fileName}:`, err);
+        console.error(`[ERROR] Error type:`, err?.name);
+        console.error(`[ERROR] Error message:`, err?.message);
+        console.error(`[ERROR] Error stack:`, err?.stack);
+        // Continue processing other files even if one fails
       }
     }
     
@@ -216,13 +326,65 @@ export async function GET(request: Request) {
       hasMore: totalProcessed >= limit,
     });
   } catch (error: any) {
-    console.error('Error loading opportunities:', error);
+    console.error('[ERROR] Fatal error in opportunities route:', error);
+    console.error('[ERROR] Error type:', error?.name);
+    console.error('[ERROR] Error message:', error?.message);
+    console.error('[ERROR] Error code:', error?.code);
+    console.error('[ERROR] Error stack:', error?.stack);
+    
+    // Provide specific error messages based on error type
+    let errorMessage = 'Failed to load opportunities';
+    let fix = '';
+    let details = error?.message || 'Unknown error';
+    
+    if (error?.message?.includes('Missing Firebase Admin credentials')) {
+      errorMessage = 'Firebase Configuration Error';
+      details = 'Firebase Admin SDK cannot be initialized. Missing or invalid credentials.';
+      fix = 'Check all Firebase environment variables in Render Dashboard → Environment. Verify FIREBASE_PRIVATE_KEY format includes \\n for newlines.';
+    } else if (error?.message?.includes('Invalid credential') || error?.code === 'auth/invalid-credential') {
+      errorMessage = 'Invalid Firebase Credentials';
+      details = 'The Firebase service account credentials are invalid.';
+      fix = 'Verify FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY match your service account JSON file.';
+    } else if (error?.code === 7 || error?.message?.includes('Permission denied')) {
+      errorMessage = 'Firebase Permission Denied';
+      details = 'The service account does not have required permissions.';
+      fix = 'Grant "Storage Admin" or "Storage Object Viewer" role to your service account in Firebase Console → IAM & Admin.';
+    } else if (error?.code === 5 || error?.message?.includes('Not found')) {
+      errorMessage = 'Resource Not Found';
+      details = 'The requested Firebase resource was not found.';
+      fix = 'Verify bucket name and file paths are correct. Check Firebase Storage console.';
+    } else if (error?.code === 14 || error?.message?.includes('UNAVAILABLE')) {
+      errorMessage = 'Firebase Service Unavailable';
+      details = 'Firebase services are temporarily unavailable.';
+      fix = 'Wait a few minutes and try again. Check Firebase status at status.firebase.google.com';
+    } else if (error?.message?.includes('timeout') || error?.code === 4) {
+      errorMessage = 'Request Timeout';
+      details = 'The request took too long to complete. This may happen with very large CSV files.';
+      fix = 'Try reducing the limit parameter. Consider processing files in smaller batches.';
+    } else if (error?.message?.includes('ENOTFOUND') || error?.message?.includes('ECONNREFUSED')) {
+      errorMessage = 'Network Connection Error';
+      details = 'Cannot connect to Firebase services. Network issue or DNS problem.';
+      fix = 'Check Render service network connectivity. Verify Firebase project is active.';
+    } else if (error?.message?.includes('Memory') || error?.message?.includes('heap')) {
+      errorMessage = 'Out of Memory';
+      details = 'Processing too much data at once. File is too large.';
+      fix = 'Reduce the limit parameter. Process files one at a time. Consider using streaming for large files.';
+    } else if (error?.name === 'TypeError' || error?.name === 'ReferenceError') {
+      errorMessage = 'Code Error';
+      details = `JavaScript error: ${error?.message}`;
+      fix = 'Check server logs for full stack trace. This indicates a bug in the code.';
+    }
+    
+    // Return a proper error response to prevent 502
     return NextResponse.json(
       { 
         success: false, 
-        error: 'Failed to load opportunities',
-        details: error?.message || 'Unknown error',
-        stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+        error: errorMessage,
+        details: details,
+        fix: fix,
+        type: error?.name || 'Error',
+        code: error?.code,
+        timestamp: new Date().toISOString()
       },
       { status: 500 }
     );
