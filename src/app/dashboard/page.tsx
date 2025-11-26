@@ -29,13 +29,19 @@ export default function DashboardPage() {
     }
     
     // Check if user has completed onboarding
-    if (userProfile && (!userProfile.entityName || !userProfile.fundingType || userProfile.fundingType.length === 0)) {
-      console.log('⚠️ Incomplete profile, redirecting to onboarding');
-      router.push('/onboarding');
-      return;
+    // Only redirect if we have a userProfile object that's incomplete
+    // If userProfile is null, we're still loading it
+    if (userProfile) {
+      if (!userProfile.entityName || !userProfile.fundingType || userProfile.fundingType.length === 0) {
+        console.log('⚠️ Incomplete profile detected:', userProfile);
+        console.log('⚠️ Missing - entityName:', !userProfile.entityName, 'fundingType:', !userProfile.fundingType || userProfile.fundingType.length === 0);
+        router.push('/onboarding');
+        return;
+      }
+      console.log('✅ User authenticated with complete profile:', userProfile);
+    } else {
+      console.log('⏳ Waiting for user profile to load...');
     }
-    
-    console.log('✅ User authenticated with complete profile');
   }, [user, userProfile, loading, router]);
 
   // Load saved progress when opportunities are ready

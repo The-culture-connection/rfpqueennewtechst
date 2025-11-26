@@ -53,8 +53,8 @@ export default function OnboardingPage() {
 
       console.log('✅ Profile saved successfully!');
       
-      // Small delay to ensure Firestore propagation
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Longer delay to ensure Firestore propagation and state update
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
       // Redirect to dashboard
       console.log('🔄 Redirecting to dashboard...');
