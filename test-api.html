@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test API Endpoints</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        button {
+            background: #0070f3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0051cc;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-left: 4px solid #0070f3;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .success {
+            border-left-color: #28a745;
+        }
+        .error {
+            border-left-color: #dc3545;
+            color: #dc3545;
+        }
+        .loading {
+            border-left-color: #ffc107;
+        }
+        .endpoint {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .endpoint-url {
+            color: #666;
+            font-family: monospace;
+            font-size: 14px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 API Endpoint Tester</h1>
+        <p>Test the deployed API endpoints for your RFP Matcher app.</p>
+
+        <div class="endpoint">
+            <h3>1. Health Check (Public)</h3>
+            <p class="endpoint-url">GET /api/healthcheck</p>
+            <button onclick="testHealthCheck()">Test Health Check</button>
+            <div id="healthcheck-result"></div>
+        </div>
+
+        <div class="endpoint">
+            <h3>2. Opportunities Health Check (Public)</h3>
+            <p class="endpoint-url">GET /api/opportunities?health=true</p>
+            <button onclick="testOpportunitiesHealth()">Test Opportunities Health</button>
+            <div id="opportunities-health-result"></div>
+        </div>
+
+        <div class="endpoint">
+            <h3>3. Opportunities API (Limited Test)</h3>
+            <p class="endpoint-url">GET /api/opportunities?limit=5&fundingTypes=grants</p>
+            <button onclick="testOpportunitiesAPI()">Test Opportunities API</button>
+            <div id="opportunities-result"></div>
+        </div>
+
+        <div class="endpoint">
+            <h3>4. Document Extraction API</h3>
+            <p class="endpoint-url">POST /api/extract-document</p>
+            <p><em>Requires authentication - will return 401 if not logged in</em></p>
+            <button onclick="testExtractDocument()">Test Extract Document</button>
+            <div id="extract-result"></div>
+        </div>
+    </div>
+
+    <script>
+        const BASE_URL = 'https://webapp-the-culture-connections-projects.vercel.app';
+
+        async function testEndpoint(endpoint, resultId, options = {}) {
+            const resultDiv = document.getElementById(resultId);
+            resultDiv.className = 'result loading';
+            resultDiv.textContent = '⏳ Testing endpoint...';
+
+            try {
+                const response = await fetch(`${BASE_URL}${endpoint}`, {
+                    ...options,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    }
+                });
+
+                const contentType = response.headers.get('content-type');
+                let data;
+                
+                if (contentType && contentType.includes('application/json')) {
+                    data = await response.json();
+                } else {
+                    data = await response.text();
+                }
+
+                resultDiv.className = response.ok ? 'result success' : 'result error';
+                resultDiv.textContent = `Status: ${response.status} ${response.statusText}\n\n${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Error: ${error.message}\n\n${error.stack}`;
+            }
+        }
+
+        function testHealthCheck() {
+            testEndpoint('/api/healthcheck', 'healthcheck-result');
+        }
+
+        function testOpportunitiesHealth() {
+            testEndpoint('/api/opportunities?health=true', 'opportunities-health-result');
+        }
+
+        function testOpportunitiesAPI() {
+            testEndpoint('/api/opportunities?limit=5&fundingTypes=grants', 'opportunities-result');
+        }
+
+        function testExtractDocument() {
+            testEndpoint('/api/extract-document', 'extract-result', {
+                method: 'POST',
+                body: JSON.stringify({ test: true })
+            });
+        }
+    </script>
+</body>
+</html>
+

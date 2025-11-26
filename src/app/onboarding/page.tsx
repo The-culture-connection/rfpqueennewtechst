@@ -37,6 +37,8 @@ export default function OnboardingPage() {
     setLoading(true);
 
     try {
+      console.log('💾 Saving profile...', data);
+      
       // Save profile to Firestore
       await updateUserProfile({
         fundingType: data.fundingTypes || [],
@@ -49,10 +51,16 @@ export default function OnboardingPage() {
         updatedAt: new Date(),
       } as any);
 
+      console.log('✅ Profile saved successfully!');
+      
+      // Small delay to ensure Firestore propagation
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       // Redirect to dashboard
+      console.log('🔄 Redirecting to dashboard...');
       router.push('/dashboard');
     } catch (error) {
-      console.error('Error saving profile:', error);
+      console.error('❌ Error saving profile:', error);
       alert('Failed to save profile. Please try again.');
       setLoading(false);
     }

@@ -18,12 +18,25 @@ export default function DashboardPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [progressLoaded, setProgressLoaded] = useState(false);
 
-  // Redirect if not authenticated
+  // Redirect if not authenticated or profile incomplete
   useEffect(() => {
-    if (!loading && !user) {
+    if (loading) return; // Wait for auth to load
+    
+    if (!user) {
+      console.log('❌ No user, redirecting to login');
       router.push('/login');
+      return;
     }
-  }, [user, loading, router]);
+    
+    // Check if user has completed onboarding
+    if (userProfile && (!userProfile.entityName || !userProfile.fundingType || userProfile.fundingType.length === 0)) {
+      console.log('⚠️ Incomplete profile, redirecting to onboarding');
+      router.push('/onboarding');
+      return;
+    }
+    
+    console.log('✅ User authenticated with complete profile');
+  }, [user, userProfile, loading, router]);
 
   // Load saved progress when opportunities are ready
   useEffect(() => {

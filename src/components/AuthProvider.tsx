@@ -82,6 +82,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateUserProfile = async (profile: Partial<UserProfile>) => {
     if (!user) throw new Error('No user logged in');
 
+    console.log('🔄 Updating user profile in Firestore...', { uid: user.uid, profile });
+    
     const profileRef = doc(db, 'profiles', user.uid);
     const updatedProfile = {
       ...profile,
@@ -91,7 +93,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     await setDoc(profileRef, updatedProfile, { merge: true });
+    console.log('✅ Profile saved to Firestore');
+    
+    // Fetch the updated profile to ensure state is in sync
     await fetchUserProfile(user.uid);
+    console.log('✅ Profile state refreshed');
   };
 
   // Listen for auth state changes
