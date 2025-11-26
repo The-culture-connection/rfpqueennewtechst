@@ -30,7 +30,7 @@ export async function GET(request: Request) {
           error: 'Configuration Error',
           message: 'Missing required Firebase environment variables',
           missingVariables: missingVars,
-          fix: `Set these environment variables in Render Dashboard → Environment: ${missingVars.join(', ')}`,
+          fix: `Set these environment variables in Vercel Dashboard → Settings → Environment Variables: ${missingVars.join(', ')}`,
           details: 'The API route cannot access Firebase Storage without proper credentials.'
         },
         { status: 500 }
