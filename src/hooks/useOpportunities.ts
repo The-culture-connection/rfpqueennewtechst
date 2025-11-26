@@ -36,11 +36,21 @@ export function useOpportunities(profile: UserProfile | null) {
         const response = await fetch(url);
         
         console.log('Response status:', response.status);
+        console.log('Response URL:', response.url);
+        console.log('Response headers:', Object.fromEntries(response.headers.entries()));
         
         if (!response.ok) {
           const errorText = await response.text();
           console.error('Response not OK:', errorText);
-          throw new Error(`Failed to fetch opportunities: ${response.status}`);
+          console.error('Response status:', response.status);
+          console.error('Response statusText:', response.statusText);
+          
+          // Provide more detailed error messages for 404s
+          if (response.status === 404) {
+            throw new Error(`API route not found (404). The route /api/opportunities may not be deployed. Check Vercel logs.`);
+          }
+          
+          throw new Error(`Failed to fetch opportunities: ${response.status} ${response.statusText}`);
         }
         
         console.log('Parsing JSON response...');

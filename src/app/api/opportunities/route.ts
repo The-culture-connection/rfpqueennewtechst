@@ -2,10 +2,26 @@ import { NextResponse } from 'next/server';
 import { parseCSV, normalizeOpportunity } from '@/lib/csvParser';
 import { getAdminStorage } from '@/lib/firebaseAdmin';
 
+// Explicitly set runtime for Vercel serverless functions
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
+  // Log immediately - this confirms the route handler is being called
+  const requestUrl = request.url;
+  const requestMethod = request.method;
+  const timestamp = new Date().toISOString();
+  
+  console.log('='.repeat(80));
+  console.log(`[API] [${timestamp}] Opportunities route handler invoked`);
+  console.log(`[API] Request URL: ${requestUrl}`);
+  console.log(`[API] Request Method: ${requestMethod}`);
+  console.log(`[API] Request Headers:`, Object.fromEntries(request.headers.entries()));
+  console.log(`[API] Environment: ${process.env.NODE_ENV || 'unknown'}`);
+  console.log(`[API] Vercel Environment: ${process.env.VERCEL_ENV || 'not-vercel'}`);
+  console.log('='.repeat(80));
+  
   try {
-    console.log('[API] Opportunities route called');
-    
     // Validate environment variables first
     const requiredEnvVars = {
       NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
@@ -38,6 +54,21 @@ export async function GET(request: Request) {
     }
     
     const { searchParams } = new URL(request.url);
+    
+    // Health check endpoint - returns immediately without processing
+    if (searchParams.get('health') === 'true') {
+      console.log('[API] Health check requested');
+      return NextResponse.json({
+        success: true,
+        status: 'healthy',
+        route: '/api/opportunities',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV,
+        vercel: process.env.VERCEL_ENV || 'local',
+        message: 'API route is accessible'
+      });
+    }
+    
     const limit = parseInt(searchParams.get('limit') || '5000'); // Default to 5000
     const hasDeadline = searchParams.get('hasDeadline') === 'true';
     const fundingTypes = searchParams.get('fundingTypes')?.split(',') || []; // e.g., "grants,rfps"
