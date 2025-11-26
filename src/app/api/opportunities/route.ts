@@ -11,16 +11,18 @@ export async function GET(request: Request) {
     
     // Get Firebase Storage
     let storage, bucket, files;
+    // Declare bucketName outside try block so it's available in error handling
+    let bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+    if (!bucketName) {
+      bucketName = 'therfpqueen-f11fd.firebasestorage.app';
+    }
+    // Remove gs:// prefix if present (in case env var includes it)
+    bucketName = bucketName.replace(/^gs:\/\//, '').replace(/\/$/, '');
+    
     try {
       storage = getAdminStorage();
       // Use the correct bucket name - default to firebasestorage.app format
       // The bucket name should be: therpqueen-f11fd.firebasestorage.app
-      let bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
-      if (!bucketName) {
-        bucketName = 'therfpqueen-f11fd.firebasestorage.app';
-      }
-      // Remove gs:// prefix if present (in case env var includes it)
-      bucketName = bucketName.replace(/^gs:\/\//, '').replace(/\/$/, '');
       bucket = storage.bucket(bucketName);
       console.log(`Accessing bucket: ${bucketName}, looking for files in exports/ folder`);
       
