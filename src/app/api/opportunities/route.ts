@@ -12,23 +12,30 @@ export async function GET(request: Request) {
     // Get Firebase Storage
     let storage, bucket, files;
     // Declare bucketName outside try block so it's available in error handling
+    // Correct path: gs://therfpqueen-f11fd.firebasestorage.app/exports
+    // Bucket name: therpqueen-f11fd.firebasestorage.app
     let bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
     if (!bucketName) {
       bucketName = 'therfpqueen-f11fd.firebasestorage.app';
     }
-    // Remove gs:// prefix if present (in case env var includes it)
-    bucketName = bucketName.replace(/^gs:\/\//, '').replace(/\/$/, '');
+    // Remove gs:// prefix and any trailing paths if present
+    bucketName = bucketName.replace(/^gs:\/\//, '').split('/')[0]; // Get just the bucket name, remove /exports if present
     
     try {
       storage = getAdminStorage();
       // Use the correct bucket name - default to firebasestorage.app format
       // The bucket name should be: therpqueen-f11fd.firebasestorage.app
       bucket = storage.bucket(bucketName);
-      console.log(`Accessing bucket: ${bucketName}, looking for files in exports/ folder`);
+      console.log(`[DEBUG] Bucket name from env: ${process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}`);
+      console.log(`[DEBUG] Using bucket: ${bucketName}`);
+      console.log(`[DEBUG] Looking for files with prefix: exports/`);
       
       // List all files in the exports folder
       [files] = await bucket.getFiles({ prefix: 'exports/' });
-      console.log(`Found ${files.length} total files in Firebase Storage exports/ folder`);
+      console.log(`[DEBUG] Found ${files.length} total files in Firebase Storage exports/ folder`);
+      if (files.length > 0) {
+        console.log(`[DEBUG] File names: ${files.map(f => f.name).join(', ')}`);
+      }
       
       // If no files found with prefix, try without prefix to see what's in the bucket
       if (files.length === 0) {
