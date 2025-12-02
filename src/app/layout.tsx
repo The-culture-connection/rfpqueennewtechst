@@ -4,6 +4,9 @@ import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
 import { AnalyticsInitializer } from "@/components/AnalyticsInitializer";
 
+// Prevent static generation to avoid Firebase initialization during build
+export const dynamic = 'force-dynamic';
+
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
