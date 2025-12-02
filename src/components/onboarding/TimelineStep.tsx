@@ -7,30 +7,26 @@ interface TimelineStepProps {
   onChange: (timeline: Timeline) => void;
 }
 
-const TIMELINES: { value: Timeline; label: string; description: string; emoji: string }[] = [
+const TIMELINES: { value: Timeline; label: string; description: string }[] = [
   {
     value: 'immediate',
     label: 'Immediate (Within 30 days)',
     description: 'Show me opportunities with deadlines in the next month',
-    emoji: '⚡',
   },
   {
     value: '3-months',
     label: '3 Months',
     description: 'Show me opportunities with deadlines in the next 90 days',
-    emoji: '📅',
   },
   {
     value: '6-months',
     label: '6 Months',
     description: 'Show me opportunities with deadlines in the next 6 months',
-    emoji: '📆',
   },
   {
     value: '12-months',
     label: '12+ Months',
     description: 'Show me all available opportunities regardless of deadline',
-    emoji: '🔄',
   },
 ];
 
@@ -54,7 +50,6 @@ export default function TimelineStep({ selected, onChange }: TimelineStepProps) 
             }`}
           >
             <div className="flex items-start">
-              <span className="text-4xl mr-4">{timeline.emoji}</span>
               <div className="flex-1">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-gray-900">{timeline.label}</h3>

@@ -4,7 +4,7 @@
 
 :root {
   --background: #1d1d1e;
-  --foreground: #ff16a9;
+  --foreground: #ad3c94;
 }
 
 body {
@@ -15,7 +15,7 @@ body {
 
 .font-primary {
   font-family: var(--font-primary), sans-serif;
-  color: #ff16a9;
+  color: #ad3c94;
 }
 
 .font-secondary {

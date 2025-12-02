@@ -7,24 +7,21 @@ interface FundingTypeStepProps {
   onChange: (types: FundingType[]) => void;
 }
 
-const FUNDING_TYPES: { value: FundingType; label: string; description: string; emoji: string }[] = [
+const FUNDING_TYPES: { value: FundingType; label: string; description: string }[] = [
   {
     value: 'grants',
     label: 'Grants',
     description: 'Non-repayable funds from government agencies, foundations, and organizations',
-    emoji: '💰',
   },
   {
     value: 'rfps',
     label: 'RFPs (Request for Proposals)',
     description: 'Competitive bidding opportunities for projects and services',
-    emoji: '📋',
   },
   {
     value: 'contracts',
     label: 'Government Contracts',
     description: 'Federal, state, and local government contracting opportunities',
-    emoji: '🏛️',
   },
 ];
 
@@ -56,7 +53,6 @@ export default function FundingTypeStep({ selected, onChange }: FundingTypeStepP
             }`}
           >
             <div className="flex items-start">
-              <span className="text-4xl mr-4">{type.emoji}</span>
               <div className="flex-1">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-gray-900">{type.label}</h3>

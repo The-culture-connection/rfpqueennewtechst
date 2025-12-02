@@ -85,7 +85,7 @@ export function normalizeOpportunity(row: Record<string, string>, source: string
     'name',
   ]) || '';
     
-  const description = findValue([
+  let description = findValue([
     'FUNDING DESCRIPTION',  // Grants.gov format
     'Description',
     'description',
@@ -95,6 +95,11 @@ export function normalizeOpportunity(row: Record<string, string>, source: string
     'Summary',
     'summary',
   ]) || '';
+  
+  // Strip HTML tags from description
+  if (description) {
+    description = description.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').trim();
+  }
     
   const deadline = findValue([
     'CLOSE DATE',  // Grants.gov format

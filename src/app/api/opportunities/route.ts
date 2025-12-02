@@ -315,6 +315,7 @@ export async function GET(request: Request) {
         let skippedNoTitle = 0;
         let skippedPastDeadline = 0;
         let skippedNoDeadline = 0;
+        let skippedNoUrl = 0;
         let addedCount = 0;
         
         for (const row of rows) {
@@ -355,6 +356,12 @@ export async function GET(request: Request) {
               }
             }
             
+            // Filter: only include opportunities with active URLs
+            if (!opportunity.url || opportunity.url.trim() === '' || opportunity.url === 'N/A' || opportunity.url === 'n/a') {
+              skippedNoUrl++;
+              continue; // Skip opportunities without URLs
+            }
+            
             allOpportunities.push(opportunity);
             totalProcessed++;
             addedCount++;
@@ -369,7 +376,7 @@ export async function GET(request: Request) {
           }
         }
         
-        console.log(`[DEBUG] ${fileName} - Added: ${addedCount}, Skipped (no title): ${skippedNoTitle}, Skipped (past deadline): ${skippedPastDeadline}, Skipped (no deadline): ${skippedNoDeadline}`);
+        console.log(`[DEBUG] ${fileName} - Added: ${addedCount}, Skipped (no title): ${skippedNoTitle}, Skipped (past deadline): ${skippedPastDeadline}, Skipped (no deadline): ${skippedNoDeadline}, Skipped (no URL): ${skippedNoUrl}`);
         
         // Stop processing files if we've reached the limit
         if (totalProcessed >= limit) {

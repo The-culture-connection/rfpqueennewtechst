@@ -53,9 +53,9 @@ export default function SignUpPage() {
           showInstructions={true}
         />
         
-        <div className="bg-[#1d1d1e] border border-[#ff16a9]/30 rounded-xl p-8">
+        <div className="bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-xl p-8">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-primary text-[#ff16a9]">RFP Matcher ✨</h1>
+            <h1 className="text-3xl font-primary text-[#ad3c94]">RFP Matcher</h1>
             <p className="font-secondary text-[#e7e8ef]/80 mt-2">Create your account</p>
           </div>
 
@@ -76,7 +76,7 @@ export default function SignUpPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-2 bg-[#1d1d1e] border border-[#ff16a9]/30 rounded-lg font-secondary text-[#e7e8ef] placeholder-[#e7e8ef]/50 focus:outline-none focus:ring-2 focus:ring-[#ff16a9] focus:border-transparent"
+                className="w-full px-4 py-2 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg font-secondary text-[#e7e8ef] placeholder-[#e7e8ef]/50 focus:outline-none focus:ring-2 focus:ring-[#ad3c94] focus:border-transparent"
                 placeholder="you@example.com"
               />
             </div>
@@ -91,7 +91,7 @@ export default function SignUpPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-4 py-2 bg-[#1d1d1e] border border-[#ff16a9]/30 rounded-lg font-secondary text-[#e7e8ef] placeholder-[#e7e8ef]/50 focus:outline-none focus:ring-2 focus:ring-[#ff16a9] focus:border-transparent"
+                className="w-full px-4 py-2 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg font-secondary text-[#e7e8ef] placeholder-[#e7e8ef]/50 focus:outline-none focus:ring-2 focus:ring-[#ad3c94] focus:border-transparent"
                 placeholder="••••••••"
               />
               <p className="text-xs font-secondary text-[#e7e8ef]/70 mt-1">Minimum 6 characters</p>
@@ -107,7 +107,7 @@ export default function SignUpPage() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
-                className="w-full px-4 py-2 bg-[#1d1d1e] border border-[#ff16a9]/30 rounded-lg font-secondary text-[#e7e8ef] placeholder-[#e7e8ef]/50 focus:outline-none focus:ring-2 focus:ring-[#ff16a9] focus:border-transparent"
+                className="w-full px-4 py-2 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg font-secondary text-[#e7e8ef] placeholder-[#e7e8ef]/50 focus:outline-none focus:ring-2 focus:ring-[#ad3c94] focus:border-transparent"
                 placeholder="••••••••"
               />
             </div>
@@ -115,16 +115,16 @@ export default function SignUpPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#ff16a9] text-white py-2 px-4 rounded-lg hover:bg-[#ff16a9]/80 focus:outline-none focus:ring-2 focus:ring-[#ff16a9] focus:ring-offset-2 focus:ring-offset-[#1d1d1e] disabled:opacity-50 disabled:cursor-not-allowed transition-all font-secondary"
+              className="w-full bg-[#ad3c94] text-white py-2 px-4 rounded-lg hover:bg-[#ad3c94]/80 focus:outline-none focus:ring-2 focus:ring-[#ad3c94] focus:ring-offset-2 focus:ring-offset-[#1d1d1e] disabled:opacity-50 disabled:cursor-not-allowed transition-all font-secondary"
             >
-              {loading ? 'Creating Account...' : 'Sign Up ✨'}
+              {loading ? 'Creating Account...' : 'Sign Up'}
             </button>
           </form>
 
           <div className="mt-6 text-center">
             <p className="text-sm font-secondary text-[#e7e8ef]/80">
               Already have an account?{' '}
-              <Link href="/login" className="text-[#ff16a9] hover:text-[#ff16a9]/80 font-medium underline decoration-[#ff16a9]/50">
+              <Link href="/login" className="text-[#ad3c94] hover:text-[#ad3c94]/80 font-medium underline decoration-[#ad3c94]/50">
                 Log in
               </Link>
             </p>

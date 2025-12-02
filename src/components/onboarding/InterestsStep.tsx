@@ -8,17 +8,17 @@ interface InterestsStepProps {
 }
 
 // Interest categories
-const INTEREST_CATEGORIES: { value: Interest; label: string; emoji: string }[] = [
-  { value: 'healthcare', label: 'Healthcare', emoji: '🏥' },
-  { value: 'education', label: 'Education', emoji: '📚' },
-  { value: 'environment', label: 'Environment', emoji: '🌱' },
-  { value: 'arts', label: 'Arts & Culture', emoji: '🎨' },
-  { value: 'technology', label: 'Technology', emoji: '💻' },
-  { value: 'social-services', label: 'Social Services', emoji: '🤝' },
-  { value: 'research', label: 'Research', emoji: '🔬' },
-  { value: 'infrastructure', label: 'Infrastructure', emoji: '🏗️' },
-  { value: 'economic-development', label: 'Economic Development', emoji: '💼' },
-  { value: 'housing', label: 'Housing', emoji: '🏠' },
+const INTEREST_CATEGORIES: { value: Interest; label: string }[] = [
+  { value: 'healthcare', label: 'Healthcare' },
+  { value: 'education', label: 'Education' },
+  { value: 'environment', label: 'Environment' },
+  { value: 'arts', label: 'Arts & Culture' },
+  { value: 'technology', label: 'Technology' },
+  { value: 'social-services', label: 'Social Services' },
+  { value: 'research', label: 'Research' },
+  { value: 'infrastructure', label: 'Infrastructure' },
+  { value: 'economic-development', label: 'Economic Development' },
+  { value: 'housing', label: 'Housing' },
 ];
 
 export default function InterestsStep({ selected, onChange }: InterestsStepProps) {
@@ -50,7 +50,6 @@ export default function InterestsStep({ selected, onChange }: InterestsStepProps
               }`}
             >
               <div className="flex items-center">
-                <span className="text-2xl mr-3">{interest.emoji}</span>
                 <div className="flex-1">
                   <span className="text-sm font-medium text-gray-900">{interest.label}</span>
                   {selected.includes(interest.value) && (

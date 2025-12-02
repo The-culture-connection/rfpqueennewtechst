@@ -211,10 +211,10 @@ export default function DocumentsPage() {
 
   if (loading || !userProfile) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-[#1d1d1e] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-700">Loading documents...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#ad3c94] mx-auto mb-4"></div>
+          <p className="font-secondary text-[#e7e8ef]">Loading documents...</p>
         </div>
       </div>
     );
@@ -223,20 +223,20 @@ export default function DocumentsPage() {
   const availableDocuments = getAvailableDocuments();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-[#1d1d1e]">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="bg-[#1d1d1e] border-b border-[#ad3c94]/30">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Document Manager</h1>
-              <p className="text-sm text-gray-600 mt-1">
+              <h1 className="text-2xl font-primary text-[#ad3c94]">Document Manager</h1>
+              <p className="text-sm font-secondary text-[#e7e8ef]/80 mt-1">
                 Upload your documents for automated application filling
               </p>
             </div>
             <button
               onClick={() => router.push('/dashboard')}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+              className="px-4 py-2 bg-[#1d1d1e] text-[#e7e8ef] rounded-lg hover:bg-[#1d1d1e]/80 transition-all border border-[#ad3c94]/30 font-secondary"
             >
               Back to Dashboard
             </button>
@@ -247,9 +247,9 @@ export default function DocumentsPage() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         {/* Info Banner */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-          <h3 className="text-sm font-semibold text-blue-900 mb-2">How it works:</h3>
-          <ol className="text-sm text-blue-800 list-decimal list-inside space-y-1">
+        <div className="bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg p-4 mb-6">
+          <h3 className="text-sm font-primary text-[#ad3c94] mb-2">How it works:</h3>
+          <ol className="text-sm font-secondary text-[#e7e8ef] list-decimal list-inside space-y-1">
             <li>Upload your documents (PDF, DOCX, images)</li>
             <li>We'll extract and organize the text automatically</li>
             <li>Use this information to auto-fill applications later</li>
@@ -261,53 +261,58 @@ export default function DocumentsPage() {
           {availableDocuments.map((docConfig) => {
             const uploadedDoc = getDocumentStatus(docConfig.type);
             const uploadProgress = Object.keys(uploadingFiles).find(key => key.startsWith(docConfig.type));
+            const isSelected = uploadedDoc && uploadedDoc.processingStatus === 'completed';
             
             return (
-              <div key={docConfig.type} className="bg-white rounded-lg shadow-md p-6">
+              <div key={docConfig.type} className={`bg-[#1d1d1e] border rounded-lg p-6 transition-all ${
+                isSelected 
+                  ? 'border-[#ad3c94] shadow-lg shadow-[#ad3c94]/20' 
+                  : 'border-[#ad3c94]/30 hover:border-[#ad3c94]/50'
+              }`}>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900">
+                      <h3 className="text-lg font-primary text-[#ad3c94]">
                         {docConfig.label}
                       </h3>
                       {docConfig.required && (
-                        <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded">
+                        <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded border border-red-500/30 font-secondary">
                           Required
                         </span>
                       )}
                       {uploadedDoc && (
-                        <span className={`px-2 py-1 text-xs rounded ${
+                        <span className={`px-2 py-1 text-xs rounded font-secondary ${
                           uploadedDoc.processingStatus === 'completed'
-                            ? 'bg-green-100 text-green-700'
+                            ? 'bg-green-500/20 text-green-400 border border-green-500/30'
                             : uploadedDoc.processingStatus === 'processing'
-                            ? 'bg-yellow-100 text-yellow-700'
+                            ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
                             : uploadedDoc.processingStatus === 'failed'
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-gray-100 text-gray-700'
+                            ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                            : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
                         }`}>
-                          {uploadedDoc.processingStatus === 'completed' ? '✓ Processed' :
-                           uploadedDoc.processingStatus === 'processing' ? '⏳ Processing...' :
-                           uploadedDoc.processingStatus === 'failed' ? '✗ Failed' :
-                           '⏳ Pending'}
+                          {uploadedDoc.processingStatus === 'completed' ? 'Processed' :
+                           uploadedDoc.processingStatus === 'processing' ? 'Processing...' :
+                           uploadedDoc.processingStatus === 'failed' ? 'Failed' :
+                           'Pending'}
                         </span>
                       )}
                     </div>
                     
                     {uploadedDoc && (
-                      <p className="text-sm text-gray-600 mb-2">
+                      <p className="text-sm font-secondary text-[#e7e8ef] mb-2">
                         Current file: {uploadedDoc.fileName} ({(uploadedDoc.fileSize / 1024).toFixed(0)} KB)
                       </p>
                     )}
                     
                     {uploadProgress && (
                       <div className="mb-2">
-                        <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className="w-full bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-full h-2">
                           <div
-                            className="bg-indigo-600 h-2 rounded-full transition-all"
+                            className="bg-[#ad3c94] h-2 rounded-full transition-all"
                             style={{ width: `${uploadingFiles[uploadProgress]}%` }}
                           />
                         </div>
-                        <p className="text-xs text-gray-600 mt-1">
+                        <p className="text-xs font-secondary text-[#e7e8ef]/80 mt-1">
                           Uploading... {uploadingFiles[uploadProgress].toFixed(0)}%
                         </p>
                       </div>
@@ -328,12 +333,12 @@ export default function DocumentsPage() {
                         }}
                         disabled={!!uploadProgress}
                       />
-                      <span className={`px-4 py-2 rounded-md transition-colors inline-block ${
+                      <span className={`px-4 py-2 rounded-lg transition-all inline-block font-secondary ${
                         uploadProgress
-                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          ? 'bg-gray-500/20 text-gray-400 cursor-not-allowed border border-gray-500/30'
                           : uploadedDoc
-                          ? 'bg-yellow-500 text-white hover:bg-yellow-600'
-                          : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                          ? 'bg-[#ad3c94] text-white hover:bg-[#ad3c94]/80 border border-[#ad3c94]'
+                          : 'bg-[#ad3c94] text-white hover:bg-[#ad3c94]/80 border border-[#ad3c94]'
                       }`}>
                         {uploadedDoc ? 'Replace' : 'Upload'}
                       </span>
@@ -346,22 +351,22 @@ export default function DocumentsPage() {
         </div>
 
         {/* Summary */}
-        <div className="mt-8 bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Summary</h3>
+        <div className="mt-8 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg p-6">
+          <h3 className="text-lg font-primary text-[#ad3c94] mb-4">Summary</h3>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <p className="text-sm text-gray-600">Total Documents</p>
-              <p className="text-2xl font-bold text-gray-900">{documents.length}</p>
+              <p className="text-sm font-secondary text-[#e7e8ef]/80">Total Documents</p>
+              <p className="text-2xl font-primary text-[#ad3c94]">{documents.length}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Processed</p>
-              <p className="text-2xl font-bold text-green-600">
+              <p className="text-sm font-secondary text-[#e7e8ef]/80">Processed</p>
+              <p className="text-2xl font-primary text-green-400">
                 {documents.filter(d => d.processingStatus === 'completed').length}
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Processing</p>
-              <p className="text-2xl font-bold text-yellow-600">
+              <p className="text-sm font-secondary text-[#e7e8ef]/80">Processing</p>
+              <p className="text-2xl font-primary text-yellow-400">
                 {documents.filter(d => d.processingStatus === 'processing' || d.processingStatus === 'pending').length}
               </p>
             </div>

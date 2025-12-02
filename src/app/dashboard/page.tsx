@@ -61,6 +61,14 @@ export default function DashboardPage() {
     }
   }, [loading, opportunities.length]);
 
+  // Auto-refresh when profile changes
+  useEffect(() => {
+    if (userProfile) {
+      // Reload opportunities when profile changes (e.g., after editing)
+      window.location.reload();
+    }
+  }, [userProfile?.interestsMain, userProfile?.keywords, userProfile?.fundingType]);
+
   // Load saved progress when opportunities are ready
   useEffect(() => {
     async function loadProgress() {
@@ -155,7 +163,7 @@ export default function DashboardPage() {
           <p className="font-secondary text-red-400 mb-4">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-[#ff16a9] text-white rounded-lg hover:bg-[#ff16a9]/80 transition-all font-secondary"
+            className="px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary"
           >
             Retry
           </button>
@@ -321,11 +329,11 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-[#1d1d1e]">
       {/* Header */}
-      <div className="bg-[#1d1d1e] border-b border-[#ff16a9]/30">
+      <div className="bg-[#1d1d1e] border-b border-[#ad3c94]/30">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-primary text-[#ff16a9]">RFP Matcher ✨</h1>
+              <h1 className="text-2xl font-primary text-[#ad3c94]">RFP Matcher</h1>
               <p className="text-sm font-secondary text-[#e7e8ef] mt-1">
                 Welcome back, {userProfile.entityName}!
               </p>
@@ -333,34 +341,34 @@ export default function DashboardPage() {
             <div className="flex gap-3 flex-wrap">
               <button
                 onClick={() => router.push('/tracker')}
-                className="px-4 py-2 bg-[#ff16a9] text-white rounded-lg hover:bg-[#ff16a9]/80 transition-all font-secondary"
+                className="px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary"
               >
                 My Tracker
               </button>
               <button
                 onClick={() => router.push('/documents')}
-                className="px-4 py-2 bg-[#ff16a9] text-white rounded-lg hover:bg-[#ff16a9]/80 transition-all font-secondary"
+                className="px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary"
                 title="Upload and manage your documents"
               >
                 Documents
               </button>
               <button
                 onClick={() => router.push('/profile')}
-                className="px-4 py-2 bg-[#ff16a9] text-white rounded-lg hover:bg-[#ff16a9]/80 transition-all font-secondary"
+                className="px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary"
                 title="Edit your profile and preferences"
               >
                 Edit Profile
               </button>
               <button
                 onClick={handleStartOver}
-                className="px-4 py-2 bg-[#ff16a9] text-white rounded-lg hover:bg-[#ff16a9]/80 transition-all font-secondary"
+                className="px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary"
                 title="Reset progress and start from beginning"
               >
                 Start Over
               </button>
               <button
                 onClick={() => router.push('/')}
-                className="px-4 py-2 bg-[#1d1d1e] text-[#e7e8ef] rounded-lg hover:bg-[#1d1d1e]/80 transition-all border border-[#ff16a9]/30 font-secondary"
+                className="px-4 py-2 bg-[#1d1d1e] text-[#e7e8ef] rounded-lg hover:bg-[#1d1d1e]/80 transition-all border border-[#ad3c94]/30 font-secondary"
               >
                 Logout
               </button>
@@ -377,8 +385,8 @@ export default function DashboardPage() {
             <LoadingMeter loading={loading} />
             {/* Resume indicator */}
             {currentIndex > 0 && progressLoaded && (
-              <div className="bg-[#1d1d1e] border border-[#ff16a9]/30 rounded-lg p-3 mb-4 flex items-center gap-2">
-                <svg className="w-5 h-5 text-[#ff16a9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg p-3 mb-4 flex items-center gap-2">
+                <svg className="w-5 h-5 text-[#ad3c94]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <p className="text-sm font-secondary text-[#e7e8ef]">
@@ -389,17 +397,17 @@ export default function DashboardPage() {
 
             {/* Stats */}
             <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="bg-[#1d1d1e] border border-[#ff16a9]/30 rounded-lg p-4">
+              <div className="bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg p-4">
                 <p className="text-sm font-secondary text-[#e7e8ef]/80">Total Matches</p>
-                <p className="text-2xl font-primary text-[#ff16a9]">{opportunities.length}</p>
+                <p className="text-2xl font-primary text-[#ad3c94]">{opportunities.length}</p>
               </div>
-              <div className="bg-[#1d1d1e] border border-[#ff16a9]/30 rounded-lg p-4">
+              <div className="bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg p-4">
                 <p className="text-sm font-secondary text-[#e7e8ef]/80">Remaining</p>
-                <p className="text-2xl font-primary text-[#ff16a9]">{availableOpportunities.length}</p>
+                <p className="text-2xl font-primary text-[#ad3c94]">{availableOpportunities.length}</p>
               </div>
-              <div className="bg-[#1d1d1e] border border-[#ff16a9]/30 rounded-lg p-4">
+              <div className="bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg p-4">
                 <p className="text-sm font-secondary text-[#e7e8ef]/80">Passed</p>
-                <p className="text-2xl font-primary text-[#ff16a9]">{passedIds.length}</p>
+                <p className="text-2xl font-primary text-[#ad3c94]">{passedIds.length}</p>
               </div>
             </div>
 
@@ -408,7 +416,7 @@ export default function DashboardPage() {
           <div className="relative">
             {actionLoading && (
               <div className="absolute inset-0 bg-[#1d1d1e]/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#ff16a9]"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#ad3c94]"></div>
               </div>
             )}
             <OpportunityCard
@@ -426,9 +434,8 @@ export default function DashboardPage() {
             </div>
           </div>
         ) : (
-          <div className="bg-[#1d1d1e] border border-[#ff16a9]/30 rounded-lg p-12 text-center">
-            <div className="text-6xl mb-4">🎉✨</div>
-            <h2 className="text-2xl font-primary text-[#ff16a9] mb-2">
+          <div className="bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg p-12 text-center">
+            <h2 className="text-2xl font-primary text-[#ad3c94] mb-2">
               You've reviewed all opportunities!
             </h2>
             <p className="font-secondary text-[#e7e8ef]/80 mb-6">
@@ -437,7 +444,7 @@ export default function DashboardPage() {
             <div className="flex gap-3 justify-center">
               <button
                 onClick={() => router.push('/tracker')}
-                className="px-6 py-3 bg-[#ff16a9] text-white rounded-lg hover:bg-[#ff16a9]/80 transition-all font-secondary"
+                className="px-6 py-3 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary"
               >
                 View Tracker
               </button>
@@ -446,7 +453,7 @@ export default function DashboardPage() {
                   setPassedIds([]);
                   setCurrentIndex(0);
                 }}
-                className="px-6 py-3 bg-[#1d1d1e] text-[#e7e8ef] rounded-lg hover:bg-[#1d1d1e]/80 transition-all border border-[#ff16a9]/30 font-secondary"
+                className="px-6 py-3 bg-[#1d1d1e] text-[#e7e8ef] rounded-lg hover:bg-[#1d1d1e]/80 transition-all border border-[#ad3c94]/30 font-secondary"
               >
                 Review Again
               </button>

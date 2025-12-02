@@ -199,10 +199,10 @@ export default function ProfilePage() {
 
   if (!userProfile) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-[#000000] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-700">Loading profile...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#ad3c94] mx-auto mb-4"></div>
+          <p className="font-secondary text-[#e7e8ef]">Loading profile...</p>
         </div>
       </div>
     );
@@ -234,12 +234,12 @@ export default function ProfilePage() {
       <div className="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         <div className="space-y-6">
           {/* Funding Types Section */}
-          <div className="bg-[#1d1d1e] border border-[#ff16a9]/30 rounded-lg p-6">
+          <div className="bg-[#1d1d1e] border border-white rounded-lg p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-primary text-[#ff16a9]">Funding Types</h2>
+              <h2 className="text-xl font-primary text-[#ad3c94]">Funding Types</h2>
               <button
                 onClick={() => setActiveSection(activeSection === 'funding' ? null : 'funding')}
-                className="text-[#ff16a9] hover:text-[#ff16a9]/80 text-sm font-secondary"
+                className="text-[#ad3c94] hover:text-[#ad3c94]/80 text-sm font-secondary"
               >
                 {activeSection === 'funding' ? 'Collapse' : 'Edit'}
               </button>
@@ -252,7 +252,7 @@ export default function ProfilePage() {
             ) : (
               <div className="flex gap-2 flex-wrap">
                 {fundingTypes.map(type => (
-                  <span key={type} className="px-3 py-1 bg-[#ff16a9]/20 text-[#ff16a9] rounded-full text-sm font-secondary border border-[#ff16a9]/30">
+                  <span key={type} className="px-3 py-1 bg-[#ad3c94]/20 text-[#ad3c94] rounded-full text-sm font-secondary border border-[#ad3c94]/30">
                     {type}
                   </span>
                 ))}
@@ -261,12 +261,12 @@ export default function ProfilePage() {
           </div>
 
           {/* Timeline Section */}
-          <div className="bg-[#1d1d1e] border border-[#ff16a9]/30 rounded-lg p-6">
+          <div className="bg-[#1d1d1e] border border-white rounded-lg p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-primary text-[#ff16a9]">Timeline</h2>
+              <h2 className="text-xl font-primary text-[#ad3c94]">Timeline</h2>
               <button
                 onClick={() => setActiveSection(activeSection === 'timeline' ? null : 'timeline')}
-                className="text-[#ff16a9] hover:text-[#ff16a9]/80 text-sm font-secondary"
+                className="text-[#ad3c94] hover:text-[#ad3c94]/80 text-sm font-secondary"
               >
                 {activeSection === 'timeline' ? 'Collapse' : 'Edit'}
               </button>
@@ -282,12 +282,12 @@ export default function ProfilePage() {
           </div>
 
           {/* Interests Section */}
-          <div className="bg-[#1d1d1e] border border-[#ff16a9]/30 rounded-lg p-6">
+          <div className="bg-[#1d1d1e] border border-white rounded-lg p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-primary text-[#ff16a9]">Areas of Interest</h2>
+              <h2 className="text-xl font-primary text-[#ad3c94]">Areas of Interest</h2>
               <button
                 onClick={() => setActiveSection(activeSection === 'interests' ? null : 'interests')}
-                className="text-[#ff16a9] hover:text-[#ff16a9]/80 text-sm font-secondary"
+                className="text-[#ad3c94] hover:text-[#ad3c94]/80 text-sm font-secondary"
               >
                 {activeSection === 'interests' ? 'Collapse' : 'Edit'}
               </button>
@@ -300,7 +300,7 @@ export default function ProfilePage() {
             ) : (
               <div className="flex gap-2 flex-wrap">
                 {interests.map(interest => (
-                  <span key={interest} className="px-3 py-1 bg-[#ff16a9]/20 text-[#ff16a9] rounded-full text-sm font-secondary border border-[#ff16a9]/30">
+                  <span key={interest} className="px-3 py-1 bg-[#ad3c94]/20 text-[#ad3c94] rounded-full text-sm font-secondary border border-[#ad3c94]/30">
                     {interest}
                   </span>
                 ))}
@@ -309,12 +309,12 @@ export default function ProfilePage() {
           </div>
 
           {/* Entity Information Section */}
-          <div className="bg-[#1d1d1e] border border-[#ff16a9]/30 rounded-lg p-6">
+          <div className="bg-[#1d1d1e] border border-white rounded-lg p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-primary text-[#ff16a9]">Organization Information</h2>
+              <h2 className="text-xl font-primary text-[#ad3c94]">Organization Information</h2>
               <button
                 onClick={() => setActiveSection(activeSection === 'entity' ? null : 'entity')}
-                className="text-[#ff16a9] hover:text-[#ff16a9]/80 text-sm font-secondary"
+                className="text-[#ad3c94] hover:text-[#ad3c94]/80 text-sm font-secondary"
               >
                 {activeSection === 'entity' ? 'Collapse' : 'Edit'}
               </button>
@@ -335,17 +335,17 @@ export default function ProfilePage() {
           </div>
 
           {/* Keywords Section */}
-          <div className="bg-[#1d1d1e] border border-[#ff16a9]/30 rounded-lg p-6">
+          <div className="bg-[#1d1d1e] border border-white rounded-lg p-6">
             <div className="flex justify-between items-center mb-4">
               <div>
-                <h2 className="text-xl font-primary text-[#ff16a9]">Keywords</h2>
+                <h2 className="text-xl font-primary text-[#ad3c94]">Keywords</h2>
                 <p className="text-sm font-secondary text-[#e7e8ef]/80 mt-1">
                   Keywords extracted from your documents or manually added. These help refine your opportunity matches.
                 </p>
               </div>
               <button
                 onClick={() => setActiveSection(activeSection === 'keywords' ? null : 'keywords')}
-                className="text-[#ff16a9] hover:text-[#ff16a9]/80 text-sm font-secondary"
+                className="text-[#ad3c94] hover:text-[#ad3c94]/80 text-sm font-secondary"
               >
                 {activeSection === 'keywords' ? 'Collapse' : 'Edit'}
               </button>
@@ -363,7 +363,7 @@ export default function ProfilePage() {
                           updated[index] = e.target.value;
                           setKeywords(updated);
                         }}
-                        className="flex-1 px-3 py-2 bg-[#1d1d1e] border border-[#ff16a9]/30 rounded-lg font-secondary text-[#e7e8ef] placeholder-[#e7e8ef]/50 focus:outline-none focus:ring-2 focus:ring-[#ff16a9] focus:border-transparent"
+                        className="flex-1 px-3 py-2 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg font-secondary text-[#e7e8ef] placeholder-[#e7e8ef]/50 focus:outline-none focus:ring-2 focus:ring-[#ad3c94] focus:border-transparent"
                         placeholder="Enter keyword..."
                       />
                       <button
@@ -377,12 +377,12 @@ export default function ProfilePage() {
                 </div>
                 <button
                   onClick={() => setKeywords([...keywords, ''])}
-                  className="w-full px-4 py-2 bg-[#ff16a9] text-white rounded-lg hover:bg-[#ff16a9]/80 transition-all font-secondary"
+                  className="w-full px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary"
                 >
                   + Add Keyword
                 </button>
                 {businessProfile.keywords && businessProfile.keywords.length > 0 && (
-                  <div className="mt-4 p-3 bg-[#1d1d1e] border border-[#ff16a9]/20 rounded-lg">
+                  <div className="mt-4 p-3 bg-[#1d1d1e] border border-[#ad3c94]/20 rounded-lg">
                     <p className="text-sm font-secondary text-[#e7e8ef]/80 mb-2">
                       Keywords from documents (click to add):
                     </p>
@@ -397,7 +397,7 @@ export default function ProfilePage() {
                                 setKeywords([...keywords, keyword]);
                               }
                             }}
-                            className="px-3 py-1 bg-[#ff16a9]/20 text-[#ff16a9] rounded-full text-sm font-secondary hover:bg-[#ff16a9]/30 transition-all border border-[#ff16a9]/30"
+                            className="px-3 py-1 bg-[#ad3c94]/20 text-[#ad3c94] rounded-full text-sm font-secondary hover:bg-[#ad3c94]/30 transition-all border border-[#ad3c94]/30"
                           >
                             + {keyword}
                           </button>
@@ -410,7 +410,7 @@ export default function ProfilePage() {
               <div className="flex gap-2 flex-wrap">
                 {keywords.length > 0 ? (
                   keywords.map((keyword, index) => (
-                    <span key={index} className="px-3 py-1 bg-[#ff16a9]/20 text-[#ff16a9] rounded-full text-sm font-secondary border border-[#ff16a9]/30">
+                    <span key={index} className="px-3 py-1 bg-[#ad3c94]/20 text-[#ad3c94] rounded-full text-sm font-secondary border border-[#ad3c94]/30">
                       {keyword}
                     </span>
                   ))
@@ -422,12 +422,11 @@ export default function ProfilePage() {
           </div>
 
           {/* AI-Extracted Business Profile Section */}
-          <div className="bg-[#1d1d1e] border border-[#ff16a9]/30 rounded-lg p-6">
+          <div className="bg-[#1d1d1e] border border-white rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-xl font-primary text-[#ff16a9] flex items-center gap-2">
-                  <span className="text-2xl">🤖</span>
-                  AI-Extracted Business Information
+                <h2 className="text-xl font-primary text-[#ad3c94] flex items-center gap-2">
+                  Application Generation
                 </h2>
                 <p className="text-sm font-secondary text-[#e7e8ef]/80 mt-1">
                   Information automatically extracted from your uploaded documents. Edit as needed.
@@ -440,7 +439,7 @@ export default function ProfilePage() {
               </div>
               <button
                 onClick={() => setActiveSection(activeSection === 'business' ? null : 'business')}
-                className="text-[#ff16a9] hover:text-[#ff16a9]/80 text-sm font-secondary"
+                className="text-[#ad3c94] hover:text-[#ad3c94]/80 text-sm font-secondary"
               >
                 {activeSection === 'business' ? 'Collapse' : 'Edit'}
               </button>
@@ -448,7 +447,7 @@ export default function ProfilePage() {
 
             {loadingBusiness ? (
               <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#ff16a9] mx-auto"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#ad3c94] mx-auto"></div>
                 <p className="font-secondary text-[#e7e8ef]/80 mt-2 text-sm">Loading business profile...</p>
               </div>
             ) : activeSection === 'business' ? (
@@ -783,14 +782,14 @@ export default function ProfilePage() {
           <div className="flex justify-end gap-3">
             <button
               onClick={() => router.push('/dashboard')}
-              className="px-6 py-3 bg-[#1d1d1e] text-[#e7e8ef] rounded-lg hover:bg-[#1d1d1e]/80 transition-all border border-[#ff16a9]/30 font-secondary"
+              className="px-6 py-3 bg-[#1d1d1e] text-[#e7e8ef] rounded-lg hover:bg-[#1d1d1e]/80 transition-all border border-[#ad3c94]/30 font-secondary"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
               disabled={loading}
-              className="px-6 py-3 bg-[#ff16a9] text-white rounded-lg hover:bg-[#ff16a9]/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-secondary"
+              className="px-6 py-3 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-secondary"
             >
               {loading ? 'Saving...' : 'Save Changes'}
             </button>
