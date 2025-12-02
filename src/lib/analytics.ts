@@ -1,13 +1,24 @@
 // Firebase Analytics utility functions
 import { logEvent, setUserProperties, setUserId } from 'firebase/analytics';
-import { analytics } from './firebase';
+import { getAnalyticsInstance } from './firebase';
 import { UserProfile, FundingType, EntityType, Timeline } from '@/types';
 
 /**
  * Check if analytics is available
  */
 function isAnalyticsAvailable(): boolean {
-  return typeof window !== 'undefined' && analytics !== null;
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  const analytics = getAnalyticsInstance();
+  return analytics !== null;
+}
+
+/**
+ * Get analytics instance
+ */
+function getAnalytics(): ReturnType<typeof getAnalyticsInstance> {
+  return getAnalyticsInstance();
 }
 
 /**
@@ -17,16 +28,22 @@ export function trackEvent(
   eventName: string,
   eventParams?: Record<string, any>
 ): void {
-  if (!isAnalyticsAvailable()) {
-    console.log('[Analytics] Event (not tracked):', eventName, eventParams);
+  if (typeof window === 'undefined') {
+    // Server-side: don't track
+    return;
+  }
+
+  const analytics = getAnalytics();
+  if (!analytics) {
+    console.warn('[Analytics] ⚠️ Event not tracked (analytics not initialized):', eventName, eventParams);
     return;
   }
 
   try {
-    logEvent(analytics!, eventName, eventParams);
-    console.log('[Analytics] Event tracked:', eventName, eventParams);
+    logEvent(analytics, eventName, eventParams);
+    console.log('[Analytics] ✅ Event tracked:', eventName, eventParams);
   } catch (error) {
-    console.error('[Analytics] Error tracking event:', error);
+    console.error('[Analytics] ❌ Error tracking event:', error, eventName, eventParams);
   }
 }
 
@@ -34,13 +51,19 @@ export function trackEvent(
  * Set user ID for analytics
  */
 export function setAnalyticsUserId(userId: string | null): void {
-  if (!isAnalyticsAvailable() || !userId) return;
+  if (typeof window === 'undefined' || !userId) return;
+
+  const analytics = getAnalytics();
+  if (!analytics) {
+    console.warn('[Analytics] ⚠️ Cannot set user ID (analytics not initialized)');
+    return;
+  }
 
   try {
-    setUserId(analytics!, userId);
-    console.log('[Analytics] User ID set:', userId);
+    setUserId(analytics, userId);
+    console.log('[Analytics] ✅ User ID set:', userId);
   } catch (error) {
-    console.error('[Analytics] Error setting user ID:', error);
+    console.error('[Analytics] ❌ Error setting user ID:', error);
   }
 }
 
@@ -48,19 +71,29 @@ export function setAnalyticsUserId(userId: string | null): void {
  * Set user properties for analytics
  */
 export function setAnalyticsUserProperties(profile: UserProfile | null): void {
-  if (!isAnalyticsAvailable() || !profile) return;
+  if (typeof window === 'undefined' || !profile) return;
+
+  const analytics = getAnalytics();
+  if (!analytics) {
+    console.warn('[Analytics] ⚠️ Cannot set user properties (analytics not initialized)');
+    return;
+  }
 
   try {
-    setUserProperties(analytics!, {
+    setUserProperties(analytics, {
       entity_type: profile.entityType,
       funding_types: profile.fundingType?.join(',') || '',
       timeline: profile.timeline,
       interests_count: profile.interestsMain?.length || 0,
       has_completed_onboarding: !!(profile.entityName && profile.fundingType?.length > 0),
     });
-    console.log('[Analytics] User properties set:', profile);
+    console.log('[Analytics] ✅ User properties set:', {
+      entity_type: profile.entityType,
+      funding_types: profile.fundingType?.join(','),
+      timeline: profile.timeline,
+    });
   } catch (error) {
-    console.error('[Analytics] Error setting user properties:', error);
+    console.error('[Analytics] ❌ Error setting user properties:', error);
   }
 }
 

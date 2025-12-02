@@ -22,17 +22,42 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 
 // Initialize Analytics (only in browser environment)
+// Analytics must be initialized lazily in Next.js to avoid SSR issues
 let analytics: Analytics | null = null;
-if (typeof window !== 'undefined') {
-  // Initialize analytics synchronously if measurementId is available
-  // Firebase Analytics will work even if initialized immediately
+
+export function getAnalyticsInstance(): Analytics | null {
+  // Only initialize in browser
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  // Return existing instance if already initialized
+  if (analytics) {
+    return analytics;
+  }
+
+  // Initialize if measurementId is available
   try {
     if (firebaseConfig.measurementId) {
       analytics = getAnalytics(app);
+      console.log('[Analytics] ✅ Initialized successfully with measurementId:', firebaseConfig.measurementId);
+      return analytics;
+    } else {
+      console.warn('[Analytics] ⚠️ measurementId is missing. Analytics will not work.');
+      return null;
     }
   } catch (error) {
-    console.warn('[Analytics] Failed to initialize:', error);
+    console.error('[Analytics] ❌ Failed to initialize:', error);
+    return null;
   }
+}
+
+// Initialize analytics on first import in browser
+if (typeof window !== 'undefined') {
+  // Use a small delay to ensure window is fully ready
+  setTimeout(() => {
+    getAnalyticsInstance();
+  }, 0);
 }
 
 export { app, auth, db, storage, analytics };
