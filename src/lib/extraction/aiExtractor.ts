@@ -4,10 +4,19 @@
 import OpenAI from 'openai';
 import { DocumentType } from '@/types/documents';
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Lazy-load OpenAI client to avoid build-time initialization
+let openaiClient: OpenAI | null = null;
+function getOpenAIClient(): OpenAI {
+  if (!openaiClient) {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY environment variable is not set');
+    }
+    openaiClient = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+  }
+  return openaiClient;
+}
 
 export interface AIExtractedFields {
   companyOverview?: string | null;
@@ -37,7 +46,8 @@ export async function extractFieldsWithAI(
   const prompt = buildPromptForDocumentType(documentType);
   
   try {
-    const response = await openai.chat.completions.create({
+    const openaiClient = getOpenAIClient();
+    const response = await openaiClient.chat.completions.create({
       model: "gpt-4o-mini", // Cost-effective model
       messages: [
         {
@@ -217,7 +227,8 @@ If a field looks empty, incomplete, or nonsensical, set it to null.
 Return JSON in the same format as input, but cleaned up.`;
 
   try {
-    const response = await openai.chat.completions.create({
+    const openaiClient = getOpenAIClient();
+    const response = await openaiClient.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {

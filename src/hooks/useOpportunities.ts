@@ -28,7 +28,7 @@ export function useOpportunities(profile: UserProfile | null) {
           ? profile.fundingType 
           : ['grants', 'rfps', 'contracts'];
         const fundingTypesParam = fundingTypes.join(',');
-        const url = `/api/opportunities?limit=5000&hasDeadline=false&fundingTypes=${fundingTypesParam}`;
+        const url = `/api/opportunities?limit=1000&hasDeadline=false&fundingTypes=${fundingTypesParam}`;
         
         console.log('Fetching from:', url);
         
@@ -64,8 +64,8 @@ export function useOpportunities(profile: UserProfile | null) {
 
         console.log('Starting to match opportunities...');
         // Match and score opportunities based on user profile
-        const matched = matchOpportunities(allOpps, profile, 30); // Min 30% win rate
-        console.log(`Matched ${matched.length} opportunities (30%+ win rate)`);
+        const matched = matchOpportunities(allOpps, profile, 0); // Show all opportunities, sorted by match
+        console.log(`Matched ${matched.length} opportunities (all matches, sorted by relevance)`);
         
         setMatchedOpportunities(matched);
 

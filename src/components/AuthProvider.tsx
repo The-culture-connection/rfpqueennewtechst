@@ -12,6 +12,13 @@ import {
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { UserProfile } from '@/types';
+import { 
+  setAnalyticsUserId, 
+  setAnalyticsUserProperties, 
+  trackLogin, 
+  trackSignUp, 
+  trackLogout 
+} from '@/lib/analytics';
 
 interface AuthContextType {
   user: User | null;
@@ -63,19 +70,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Sign up new user
   const signUp = async (email: string, password: string) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    setAnalyticsUserId(userCredential.user.uid);
+    trackSignUp('email');
     return userCredential.user;
   };
 
   // Log in existing user
   const logIn = async (email: string, password: string) => {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    setAnalyticsUserId(userCredential.user.uid);
+    trackLogin('email');
     return userCredential.user;
   };
 
   // Log out
   const logOut = async () => {
+    trackLogout();
     await signOut(auth);
     setUserProfile(null);
+    setAnalyticsUserId(null);
   };
 
   // Update user profile in Firestore
@@ -105,15 +118,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       if (user) {
+        setAnalyticsUserId(user.uid);
         await fetchUserProfile(user.uid);
       } else {
         setUserProfile(null);
+        setAnalyticsUserId(null);
       }
       setLoading(false);
     });
 
     return unsubscribe;
   }, []);
+
+  // Update analytics user properties when profile changes
+  useEffect(() => {
+    if (userProfile) {
+      setAnalyticsUserProperties(userProfile);
+    }
+  }, [userProfile]);
 
   const value = {
     user,

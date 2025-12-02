@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { parseCSV, normalizeOpportunity } from '@/lib/csvParser';
 import { getAdminStorage } from '@/lib/firebaseAdmin';
 
+// Force dynamic rendering and set runtime
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const maxDuration = 60;
+
 export async function GET(request: Request) {
   // Log immediately - this confirms the route handler is being called
   const requestUrl = request.url;
@@ -65,7 +70,7 @@ export async function GET(request: Request) {
       });
     }
     
-    const limit = parseInt(searchParams.get('limit') || '5000'); // Default to 5000
+    const limit = parseInt(searchParams.get('limit') || '1000'); // Default to 1000 to prevent memory issues
     const hasDeadline = searchParams.get('hasDeadline') === 'true';
     const fundingTypes = searchParams.get('fundingTypes')?.split(',') || []; // e.g., "grants,rfps"
     console.log('[API] Request params:', { limit, hasDeadline, fundingTypes });
@@ -246,6 +251,7 @@ export async function GET(request: Request) {
     const allOpportunities = [];
     let totalProcessed = 0;
     
+    // Process files one at a time to reduce memory pressure
     for (const file of csvFiles) {
       try {
         console.log(`[API] Processing file: ${file.name}`);
@@ -256,8 +262,18 @@ export async function GET(request: Request) {
         
         try {
           [fileContent] = await file.download();
+          
+          // Check file size - skip if too large (> 10MB)
+          if (fileContent.length > 10 * 1024 * 1024) {
+            console.warn(`[WARN] File ${file.name} is too large (${Math.round(fileContent.length / 1024 / 1024)}MB), skipping to prevent OOM`);
+            continue;
+          }
+          
           csvContent = fileContent.toString('utf-8');
           console.log(`[API] Downloaded ${file.name}, size: ${fileContent.length} bytes`);
+          
+          // Clear the buffer to free memory immediately
+          fileContent = null as any;
         } catch (downloadError: any) {
           console.error(`[ERROR] Failed to download file ${file.name}:`, downloadError);
           throw new Error(`Failed to download file ${file.name}: ${downloadError?.message || 'Unknown error'}`);
@@ -333,6 +349,14 @@ export async function GET(request: Request) {
         // Stop processing files if we've reached the limit
         if (totalProcessed >= limit) {
           break;
+        }
+        
+        // Explicitly clear csvContent to free memory
+        csvContent = null as any;
+        
+        // Suggest garbage collection (hint only, not guaranteed)
+        if (global.gc) {
+          global.gc();
         }
       } catch (err: any) {
         const fileName = file.name.replace(/^exports\//, '').replace(/^\//, '');

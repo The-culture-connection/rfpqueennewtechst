@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { FundingType, Timeline, EntityType, OnboardingData } from '@/types';
@@ -8,6 +8,15 @@ import FundingTypeStep from '@/components/onboarding/FundingTypeStep';
 import TimelineStep from '@/components/onboarding/TimelineStep';
 import InterestsStep from '@/components/onboarding/InterestsStep';
 import EntityStep from '@/components/onboarding/EntityStep';
+import {
+  trackOnboardingStarted,
+  trackOnboardingStepCompleted,
+  trackOnboardingFundingTypeSelected,
+  trackOnboardingTimelineSelected,
+  trackOnboardingInterestsSelected,
+  trackOnboardingEntityTypeSelected,
+  trackOnboardingCompleted,
+} from '@/lib/analytics';
 
 const TOTAL_STEPS = 4;
 
@@ -21,8 +30,26 @@ export default function OnboardingPage() {
   const { updateUserProfile } = useAuth();
   const router = useRouter();
 
+  // Track onboarding start on mount
+  useEffect(() => {
+    trackOnboardingStarted();
+  }, []);
+
   const handleNext = () => {
     if (currentStep < TOTAL_STEPS) {
+      // Track step completion
+      const stepNames = ['funding_type', 'timeline', 'interests', 'entity'];
+      trackOnboardingStepCompleted(currentStep, stepNames[currentStep - 1]);
+      
+      // Track specific step data
+      if (currentStep === 1 && data.fundingTypes) {
+        trackOnboardingFundingTypeSelected(data.fundingTypes);
+      } else if (currentStep === 2 && data.timeline) {
+        trackOnboardingTimelineSelected(data.timeline);
+      } else if (currentStep === 3 && data.interests) {
+        trackOnboardingInterestsSelected(data.interests);
+      }
+      
       setCurrentStep(currentStep + 1);
     }
   };
@@ -39,8 +66,12 @@ export default function OnboardingPage() {
     try {
       console.log('💾 Saving profile...', data);
       
-      // Save profile to Firestore
-      await updateUserProfile({
+      // Track entity type selection
+      if (data.entityType) {
+        trackOnboardingEntityTypeSelected(data.entityType);
+      }
+      
+      const profile = {
         fundingType: data.fundingTypes || [],
         timeline: data.timeline || 'immediate',
         interestsMain: data.interests || [],
@@ -49,7 +80,13 @@ export default function OnboardingPage() {
         entityType: data.entityType || 'nonprofit',
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as any);
+      } as any;
+      
+      // Save profile to Firestore
+      await updateUserProfile(profile);
+
+      // Track onboarding completion
+      trackOnboardingCompleted(profile);
 
       console.log('✅ Profile saved successfully!');
       

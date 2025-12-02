@@ -7,6 +7,14 @@ import { useOpportunities } from '@/hooks/useOpportunities';
 import OpportunityCard from '@/components/OpportunityCard';
 import { doc, setDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import {
+  trackDashboardViewed,
+  trackOpportunityViewed,
+  trackOpportunityPassed,
+  trackOpportunitySaved,
+  trackOpportunityApplied,
+  trackDashboardStartOver,
+} from '@/lib/analytics';
 
 export default function DashboardPage() {
   const { user, userProfile } = useAuth();
@@ -43,6 +51,13 @@ export default function DashboardPage() {
       console.log('⏳ Waiting for user profile to load...');
     }
   }, [user, userProfile, loading, router]);
+
+  // Track dashboard view when opportunities are loaded
+  useEffect(() => {
+    if (!loading && opportunities.length > 0) {
+      trackDashboardViewed(opportunities.length);
+    }
+  }, [loading, opportunities.length]);
 
   // Load saved progress when opportunities are ready
   useEffect(() => {
@@ -91,6 +106,14 @@ export default function DashboardPage() {
       const available = opportunities.filter(opp => !passedIds.includes(opp.id));
       const currentOpportunity = available[currentIndex];
       if (!currentOpportunity) return;
+
+      // Track opportunity view
+      trackOpportunityViewed(
+        currentOpportunity.id,
+        currentOpportunity.winRate || 0,
+        currentOpportunity.type,
+        !!(currentOpportunity.closeDate || currentOpportunity.deadline)
+      );
 
       try {
         const progressRef = doc(db, 'profiles', user.uid, 'dashboard', 'progress');
@@ -148,6 +171,7 @@ export default function DashboardPage() {
     
     if (confirm('Are you sure you want to start over? This will reset your progress.')) {
       try {
+        trackDashboardStartOver();
         setPassedIds([]);
         setCurrentIndex(0);
         
@@ -167,6 +191,14 @@ export default function DashboardPage() {
   };
 
   const handlePass = async (id: string) => {
+    const opportunity = opportunities.find(opp => opp.id === id);
+    if (opportunity) {
+      trackOpportunityPassed(
+        id,
+        opportunity.winRate || 0,
+        opportunity.type
+      );
+    }
     setPassedIds([...passedIds, id]);
     // Move to next opportunity
     if (currentIndex < availableOpportunities.length - 1) {
@@ -204,6 +236,14 @@ export default function DashboardPage() {
           }]
         });
       }
+
+      // Track save event
+      trackOpportunitySaved(
+        id,
+        opportunity.winRate || 0,
+        opportunity.type,
+        opportunity.amount
+      );
 
       // Show success and move to next
       alert('Opportunity saved!');
@@ -251,6 +291,14 @@ export default function DashboardPage() {
           }]
         });
       }
+
+      // Track apply event
+      trackOpportunityApplied(
+        id,
+        opportunity.winRate || 0,
+        opportunity.type,
+        opportunity.amount
+      );
 
       // Show success and move to next
       alert('Added to Applied tracker! Opening opportunity...');

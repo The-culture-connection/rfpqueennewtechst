@@ -8,7 +8,7 @@ import FundingTypeStep from '@/components/onboarding/FundingTypeStep';
 import TimelineStep from '@/components/onboarding/TimelineStep';
 import InterestsStep from '@/components/onboarding/InterestsStep';
 import EntityStep from '@/components/onboarding/EntityStep';
-import { doc, getDoc, updateDoc, collection } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc, collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 // AI-extracted business profile fields
@@ -137,10 +137,10 @@ export default function ProfilePage() {
       // Save business profile (AI-extracted fields)
       if (user) {
         const businessProfileRef = doc(db, 'profiles', user.uid, 'businessProfile', 'master');
-        await updateDoc(businessProfileRef, {
+        await setDoc(businessProfileRef, {
           ...businessProfile,
           lastUpdated: new Date().toISOString(),
-        });
+        }, { merge: true });
       }
 
       alert('Profile updated successfully!');

@@ -8,6 +8,15 @@ import { collection, addDoc, query, where, getDocs, doc, updateDoc } from 'fireb
 import { storage, db } from '@/lib/firebase';
 import { DocumentType, DocumentMetadata, DOCUMENT_REQUIREMENTS, getDocumentLabel } from '@/types/documents';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  trackDocumentsPageViewed,
+  trackDocumentUploadStarted,
+  trackDocumentUploadCompleted,
+  trackDocumentUploadFailed,
+  trackDocumentProcessingCompleted,
+  trackDocumentProcessingFailed,
+  trackDocumentReplaced,
+} from '@/lib/analytics';
 
 export default function DocumentsPage() {
   const { user, userProfile } = useAuth();
@@ -28,6 +37,7 @@ export default function DocumentsPage() {
   useEffect(() => {
     if (user) {
       loadDocuments();
+      trackDocumentsPageViewed();
     }
   }, [user]);
 
@@ -63,6 +73,13 @@ export default function DocumentsPage() {
       const existingDoc = documents.find(d => d.documentType === documentType);
       const isReplacement = !!existingDoc;
       
+      // Track upload start
+      trackDocumentUploadStarted(documentType);
+      
+      if (isReplacement) {
+        trackDocumentReplaced(documentType);
+      }
+      
       // Create storage reference using document type as filename
       // Format: Userdocuments/{uid}/{documentType}-{uuid}.{extension}
       // This makes files easier to identify and organize for extraction
@@ -78,6 +95,7 @@ export default function DocumentsPage() {
         },
         (error) => {
           console.error('Upload error:', error);
+          trackDocumentUploadFailed(documentType, error.message || 'Unknown error');
           alert('Failed to upload file');
           setUploadingFiles(prev => {
             const newState = { ...prev };
@@ -88,6 +106,9 @@ export default function DocumentsPage() {
         async () => {
           // Upload completed
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          
+          // Track upload completion
+          trackDocumentUploadCompleted(documentType, file.size, file.type);
           
           let docRefId: string;
           const docsRef = collection(db, 'profiles', user.uid, 'documents');

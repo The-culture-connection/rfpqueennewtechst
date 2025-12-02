@@ -6,6 +6,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Opportunity } from '@/types';
+import { trackTrackerViewed, trackTrackerTabSwitched } from '@/lib/analytics';
 
 interface TrackedOpportunity extends Opportunity {
   savedAt?: string;
@@ -21,6 +22,11 @@ export default function TrackerPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'saved' | 'applied'>('saved');
 
+  const handleTabSwitch = (tab: 'saved' | 'applied') => {
+    setActiveTab(tab);
+    trackTrackerTabSwitched(tab);
+  };
+
   useEffect(() => {
     if (!user) {
       router.push('/login');
@@ -29,6 +35,13 @@ export default function TrackerPage() {
 
     loadTrackedOpportunities();
   }, [user, router]);
+
+  // Track tracker view when data is loaded
+  useEffect(() => {
+    if (!loading && user) {
+      trackTrackerViewed(activeTab, displayedOpps.length);
+    }
+  }, [loading, activeTab, displayedOpps.length, user]);
 
   const loadTrackedOpportunities = async () => {
     if (!user) return;
@@ -132,7 +145,7 @@ export default function TrackerPage() {
           <div className="border-b border-gray-200">
             <nav className="flex -mb-px">
               <button
-                onClick={() => setActiveTab('saved')}
+                onClick={() => handleTabSwitch('saved')}
                 className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === 'saved'
                     ? 'border-yellow-500 text-yellow-600'
@@ -142,7 +155,7 @@ export default function TrackerPage() {
                 Saved ({savedOpps.length})
               </button>
               <button
-                onClick={() => setActiveTab('applied')}
+                onClick={() => handleTabSwitch('applied')}
                 className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === 'applied'
                     ? 'border-green-500 text-green-600'
