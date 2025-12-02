@@ -25,6 +25,7 @@ interface BusinessProfile {
   problemStatementExamples: string[];
   proposedSolutionExamples: string[];
   outcomesImpact: string[];
+  keywords?: string[];
   lastUpdated?: string;
 }
 
@@ -37,6 +38,7 @@ export default function ProfilePage() {
   const [interests, setInterests] = useState<Interest[]>([]);
   const [entityName, setEntityName] = useState('');
   const [entityType, setEntityType] = useState('');
+  const [keywords, setKeywords] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingBusiness, setLoadingBusiness] = useState(true);
   const [activeSection, setActiveSection] = useState<string | null>(null);
@@ -55,6 +57,7 @@ export default function ProfilePage() {
     problemStatementExamples: [],
     proposedSolutionExamples: [],
     outcomesImpact: [],
+    keywords: [],
   });
 
   // Load current profile data
@@ -65,6 +68,7 @@ export default function ProfilePage() {
       setInterests(userProfile.interestsMain || []);
       setEntityName(userProfile.entityName || '');
       setEntityType(userProfile.entityType || '');
+      setKeywords(userProfile.keywords || []);
     }
   }, [userProfile]);
 
@@ -100,8 +104,18 @@ export default function ProfilePage() {
           problemStatementExamples: data.problemStatementExamples || [],
           proposedSolutionExamples: data.proposedSolutionExamples || [],
           outcomesImpact: data.outcomesImpact || [],
+          keywords: data.keywords || [],
           lastUpdated: data.lastUpdated,
         });
+        
+        // Load keywords from business profile and merge with user profile keywords
+        const allKeywords = [
+          ...(userProfile?.keywords || []),
+          ...(data.keywords || [])
+        ];
+        // Deduplicate
+        const uniqueKeywords = [...new Set(allKeywords.map(k => k.toLowerCase().trim()).filter(k => k.length > 0))];
+        setKeywords(uniqueKeywords);
       }
     } catch (error) {
       console.error('Error loading business profile:', error);
@@ -133,14 +147,16 @@ export default function ProfilePage() {
         grantsByInterest: interests,
         entityName: entityName,
         entityType: entityType,
+        keywords: keywords,
         updatedAt: new Date(),
       } as any);
 
-      // Save business profile (AI-extracted fields)
+      // Save business profile (AI-extracted fields) - also update keywords
       if (user && db) {
         const businessProfileRef = doc(db, 'profiles', user.uid, 'businessProfile', 'master');
         await setDoc(businessProfileRef, {
           ...businessProfile,
+          keywords: keywords, // Sync keywords to business profile too
           lastUpdated: new Date().toISOString(),
         }, { merge: true });
       }
@@ -218,12 +234,12 @@ export default function ProfilePage() {
       <div className="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         <div className="space-y-6">
           {/* Funding Types Section */}
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="bg-[#1d1d1e] border border-[#ff16a9]/30 rounded-lg p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Funding Types</h2>
+              <h2 className="text-xl font-primary text-[#ff16a9]">Funding Types</h2>
               <button
                 onClick={() => setActiveSection(activeSection === 'funding' ? null : 'funding')}
-                className="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
+                className="text-[#ff16a9] hover:text-[#ff16a9]/80 text-sm font-secondary"
               >
                 {activeSection === 'funding' ? 'Collapse' : 'Edit'}
               </button>
@@ -236,7 +252,7 @@ export default function ProfilePage() {
             ) : (
               <div className="flex gap-2 flex-wrap">
                 {fundingTypes.map(type => (
-                  <span key={type} className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm">
+                  <span key={type} className="px-3 py-1 bg-[#ff16a9]/20 text-[#ff16a9] rounded-full text-sm font-secondary border border-[#ff16a9]/30">
                     {type}
                   </span>
                 ))}
@@ -245,12 +261,12 @@ export default function ProfilePage() {
           </div>
 
           {/* Timeline Section */}
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="bg-[#1d1d1e] border border-[#ff16a9]/30 rounded-lg p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Timeline</h2>
+              <h2 className="text-xl font-primary text-[#ff16a9]">Timeline</h2>
               <button
                 onClick={() => setActiveSection(activeSection === 'timeline' ? null : 'timeline')}
-                className="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
+                className="text-[#ff16a9] hover:text-[#ff16a9]/80 text-sm font-secondary"
               >
                 {activeSection === 'timeline' ? 'Collapse' : 'Edit'}
               </button>
@@ -261,17 +277,17 @@ export default function ProfilePage() {
                 onChange={setTimeline}
               />
             ) : (
-              <p className="text-gray-700">{timeline}</p>
+              <p className="font-secondary text-[#e7e8ef]">{timeline}</p>
             )}
           </div>
 
           {/* Interests Section */}
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="bg-[#1d1d1e] border border-[#ff16a9]/30 rounded-lg p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Areas of Interest</h2>
+              <h2 className="text-xl font-primary text-[#ff16a9]">Areas of Interest</h2>
               <button
                 onClick={() => setActiveSection(activeSection === 'interests' ? null : 'interests')}
-                className="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
+                className="text-[#ff16a9] hover:text-[#ff16a9]/80 text-sm font-secondary"
               >
                 {activeSection === 'interests' ? 'Collapse' : 'Edit'}
               </button>
@@ -284,7 +300,7 @@ export default function ProfilePage() {
             ) : (
               <div className="flex gap-2 flex-wrap">
                 {interests.map(interest => (
-                  <span key={interest} className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm">
+                  <span key={interest} className="px-3 py-1 bg-[#ff16a9]/20 text-[#ff16a9] rounded-full text-sm font-secondary border border-[#ff16a9]/30">
                     {interest}
                   </span>
                 ))}
@@ -293,12 +309,12 @@ export default function ProfilePage() {
           </div>
 
           {/* Entity Information Section */}
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="bg-[#1d1d1e] border border-[#ff16a9]/30 rounded-lg p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Organization Information</h2>
+              <h2 className="text-xl font-primary text-[#ff16a9]">Organization Information</h2>
               <button
                 onClick={() => setActiveSection(activeSection === 'entity' ? null : 'entity')}
-                className="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
+                className="text-[#ff16a9] hover:text-[#ff16a9]/80 text-sm font-secondary"
               >
                 {activeSection === 'entity' ? 'Collapse' : 'Edit'}
               </button>
@@ -312,32 +328,119 @@ export default function ProfilePage() {
               />
             ) : (
               <div>
-                <p className="text-gray-700 font-medium">{entityName}</p>
-                <p className="text-gray-600 text-sm capitalize">{entityType}</p>
+                <p className="font-secondary text-[#e7e8ef] font-medium">{entityName}</p>
+                <p className="font-secondary text-[#e7e8ef]/80 text-sm capitalize">{entityType}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Keywords Section */}
+          <div className="bg-[#1d1d1e] border border-[#ff16a9]/30 rounded-lg p-6">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h2 className="text-xl font-primary text-[#ff16a9]">Keywords</h2>
+                <p className="text-sm font-secondary text-[#e7e8ef]/80 mt-1">
+                  Keywords extracted from your documents or manually added. These help refine your opportunity matches.
+                </p>
+              </div>
+              <button
+                onClick={() => setActiveSection(activeSection === 'keywords' ? null : 'keywords')}
+                className="text-[#ff16a9] hover:text-[#ff16a9]/80 text-sm font-secondary"
+              >
+                {activeSection === 'keywords' ? 'Collapse' : 'Edit'}
+              </button>
+            </div>
+            {activeSection === 'keywords' ? (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  {keywords.map((keyword, index) => (
+                    <div key={index} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={keyword}
+                        onChange={(e) => {
+                          const updated = [...keywords];
+                          updated[index] = e.target.value;
+                          setKeywords(updated);
+                        }}
+                        className="flex-1 px-3 py-2 bg-[#1d1d1e] border border-[#ff16a9]/30 rounded-lg font-secondary text-[#e7e8ef] placeholder-[#e7e8ef]/50 focus:outline-none focus:ring-2 focus:ring-[#ff16a9] focus:border-transparent"
+                        placeholder="Enter keyword..."
+                      />
+                      <button
+                        onClick={() => setKeywords(keywords.filter((_, i) => i !== index))}
+                        className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-all font-secondary"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setKeywords([...keywords, ''])}
+                  className="w-full px-4 py-2 bg-[#ff16a9] text-white rounded-lg hover:bg-[#ff16a9]/80 transition-all font-secondary"
+                >
+                  + Add Keyword
+                </button>
+                {businessProfile.keywords && businessProfile.keywords.length > 0 && (
+                  <div className="mt-4 p-3 bg-[#1d1d1e] border border-[#ff16a9]/20 rounded-lg">
+                    <p className="text-sm font-secondary text-[#e7e8ef]/80 mb-2">
+                      Keywords from documents (click to add):
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {businessProfile.keywords
+                        .filter(k => !keywords.includes(k))
+                        .map((keyword, index) => (
+                          <button
+                            key={index}
+                            onClick={() => {
+                              if (!keywords.includes(keyword)) {
+                                setKeywords([...keywords, keyword]);
+                              }
+                            }}
+                            className="px-3 py-1 bg-[#ff16a9]/20 text-[#ff16a9] rounded-full text-sm font-secondary hover:bg-[#ff16a9]/30 transition-all border border-[#ff16a9]/30"
+                          >
+                            + {keyword}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex gap-2 flex-wrap">
+                {keywords.length > 0 ? (
+                  keywords.map((keyword, index) => (
+                    <span key={index} className="px-3 py-1 bg-[#ff16a9]/20 text-[#ff16a9] rounded-full text-sm font-secondary border border-[#ff16a9]/30">
+                      {keyword}
+                    </span>
+                  ))
+                ) : (
+                  <p className="font-secondary text-[#e7e8ef]/60 italic">No keywords added yet</p>
+                )}
               </div>
             )}
           </div>
 
           {/* AI-Extracted Business Profile Section */}
-          <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg shadow-md p-6 border-2 border-purple-200">
+          <div className="bg-[#1d1d1e] border border-[#ff16a9]/30 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <h2 className="text-xl font-primary text-[#ff16a9] flex items-center gap-2">
                   <span className="text-2xl">🤖</span>
                   AI-Extracted Business Information
                 </h2>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-sm font-secondary text-[#e7e8ef]/80 mt-1">
                   Information automatically extracted from your uploaded documents. Edit as needed.
                 </p>
                 {businessProfile.lastUpdated && (
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs font-secondary text-[#e7e8ef]/60 mt-1">
                     Last updated: {new Date(businessProfile.lastUpdated).toLocaleDateString()}
                   </p>
                 )}
               </div>
               <button
                 onClick={() => setActiveSection(activeSection === 'business' ? null : 'business')}
-                className="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
+                className="text-[#ff16a9] hover:text-[#ff16a9]/80 text-sm font-secondary"
               >
                 {activeSection === 'business' ? 'Collapse' : 'Edit'}
               </button>
@@ -345,8 +448,8 @@ export default function ProfilePage() {
 
             {loadingBusiness ? (
               <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-                <p className="text-gray-600 mt-2 text-sm">Loading business profile...</p>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#ff16a9] mx-auto"></div>
+                <p className="font-secondary text-[#e7e8ef]/80 mt-2 text-sm">Loading business profile...</p>
               </div>
             ) : activeSection === 'business' ? (
               <div className="space-y-6">
@@ -680,14 +783,14 @@ export default function ProfilePage() {
           <div className="flex justify-end gap-3">
             <button
               onClick={() => router.push('/dashboard')}
-              className="px-6 py-3 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+              className="px-6 py-3 bg-[#1d1d1e] text-[#e7e8ef] rounded-lg hover:bg-[#1d1d1e]/80 transition-all border border-[#ff16a9]/30 font-secondary"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
               disabled={loading}
-              className="px-6 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-6 py-3 bg-[#ff16a9] text-white rounded-lg hover:bg-[#ff16a9]/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-secondary"
             >
               {loading ? 'Saving...' : 'Save Changes'}
             </button>

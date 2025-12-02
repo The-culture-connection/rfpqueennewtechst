@@ -24,6 +24,7 @@ export interface UserProfile {
   timeline: Timeline;
   interestsMain: Interest[];
   grantsByInterest: Interest[];
+  keywords?: string[]; // Keywords extracted from documents or manually added
   createdAt: Date;
   updatedAt: Date;
 }

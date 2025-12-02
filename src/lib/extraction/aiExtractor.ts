@@ -31,6 +31,7 @@ export interface AIExtractedFields {
   problemStatement?: string | null;
   proposedSolution?: string | null;
   outcomesImpact?: string[] | null;
+  keywords?: string[] | null;
 }
 
 /**
@@ -97,7 +98,8 @@ Return JSON exactly in this format:
   "certifications": string[]|null,
   "problemStatement": string|null,
   "proposedSolution": string|null,
-  "outcomesImpact": string[]|null
+  "outcomesImpact": string[]|null,
+  "keywords": string[]|null
 }
 
 Field definitions:
@@ -113,6 +115,7 @@ Field definitions:
 - problemStatement: For grants/proposals - what problem is being addressed
 - proposedSolution: For grants/proposals - what solution is being proposed
 - outcomesImpact: Array of outcomes, impact metrics, or success stories
+- keywords: Array of relevant keywords, terms, or phrases that describe the organization's focus areas, expertise, industries, technologies, methodologies, or specializations. Extract 10-20 most important keywords that would help match this organization with relevant opportunities. Examples: "machine learning", "sustainable energy", "community health", "urban planning", "STEM education", etc.
 
 `;
 

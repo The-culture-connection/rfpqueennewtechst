@@ -5,10 +5,10 @@ export function calculateWinRate(opportunity: Opportunity, profile: UserProfile)
   let score = 0;
   let maxScore = 0;
 
-  // 1. Funding Type Match (30 points)
-  maxScore += 30;
+  // 1. Funding Type Match (25 points)
+  maxScore += 25;
   if (matchesFundingType(opportunity, profile.fundingType)) {
-    score += 30;
+    score += 25;
   }
 
   // 2. Entity Type Match (15 points)
@@ -17,15 +17,20 @@ export function calculateWinRate(opportunity: Opportunity, profile: UserProfile)
     score += 15;
   }
 
-  // 3. Interest/Category Match (35 points)
-  maxScore += 35;
+  // 3. Interest/Category Match (30 points)
+  maxScore += 30;
   const interestScore = matchesInterests(opportunity, profile.interestsMain, profile.grantsByInterest);
   score += interestScore;
 
-  // 4. Timeline Match (20 points)
-  maxScore += 20;
+  // 4. Timeline Match (15 points)
+  maxScore += 15;
   const timelineScore = matchesTimeline(opportunity, profile.timeline);
   score += timelineScore;
+
+  // 5. Keywords Match (15 points) - NEW
+  maxScore += 15;
+  const keywordsScore = matchesKeywords(opportunity, profile.keywords || []);
+  score += keywordsScore;
 
   // Calculate percentage
   const winRate = Math.round((score / maxScore) * 100);
@@ -120,7 +125,35 @@ function matchesInterests(
   return Math.round(matchRatio * 35);
 }
 
-// Calculate timeline match score (0-20 points)
+// Calculate keywords match score (0-15 points)
+function matchesKeywords(opportunity: Opportunity, keywords: string[]): number {
+  if (keywords.length === 0) return 7; // Neutral score if no keywords
+  
+  const desc = (opportunity.description || '').toLowerCase();
+  const title = (opportunity.title || '').toLowerCase();
+  const category = (opportunity.category || '').toLowerCase();
+  const agency = (opportunity.agency || '').toLowerCase();
+  const combined = `${title} ${desc} ${category} ${agency}`;
+  
+  let matchedKeywords = 0;
+  
+  for (const keyword of keywords) {
+    const keywordLower = keyword.toLowerCase().trim();
+    if (keywordLower.length > 0 && combined.includes(keywordLower)) {
+      matchedKeywords++;
+    }
+  }
+  
+  // Score proportional to matched keywords (up to 15 points)
+  // If 50%+ keywords match, give full score
+  const matchRatio = matchedKeywords / keywords.length;
+  if (matchRatio >= 0.5) return 15;
+  if (matchRatio >= 0.3) return 10;
+  if (matchRatio >= 0.1) return 5;
+  return 0;
+}
+
+// Calculate timeline match score (0-15 points)
 function matchesTimeline(opportunity: Opportunity, timeline: Timeline): number {
   const deadline = opportunity.closeDate || opportunity.deadline;
   if (!deadline) return 10; // Give neutral score if no deadline
@@ -137,29 +170,29 @@ function matchesTimeline(opportunity: Opportunity, timeline: Timeline): number {
     switch (timeline) {
       case 'immediate':
         // 0-30 days: full score, 31-60 days: partial score
-        if (daysUntil <= 30) return 20;
-        if (daysUntil <= 60) return 10;
-        return 5;
+        if (daysUntil <= 30) return 15;
+        if (daysUntil <= 60) return 8;
+        return 3;
         
       case '3-months':
         // 0-90 days: full score
-        if (daysUntil <= 90) return 20;
-        if (daysUntil <= 120) return 10;
-        return 5;
+        if (daysUntil <= 90) return 15;
+        if (daysUntil <= 120) return 8;
+        return 3;
         
       case '6-months':
         // 0-180 days: full score
-        if (daysUntil <= 180) return 20;
-        if (daysUntil <= 240) return 10;
-        return 5;
+        if (daysUntil <= 180) return 15;
+        if (daysUntil <= 240) return 8;
+        return 3;
         
       case '12-months':
         // 0-365 days: full score
-        if (daysUntil <= 365) return 20;
-        return 10;
+        if (daysUntil <= 365) return 15;
+        return 8;
         
       default:
-        return 10;
+        return 7;
     }
   } catch {
     return 10; // Neutral score if date parsing fails

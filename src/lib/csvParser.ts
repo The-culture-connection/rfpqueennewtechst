@@ -212,7 +212,7 @@ export function normalizeOpportunity(row: Record<string, string>, source: string
       cleanedRfpNumber = ''; // If we can't parse it, just use empty
     }
   }
-
+  
   return {
     id: `${source}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     source,

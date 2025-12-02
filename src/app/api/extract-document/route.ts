@@ -41,6 +41,7 @@ async function mergeProfileFragments(userId: string) {
     problemStatementExamples: [],
     proposedSolutionExamples: [],
     outcomesImpact: [],
+    keywords: [],
     lastUpdated: new Date().toISOString(),
   };
   
@@ -84,11 +85,16 @@ async function mergeProfileFragments(userId: string) {
     if (fragment.outcomesImpact) {
       mergedProfile.outcomesImpact.push(...fragment.outcomesImpact);
     }
+    if (fragment.keywords) {
+      mergedProfile.keywords.push(...fragment.keywords);
+    }
   });
   
   // Deduplicate arrays (simple string comparison)
   mergedProfile.servicesCapabilities = [...new Set(mergedProfile.servicesCapabilities)];
   mergedProfile.certifications = [...new Set(mergedProfile.certifications)];
+  // Deduplicate keywords case-insensitively
+  mergedProfile.keywords = [...new Set(mergedProfile.keywords.map((k: string) => k.toLowerCase().trim()).filter((k: string) => k.length > 0))];
   
   // Store merged profile
   await db
