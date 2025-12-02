@@ -27,6 +27,9 @@ export default function TrackerPage() {
     trackTrackerTabSwitched(tab);
   };
 
+  // Calculate displayed opportunities based on active tab
+  const displayedOpps = activeTab === 'saved' ? savedOpps : appliedOpps;
+
   useEffect(() => {
     if (!user) {
       router.push('/login');
@@ -93,8 +96,6 @@ export default function TrackerPage() {
       </div>
     );
   }
-
-  const displayedOpps = activeTab === 'saved' ? savedOpps : appliedOpps;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
