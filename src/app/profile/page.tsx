@@ -78,6 +78,8 @@ export default function ProfilePage() {
   const loadBusinessProfile = async () => {
     if (!user) return;
     
+    if (!db) return;
+    
     setLoadingBusiness(true);
     try {
       const businessProfileRef = doc(db, 'profiles', user.uid, 'businessProfile', 'master');
@@ -135,7 +137,7 @@ export default function ProfilePage() {
       } as any);
 
       // Save business profile (AI-extracted fields)
-      if (user) {
+      if (user && db) {
         const businessProfileRef = doc(db, 'profiles', user.uid, 'businessProfile', 'master');
         await setDoc(businessProfileRef, {
           ...businessProfile,

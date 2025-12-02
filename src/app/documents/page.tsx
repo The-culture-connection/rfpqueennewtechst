@@ -42,7 +42,7 @@ export default function DocumentsPage() {
   }, [user]);
 
   const loadDocuments = async () => {
-    if (!user) return;
+    if (!user || !db) return;
 
     try {
       // Documents are now nested under: profiles/{userId}/documents
@@ -62,7 +62,7 @@ export default function DocumentsPage() {
   };
 
   const handleFileUpload = async (documentType: DocumentType, file: File) => {
-    if (!user) return;
+    if (!user || !storage) return;
 
     const fileId = uuidv4(); // Unique ID
     const fileExtension = file.name.split('.').pop() || 'pdf';
@@ -109,6 +109,11 @@ export default function DocumentsPage() {
           
           // Track upload completion
           trackDocumentUploadCompleted(documentType, file.size, file.type);
+          
+          if (!db) {
+            alert('Database not available');
+            return;
+          }
           
           let docRefId: string;
           const docsRef = collection(db, 'profiles', user.uid, 'documents');

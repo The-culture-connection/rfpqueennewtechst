@@ -47,7 +47,7 @@ export default function TrackerPage() {
   }, [loading, activeTab, displayedOpps.length, user]);
 
   const loadTrackedOpportunities = async () => {
-    if (!user) return;
+    if (!user || !db) return;
 
     setLoading(true);
     try {

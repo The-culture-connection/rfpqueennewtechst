@@ -62,7 +62,7 @@ export default function DashboardPage() {
   // Load saved progress when opportunities are ready
   useEffect(() => {
     async function loadProgress() {
-      if (!user || !opportunities.length || progressLoaded) return;
+      if (!user || !opportunities.length || progressLoaded || !db) return;
 
       try {
         const progressRef = doc(db, 'profiles', user.uid, 'dashboard', 'progress');
@@ -115,6 +115,8 @@ export default function DashboardPage() {
         !!(currentOpportunity.closeDate || currentOpportunity.deadline)
       );
 
+      if (!db) return;
+      
       try {
         const progressRef = doc(db, 'profiles', user.uid, 'dashboard', 'progress');
         await setDoc(progressRef, {
@@ -167,7 +169,7 @@ export default function DashboardPage() {
 
   // Reset progress and start over
   const handleStartOver = async () => {
-    if (!user) return;
+    if (!user || !db) return;
     
     if (confirm('Are you sure you want to start over? This will reset your progress.')) {
       try {
@@ -209,7 +211,7 @@ export default function DashboardPage() {
   };
 
   const handleSave = async (id: string) => {
-    if (!user) return;
+    if (!user || !db) return;
     
     setActionLoading(true);
     try {
@@ -268,6 +270,8 @@ export default function DashboardPage() {
     if (opportunity.url) {
       window.open(opportunity.url, '_blank', 'noopener,noreferrer');
     }
+    
+    if (!db) return;
     
     setActionLoading(true);
     try {
