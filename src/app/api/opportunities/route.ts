@@ -70,7 +70,7 @@ export async function GET(request: Request) {
       });
     }
     
-    const limit = parseInt(searchParams.get('limit') || '1000'); // Default to 1000 to prevent memory issues
+    const limit = parseInt(searchParams.get('limit') || '5000'); // Default to 5000
     const hasDeadline = searchParams.get('hasDeadline') === 'true';
     const fundingTypes = searchParams.get('fundingTypes')?.split(',') || []; // e.g., "grants,rfps"
     console.log('[API] Request params:', { limit, hasDeadline, fundingTypes });
@@ -251,7 +251,6 @@ export async function GET(request: Request) {
     const allOpportunities = [];
     let totalProcessed = 0;
     
-    // Process files one at a time to reduce memory pressure
     for (const file of csvFiles) {
       try {
         console.log(`[API] Processing file: ${file.name}`);
@@ -295,6 +294,13 @@ export async function GET(request: Request) {
         try {
           rows = parseCSV(csvContent);
           console.log(`[API] Parsed ${rows.length} rows from ${fileName}`);
+          
+          // Debug: Log column names from first row to understand CSV structure
+          if (rows.length > 0) {
+            const firstRowKeys = Object.keys(rows[0]);
+            console.log(`[DEBUG] ${fileName} - Column names (first 10):`, firstRowKeys.slice(0, 10).join(', '));
+            console.log(`[DEBUG] ${fileName} - Total columns:`, firstRowKeys.length);
+          }
         } catch (parseError: any) {
           console.error(`[ERROR] Failed to parse CSV from ${fileName}:`, parseError);
           throw new Error(`CSV parsing error in ${fileName}: ${parseError?.message || 'Invalid CSV format'}`);
@@ -306,17 +312,32 @@ export async function GET(request: Request) {
         }
         
         // Normalize each row
+        let skippedNoTitle = 0;
+        let skippedPastDeadline = 0;
+        let skippedNoDeadline = 0;
+        let addedCount = 0;
+        
         for (const row of rows) {
           try {
             const opportunity = normalizeOpportunity(row, source);
             
             // Only add if it has a title
             if (!opportunity.title || opportunity.title.trim().length === 0) {
+              skippedNoTitle++;
+              // Log first few skipped rows to debug
+              if (skippedNoTitle <= 3) {
+                console.log(`[DEBUG] Skipped row (no title) in ${fileName}. Row keys:`, Object.keys(row));
+                console.log(`[DEBUG] Sample row data:`, Object.keys(row).slice(0, 5).reduce((acc, key) => {
+                  acc[key] = row[key]?.substring(0, 50) || '';
+                  return acc;
+                }, {} as Record<string, string>));
+              }
               continue;
             }
             
             // Filter: only include opportunities with deadlines if requested
             if (hasDeadline && !opportunity.closeDate && !opportunity.deadline) {
+              skippedNoDeadline++;
               continue;
             }
             
@@ -326,6 +347,7 @@ export async function GET(request: Request) {
                 const deadlineDate = new Date(opportunity.closeDate || opportunity.deadline || '');
                 const today = new Date();
                 if (deadlineDate < today) {
+                  skippedPastDeadline++;
                   continue; // Skip past deadlines
                 }
               } catch {
@@ -335,6 +357,7 @@ export async function GET(request: Request) {
             
             allOpportunities.push(opportunity);
             totalProcessed++;
+            addedCount++;
             
             // Stop if we've reached the limit
             if (totalProcessed >= limit) {
@@ -346,17 +369,11 @@ export async function GET(request: Request) {
           }
         }
         
+        console.log(`[DEBUG] ${fileName} - Added: ${addedCount}, Skipped (no title): ${skippedNoTitle}, Skipped (past deadline): ${skippedPastDeadline}, Skipped (no deadline): ${skippedNoDeadline}`);
+        
         // Stop processing files if we've reached the limit
         if (totalProcessed >= limit) {
           break;
-        }
-        
-        // Explicitly clear csvContent to free memory
-        csvContent = null as any;
-        
-        // Suggest garbage collection (hint only, not guaranteed)
-        if (global.gc) {
-          global.gc();
         }
       } catch (err: any) {
         const fileName = file.name.replace(/^exports\//, '').replace(/^\//, '');
