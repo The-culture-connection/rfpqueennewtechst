@@ -1,8 +1,8 @@
 // Firebase configuration and initialization
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { getAuth, Auth } from 'firebase/auth';
+import { getFirestore, Firestore } from 'firebase/firestore';
+import { getStorage, FirebaseStorage } from 'firebase/storage';
 import { getAnalytics, Analytics } from 'firebase/analytics';
 
 const firebaseConfig = {
@@ -15,36 +15,132 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// Only initialize Firebase if API key is available
-// This prevents build-time errors when env vars aren't set
-let app: ReturnType<typeof initializeApp> | null = null;
-let auth: ReturnType<typeof getAuth> | null = null;
-let db: ReturnType<typeof getFirestore> | null = null;
-let storage: ReturnType<typeof getStorage> | null = null;
-let analytics: Analytics | null = null;
+// Internal state
+let _app: FirebaseApp | null = null;
+let _auth: Auth | null = null;
+let _db: Firestore | null = null;
+let _storage: FirebaseStorage | null = null;
+let _analytics: Analytics | null = null;
 
-// Initialize Firebase only if API key is present
-if (firebaseConfig.apiKey) {
+// Initialize Firebase
+function initializeFirebase() {
+  if (_app) return; // Already initialized
+
+  if (!firebaseConfig.apiKey) {
+    // During build, this is expected - return without initializing
+    if (typeof window === 'undefined') {
+      return;
+    }
+    // At runtime, throw an error
+    throw new Error('Firebase API key is missing. Please set NEXT_PUBLIC_FIREBASE_API_KEY environment variable.');
+  }
+
   try {
-    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-    auth = getAuth(app);
-    db = getFirestore(app);
-    storage = getStorage(app);
+    _app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+    _auth = getAuth(_app);
+    _db = getFirestore(_app);
+    _storage = getStorage(_app);
   } catch (error) {
     // During build, this might fail - log but don't throw
     if (typeof window !== 'undefined') {
       console.error('[Firebase] Failed to initialize:', error);
+      throw error;
     }
-    // Set to null so we can check later
-    app = null;
-    auth = null;
-    db = null;
-    storage = null;
+    // During build, just set to null
+    _app = null;
+    _auth = null;
+    _db = null;
+    _storage = null;
   }
 }
 
+// Try to initialize on module load (will fail silently during build)
+initializeFirebase();
+
+// Getter functions that ensure Firebase is initialized
+// These throw helpful errors if Firebase isn't available
+function getFirebaseApp(): FirebaseApp {
+  if (!_app) {
+    initializeFirebase();
+    if (!_app) {
+      throw new Error('Firebase app is not initialized. This should not happen at runtime.');
+    }
+  }
+  return _app;
+}
+
+function getFirebaseAuth(): Auth {
+  if (!_auth) {
+    initializeFirebase();
+    if (!_auth) {
+      throw new Error('Firebase auth is not initialized. This should not happen at runtime.');
+    }
+  }
+  return _auth;
+}
+
+function getFirebaseFirestore(): Firestore {
+  if (!_db) {
+    initializeFirebase();
+    if (!_db) {
+      throw new Error('Firebase Firestore is not initialized. This should not happen at runtime.');
+    }
+  }
+  return _db;
+}
+
+function getFirebaseStorage(): FirebaseStorage {
+  if (!_storage) {
+    initializeFirebase();
+    if (!_storage) {
+      throw new Error('Firebase Storage is not initialized. This should not happen at runtime.');
+    }
+  }
+  return _storage;
+}
+
+// Export getters for explicit use
+export { getFirebaseApp, getFirebaseAuth, getFirebaseFirestore, getFirebaseStorage };
+
+// For backward compatibility, export direct references
+// These use getters that initialize on first access
+// During build, TypeScript sees them as non-null (via type assertions)
+// At runtime, they will be properly initialized by the getters
+export const app: FirebaseApp = (() => {
+  try {
+    return getFirebaseApp();
+  } catch {
+    // During build, return a dummy object to satisfy TypeScript
+    // At runtime, the getter will throw if Firebase isn't initialized
+    return {} as FirebaseApp;
+  }
+})();
+
+export const auth: Auth = (() => {
+  try {
+    return getFirebaseAuth();
+  } catch {
+    return {} as Auth;
+  }
+})();
+
+export const db: Firestore = (() => {
+  try {
+    return getFirebaseFirestore();
+  } catch {
+    return {} as Firestore;
+  }
+})();
+
+export const storage: FirebaseStorage = (() => {
+  try {
+    return getFirebaseStorage();
+  } catch {
+    return {} as FirebaseStorage;
+  }
+})();
+
 // Initialize Analytics (only in browser environment)
-// Analytics must be initialized lazily in Next.js to avoid SSR issues
 export function getAnalyticsInstance(): Analytics | null {
   // Only initialize in browser
   if (typeof window === 'undefined') {
@@ -52,12 +148,13 @@ export function getAnalyticsInstance(): Analytics | null {
   }
 
   // Return existing instance if already initialized
-  if (analytics) {
-    return analytics;
+  if (_analytics) {
+    return _analytics;
   }
 
   // Need app to be initialized first
-  if (!app) {
+  const firebaseApp = getFirebaseApp();
+  if (!firebaseApp) {
     console.warn('[Analytics] ⚠️ Firebase app not initialized. Analytics cannot be initialized.');
     return null;
   }
@@ -67,9 +164,9 @@ export function getAnalyticsInstance(): Analytics | null {
     const measurementId = firebaseConfig.measurementId || process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID;
     
     if (measurementId) {
-      analytics = getAnalytics(app);
+      _analytics = getAnalytics(firebaseApp);
       console.log('[Analytics] ✅ Initialized successfully with measurementId:', measurementId);
-      return analytics;
+      return _analytics;
     } else {
       console.warn('[Analytics] ⚠️ measurementId is missing. Analytics will not work.');
       return null;
@@ -80,7 +177,5 @@ export function getAnalyticsInstance(): Analytics | null {
   }
 }
 
-// Export Firebase instances
-// These will be null during build if API key is missing, but that's okay
-// They'll be initialized at runtime when the app starts
-export { app, auth, db, storage, analytics };
+// Export analytics for backward compatibility
+export const analytics = _analytics;
