@@ -15,6 +15,7 @@ import {
   trackOpportunityApplied,
   trackDashboardStartOver,
 } from '@/lib/analytics';
+import { FeedbackForm } from '@/components/FeedbackForm';
 
 export default function DashboardPage() {
   const { user, userProfile } = useAuth();
@@ -138,10 +139,10 @@ export default function DashboardPage() {
 
   if (loading || !userProfile) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-pink-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-700">Loading opportunities...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto mb-4"></div>
+          <p className="text-pink-200">Loading opportunities...</p>
         </div>
       </div>
     );
@@ -149,12 +150,12 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-pink-900 flex items-center justify-center">
         <div className="text-center max-w-md">
-          <p className="text-red-600 mb-4">{error}</p>
+          <p className="text-red-400 mb-4">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+            className="px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-lg hover:from-pink-600 hover:to-purple-600 transition-all"
           >
             Retry
           </button>
@@ -318,48 +319,48 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-pink-900">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="bg-gray-900/80 backdrop-blur-lg border-b border-pink-500/20 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">RFP Matcher</h1>
-              <p className="text-sm text-gray-600 mt-1">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">RFP Matcher ✨</h1>
+              <p className="text-sm text-pink-200/80 mt-1">
                 Welcome back, {userProfile.entityName}!
               </p>
             </div>
             <div className="flex gap-3 flex-wrap">
               <button
                 onClick={() => router.push('/tracker')}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+                className="px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-lg hover:from-pink-600 hover:to-purple-600 transition-all shadow-lg shadow-pink-500/50"
               >
                 My Tracker
               </button>
               <button
                 onClick={() => router.push('/documents')}
-                className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+                className="px-4 py-2 bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white rounded-lg hover:from-purple-600 hover:to-fuchsia-600 transition-all shadow-lg shadow-purple-500/50"
                 title="Upload and manage your documents"
               >
                 Documents
               </button>
               <button
                 onClick={() => router.push('/profile')}
-                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                className="px-4 py-2 bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white rounded-lg hover:from-fuchsia-600 hover:to-pink-600 transition-all shadow-lg shadow-fuchsia-500/50"
                 title="Edit your profile and preferences"
               >
                 Edit Profile
               </button>
               <button
                 onClick={handleStartOver}
-                className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors"
+                className="px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-lg hover:from-yellow-600 hover:to-orange-600 transition-all shadow-lg shadow-yellow-500/50"
                 title="Reset progress and start from beginning"
               >
                 Start Over
               </button>
               <button
                 onClick={() => router.push('/')}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                className="px-4 py-2 bg-gray-800 text-gray-200 rounded-lg hover:bg-gray-700 transition-all border border-gray-700"
               >
                 Logout
               </button>
@@ -370,13 +371,21 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        {/* Feedback Form */}
+        <FeedbackForm
+          questions={[
+            'Do the opportunities shown to you apply to you?',
+            'Is there any information about the opportunities you wish was included?'
+          ]}
+          page="dashboard"
+        />
         {/* Resume indicator */}
         {currentIndex > 0 && progressLoaded && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 flex items-center gap-2">
-            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-pink-500/20 border border-pink-400/30 rounded-lg p-3 mb-4 flex items-center gap-2 backdrop-blur-sm">
+            <svg className="w-5 h-5 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <p className="text-sm text-blue-800">
+            <p className="text-sm text-pink-200">
               Resumed from where you left off (Opportunity {currentIndex + 1})
             </p>
           </div>
@@ -384,17 +393,17 @@ export default function DashboardPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-sm text-gray-600">Total Matches</p>
-            <p className="text-2xl font-bold text-gray-900">{opportunities.length}</p>
+          <div className="bg-gray-800/50 backdrop-blur-lg border border-pink-400/20 rounded-lg shadow-lg shadow-pink-500/20 p-4">
+            <p className="text-sm text-pink-300/80">Total Matches</p>
+            <p className="text-2xl font-bold bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">{opportunities.length}</p>
           </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-sm text-gray-600">Remaining</p>
-            <p className="text-2xl font-bold text-gray-900">{availableOpportunities.length}</p>
+          <div className="bg-gray-800/50 backdrop-blur-lg border border-purple-400/20 rounded-lg shadow-lg shadow-purple-500/20 p-4">
+            <p className="text-sm text-purple-300/80">Remaining</p>
+            <p className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-fuchsia-400 bg-clip-text text-transparent">{availableOpportunities.length}</p>
           </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-sm text-gray-600">Passed</p>
-            <p className="text-2xl font-bold text-gray-900">{passedIds.length}</p>
+          <div className="bg-gray-800/50 backdrop-blur-lg border border-fuchsia-400/20 rounded-lg shadow-lg shadow-fuchsia-500/20 p-4">
+            <p className="text-sm text-fuchsia-300/80">Passed</p>
+            <p className="text-2xl font-bold bg-gradient-to-r from-fuchsia-400 to-pink-400 bg-clip-text text-transparent">{passedIds.length}</p>
           </div>
         </div>
 
@@ -402,8 +411,8 @@ export default function DashboardPage() {
         {currentOpportunity ? (
           <div className="relative">
             {actionLoading && (
-              <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-lg">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+              <div className="absolute inset-0 bg-gray-900/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500"></div>
               </div>
             )}
             <OpportunityCard
@@ -415,24 +424,24 @@ export default function DashboardPage() {
             
             {/* Navigation hint */}
             <div className="text-center mt-4">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-pink-200/80">
                 Showing {currentIndex + 1} of {availableOpportunities.length}
               </p>
             </div>
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow-md p-12 text-center">
-            <div className="text-6xl mb-4">🎉</div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          <div className="bg-gray-800/50 backdrop-blur-lg border border-pink-400/20 rounded-lg shadow-lg shadow-pink-500/20 p-12 text-center">
+            <div className="text-6xl mb-4">🎉✨</div>
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent mb-2">
               You've reviewed all opportunities!
             </h2>
-            <p className="text-gray-600 mb-6">
+            <p className="text-pink-200/80 mb-6">
               Check your tracker to see saved and applied opportunities.
             </p>
             <div className="flex gap-3 justify-center">
               <button
                 onClick={() => router.push('/tracker')}
-                className="px-6 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+                className="px-6 py-3 bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-lg hover:from-pink-600 hover:to-purple-600 transition-all shadow-lg shadow-pink-500/50"
               >
                 View Tracker
               </button>
@@ -441,7 +450,7 @@ export default function DashboardPage() {
                   setPassedIds([]);
                   setCurrentIndex(0);
                 }}
-                className="px-6 py-3 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                className="px-6 py-3 bg-gray-700 text-gray-200 rounded-lg hover:bg-gray-600 transition-all border border-gray-600"
               >
                 Review Again
               </button>
