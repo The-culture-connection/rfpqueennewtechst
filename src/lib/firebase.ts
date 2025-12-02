@@ -38,12 +38,17 @@ export function getAnalyticsInstance(): Analytics | null {
 
   // Initialize if measurementId is available
   try {
-    if (firebaseConfig.measurementId) {
+    const measurementId = firebaseConfig.measurementId || process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID;
+    
+    if (measurementId) {
       analytics = getAnalytics(app);
-      console.log('[Analytics] ✅ Initialized successfully with measurementId:', firebaseConfig.measurementId);
+      console.log('[Analytics] ✅ Initialized successfully with measurementId:', measurementId);
       return analytics;
     } else {
       console.warn('[Analytics] ⚠️ measurementId is missing. Analytics will not work.');
+      console.warn('[Analytics] ⚠️ Check that NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID is set in Railway environment variables.');
+      console.warn('[Analytics] ⚠️ firebaseConfig.measurementId:', firebaseConfig.measurementId);
+      console.warn('[Analytics] ⚠️ process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID:', process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID);
       return null;
     }
   } catch (error) {
@@ -52,13 +57,8 @@ export function getAnalyticsInstance(): Analytics | null {
   }
 }
 
-// Initialize analytics on first import in browser
-if (typeof window !== 'undefined') {
-  // Use a small delay to ensure window is fully ready
-  setTimeout(() => {
-    getAnalyticsInstance();
-  }, 0);
-}
+// Analytics will be initialized by AnalyticsInitializer component
+// This ensures it only runs client-side after React hydration
 
 export { app, auth, db, storage, analytics };
 
