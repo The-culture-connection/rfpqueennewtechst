@@ -146,83 +146,71 @@ function extractSmartSnippet(description: string, maxLength: number = 200): stri
 }
 
 /**
- * Generate in-depth opportunity summary with methodology
+ * Generate in-depth opportunity summary focused on interests and keywords
  */
 export function getInDepthSummary(
   opportunity: Opportunity,
   fitComponents?: { eligibilityFit: number; interestKeywordFit: number; structureFit: number; populationFit: number; amountFit: number; timingFit: number },
-  positiveKeywordMatches?: string[]
+  positiveKeywordMatches?: string[],
+  userProfile?: { interestsMain?: string[]; grantsByInterest?: string[]; keywords?: string[]; positiveKeywords?: string[]; negativeKeywords?: string[] } | null
 ): string {
   const parts: string[] = [];
   
-  // Match quality indicators
-  if (fitComponents) {
-    const avgFit = (
-      fitComponents.eligibilityFit +
-      fitComponents.interestKeywordFit +
-      fitComponents.structureFit +
-      fitComponents.populationFit +
-      fitComponents.amountFit +
-      fitComponents.timingFit
-    ) / 6;
-    
-    if (avgFit >= 0.8) {
-      parts.push('This opportunity shows exceptional alignment across all matching criteria.');
-    } else if (avgFit >= 0.6) {
-      parts.push('This opportunity demonstrates strong alignment with your profile.');
-    } else if (avgFit >= 0.4) {
-      parts.push('This opportunity shows moderate alignment with your profile.');
-    }
-    
-    // Specific strengths
-    const strengths: string[] = [];
-    if (fitComponents.eligibilityFit >= 0.9) {
-      strengths.push('perfect eligibility match');
-    }
-    if (fitComponents.interestKeywordFit >= 0.8) {
-      strengths.push('strong interest alignment');
-    }
-    if (fitComponents.timingFit >= 0.8) {
-      strengths.push('ideal timeline');
-    }
-    if (fitComponents.amountFit >= 0.8) {
-      strengths.push('funding amount matches your needs');
-    }
-    
-    if (strengths.length > 0) {
-      parts.push(`Key strengths: ${strengths.join(', ')}.`);
+  // Interest alignment
+  const interests = userProfile?.interestsMain || userProfile?.grantsByInterest || [];
+  if (interests.length > 0) {
+    const interestLabels: Record<string, string> = {
+      'arts': 'arts and culture',
+      'social-services': 'social services',
+      'economic-development': 'economic development',
+      'healthcare': 'healthcare',
+      'education': 'education',
+      'environment': 'environment',
+      'technology': 'technology',
+      'housing': 'housing',
+      'research': 'research',
+      'infrastructure': 'infrastructure'
+    };
+    const formattedInterests = interests.slice(0, 3).map(i => interestLabels[i] || i);
+    if (formattedInterests.length > 0) {
+      parts.push(`Aligns with your interests in ${formattedInterests.join(', ')}${interests.length > 3 ? ', and more' : ''}.`);
     }
   }
   
-  // Positive keyword matches
+  // Document-extracted keywords (if available)
+  const documentKeywords = userProfile?.keywords || [];
+  if (documentKeywords.length > 0 && fitComponents && fitComponents.interestKeywordFit >= 0.6) {
+    parts.push(`Matches keywords extracted from your documents, indicating strong alignment with your organization's actual work.`);
+  }
+  
+  // Positive keyword matches (user-defined priority keywords)
   if (positiveKeywordMatches && positiveKeywordMatches.length > 0) {
-    parts.push(`This opportunity includes your priority keywords: ${positiveKeywordMatches.slice(0, 3).join(', ')}${positiveKeywordMatches.length > 3 ? '...' : ''}.`);
+    parts.push(`Contains your priority keywords: ${positiveKeywordMatches.slice(0, 4).join(', ')}${positiveKeywordMatches.length > 4 ? '...' : ''} - these are terms you've explicitly indicated you want to see more of.`);
   }
   
-  // Funding details
-  if (opportunity.amount) {
-    parts.push(`Funding available: ${opportunity.amount}.`);
-  }
-  
-  // Deadline urgency
-  if (opportunity.closeDate) {
-    try {
-      const deadline = new Date(opportunity.closeDate);
-      const today = new Date();
-      const days = Math.floor((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      if (days >= 0 && days <= 30) {
-        parts.push(`Application deadline is in ${days} day${days !== 1 ? 's' : ''}.`);
-      } else if (days > 30) {
-        parts.push(`Application deadline: ${deadline.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.`);
-      }
-    } catch {
-      // Ignore date parsing errors
+  // Negative keyword warning (if opportunity might contain excluded terms)
+  if (userProfile?.negativeKeywords && userProfile.negativeKeywords.length > 0) {
+    const oppText = ((opportunity.title || '') + ' ' + (opportunity.description || '')).toLowerCase();
+    const negativeMatches = userProfile.negativeKeywords.filter(kw => 
+      kw && oppText.includes(kw.toLowerCase())
+    );
+    if (negativeMatches.length === 0) {
+      parts.push(`Does not contain any of your excluded keywords, which is a positive indicator.`);
     }
   }
   
-  // Agency/source
-  if (opportunity.agency) {
-    parts.push(`Offered by ${opportunity.agency}.`);
+  // Interest keyword fit
+  if (fitComponents && fitComponents.interestKeywordFit >= 0.8) {
+    parts.push(`Shows excellent keyword alignment with your interests and profile.`);
+  } else if (fitComponents && fitComponents.interestKeywordFit >= 0.6) {
+    parts.push(`Shows good keyword alignment with your interests.`);
+  } else if (fitComponents && fitComponents.interestKeywordFit < 0.4) {
+    parts.push(`Limited keyword alignment - may not fully match your focus areas.`);
+  }
+  
+  // Eligibility
+  if (fitComponents && fitComponents.eligibilityFit >= 0.9) {
+    parts.push(`Strong eligibility match for your organization type.`);
   }
   
   return parts.join(' ');

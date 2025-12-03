@@ -26,7 +26,8 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
   const inDepthSummary = getInDepthSummary(
     opportunity,
     opportunity.fitComponents,
-    (opportunity as any).positiveKeywordMatches
+    (opportunity as any).positiveKeywordMatches,
+    userProfile
   );
   const fullDescription = opportunity.description || '';
   const showExpandButton = fullDescription.length > snippet.length + 50;
