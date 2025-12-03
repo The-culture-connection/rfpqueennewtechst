@@ -247,6 +247,42 @@ export default function DashboardPage() {
         opportunity.type
       );
     }
+    
+    // Save passed opportunity to Firestore for AI refinement
+    if (user && db && opportunity) {
+      try {
+        // Save to passed opportunities collection
+        const passedRef = doc(db, 'profiles', user.uid, 'dashboard', 'passed');
+        const passedDoc = await getDoc(passedRef);
+        
+        const passedData = {
+          [id]: {
+            id: id,
+            title: opportunity.title || '',
+            agency: opportunity.agency || '',
+            source: opportunity.source || '',
+            passedAt: new Date().toISOString(),
+            winRate: opportunity.winRate || 0
+          }
+        };
+        
+        if (passedDoc.exists()) {
+          // Merge with existing passed opportunities
+          const existing = passedDoc.data();
+          await setDoc(passedRef, {
+            ...existing,
+            ...passedData
+          }, { merge: true });
+        } else {
+          // Create new document
+          await setDoc(passedRef, passedData);
+        }
+      } catch (err) {
+        console.error('Error saving passed opportunity:', err);
+        // Don't block the UI if save fails
+      }
+    }
+    
     setPassedIds([...passedIds, id]);
     // Move to next opportunity
     if (currentIndex < availableOpportunities.length - 1) {
