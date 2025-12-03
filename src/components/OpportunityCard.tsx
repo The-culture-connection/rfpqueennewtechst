@@ -2,7 +2,7 @@
 
 import { Opportunity, UserProfile } from '@/types';
 import { useState } from 'react';
-import { getOpportunitySnippet, buildWhyMatchLine } from '@/lib/opportunitySnippets';
+import { getOpportunitySnippet, buildWhyMatchLine, getInDepthSummary } from '@/lib/opportunitySnippets';
 import { generateMatchReasoning, generateMatchSummary } from '@/lib/matchReasoning';
 
 interface OpportunityCardProps {
@@ -23,6 +23,11 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
   // Get snippet using hybrid approach
   const snippet = getOpportunitySnippet(opportunity, userProfile?.keywords);
   const whyMatch = buildWhyMatchLine(userProfile, opportunity);
+  const inDepthSummary = getInDepthSummary(
+    opportunity,
+    opportunity.fitComponents,
+    (opportunity as any).positiveKeywordMatches
+  );
   const fullDescription = opportunity.description || '';
   const showExpandButton = fullDescription.length > snippet.length + 50;
   
@@ -148,9 +153,20 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
           </div>
         )}
 
+        {/* In-Depth Summary */}
+        {inDepthSummary && (
+          <div className="mb-4 p-3 bg-[#1d1d1e] border border-[#ad3c94]/20 rounded-lg">
+            <p className="text-xs font-semibold text-[#ad3c94] mb-2">Match Analysis Summary</p>
+            <p className="text-sm font-secondary text-[#e7e8ef]/90 leading-relaxed">
+              {inDepthSummary}
+            </p>
+          </div>
+        )}
+
         {/* Description Snippet */}
         {snippet && (
           <div className="mb-4">
+            <p className="text-sm font-semibold text-[#ad3c94] mb-2">Opportunity Details</p>
             <p className="text-sm font-secondary text-[#e7e8ef]/80">
               {isExpanded ? fullDescription : snippet}
             </p>

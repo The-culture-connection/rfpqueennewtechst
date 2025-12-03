@@ -146,6 +146,89 @@ function extractSmartSnippet(description: string, maxLength: number = 200): stri
 }
 
 /**
+ * Generate in-depth opportunity summary with methodology
+ */
+export function getInDepthSummary(
+  opportunity: Opportunity,
+  fitComponents?: { eligibilityFit: number; interestKeywordFit: number; structureFit: number; populationFit: number; amountFit: number; timingFit: number },
+  positiveKeywordMatches?: string[]
+): string {
+  const parts: string[] = [];
+  
+  // Match quality indicators
+  if (fitComponents) {
+    const avgFit = (
+      fitComponents.eligibilityFit +
+      fitComponents.interestKeywordFit +
+      fitComponents.structureFit +
+      fitComponents.populationFit +
+      fitComponents.amountFit +
+      fitComponents.timingFit
+    ) / 6;
+    
+    if (avgFit >= 0.8) {
+      parts.push('This opportunity shows exceptional alignment across all matching criteria.');
+    } else if (avgFit >= 0.6) {
+      parts.push('This opportunity demonstrates strong alignment with your profile.');
+    } else if (avgFit >= 0.4) {
+      parts.push('This opportunity shows moderate alignment with your profile.');
+    }
+    
+    // Specific strengths
+    const strengths: string[] = [];
+    if (fitComponents.eligibilityFit >= 0.9) {
+      strengths.push('perfect eligibility match');
+    }
+    if (fitComponents.interestKeywordFit >= 0.8) {
+      strengths.push('strong interest alignment');
+    }
+    if (fitComponents.timingFit >= 0.8) {
+      strengths.push('ideal timeline');
+    }
+    if (fitComponents.amountFit >= 0.8) {
+      strengths.push('funding amount matches your needs');
+    }
+    
+    if (strengths.length > 0) {
+      parts.push(`Key strengths: ${strengths.join(', ')}.`);
+    }
+  }
+  
+  // Positive keyword matches
+  if (positiveKeywordMatches && positiveKeywordMatches.length > 0) {
+    parts.push(`This opportunity includes your priority keywords: ${positiveKeywordMatches.slice(0, 3).join(', ')}${positiveKeywordMatches.length > 3 ? '...' : ''}.`);
+  }
+  
+  // Funding details
+  if (opportunity.amount) {
+    parts.push(`Funding available: ${opportunity.amount}.`);
+  }
+  
+  // Deadline urgency
+  if (opportunity.closeDate) {
+    try {
+      const deadline = new Date(opportunity.closeDate);
+      const today = new Date();
+      const days = Math.floor((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      if (days >= 0 && days <= 30) {
+        parts.push(`Application deadline is in ${days} day${days !== 1 ? 's' : ''}.`);
+      } else if (days > 30) {
+        parts.push(`Application deadline: ${deadline.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.`);
+      }
+    } catch {
+      // Ignore date parsing errors
+    }
+  }
+  
+  // Agency/source
+  if (opportunity.agency) {
+    parts.push(`Offered by ${opportunity.agency}.`);
+  }
+  
+  return parts.join(' ');
+}
+
+/**
  * Hybrid snippet extraction (Option 5)
  * Tries structured → keyword-prioritized → smart extraction
  */
@@ -153,7 +236,7 @@ export function getOpportunitySnippet(
   opportunity: Opportunity,
   userKeywords?: string[]
 ): string {
-  const maxLength = 200;
+  const maxLength = 300; // Increased for more in-depth description
   
   // 1) Try structured extraction first
   const structured = extractStructuredSnippet(opportunity);

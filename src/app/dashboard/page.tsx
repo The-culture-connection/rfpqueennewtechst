@@ -17,6 +17,7 @@ import {
 } from '@/lib/analytics';
 import { FeedbackForm } from '@/components/FeedbackForm';
 import { LoadingMeter } from '@/components/LoadingMeter';
+import KeywordManager from '@/components/KeywordManager';
 
 export default function DashboardPage() {
   const { user, userProfile } = useAuth();
@@ -546,7 +547,15 @@ export default function DashboardPage() {
 
           {/* Sidebar with Feedback */}
           <div className="lg:col-span-1">
-            <div className="sticky top-4">
+            <div className="sticky top-4 space-y-4">
+              <KeywordManager 
+                user={user} 
+                userProfile={userProfile}
+                onUpdate={() => {
+                  // Trigger a refetch when keywords are updated
+                  if (refetch) refetch();
+                }}
+              />
               <FeedbackForm
                 questions={[
                   'Do the opportunities shown to you apply to you?',

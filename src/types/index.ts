@@ -25,6 +25,8 @@ export interface UserProfile {
   interestsMain: Interest[];
   grantsByInterest: Interest[];
   keywords?: string[]; // Keywords extracted from documents or manually added
+  positiveKeywords?: string[]; // User-defined keywords to prioritize/include more
+  negativeKeywords?: string[]; // User-defined keywords to omit/exclude
   createdAt: Date;
   updatedAt: Date;
 }
