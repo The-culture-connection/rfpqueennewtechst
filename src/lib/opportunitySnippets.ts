@@ -18,7 +18,7 @@ function extractStructuredSnippet(opportunity: Opportunity): string {
   const purposeMatch = opportunity.description?.match(
     /(?:purpose|objective|goal|aim|supports|funds|provides)[^.]{0,150}\./i
   );
-  if (purposeMatch) {
+  if (purposeMatch && purposeMatch[0]) {
     parts.push(purposeMatch[0].trim());
   }
   
@@ -26,7 +26,7 @@ function extractStructuredSnippet(opportunity: Opportunity): string {
   const eligibilityMatch = opportunity.description?.match(
     /(?:eligible|qualify|open to|available to)[^.]{0,100}\./i
   );
-  if (eligibilityMatch) {
+  if (eligibilityMatch && eligibilityMatch[0]) {
     parts.push(eligibilityMatch[0].trim());
   }
   
@@ -91,7 +91,17 @@ function extractKeywordSnippet(
     }
   }
   
-  return snippet || sentences[0].substring(0, maxLength) + '...';
+  // If we have a snippet, return it; otherwise use first sentence or truncate description
+  if (snippet) {
+    return snippet;
+  }
+  
+  // Fallback: use first sentence if available, otherwise truncate description
+  if (sentences.length > 0 && sentences[0]) {
+    return sentences[0].substring(0, maxLength) + '...';
+  }
+  
+  return description.substring(0, maxLength).replace(/\s+\S*$/, '') + '...';
 }
 
 /**
@@ -122,7 +132,17 @@ function extractSmartSnippet(description: string, maxLength: number = 200): stri
     }
   }
   
-  return snippet || sentences[0].substring(0, maxLength) + '...';
+  // If we have a snippet, return it; otherwise use first sentence or truncate
+  if (snippet) {
+    return snippet;
+  }
+  
+  // Fallback: use first sentence if available, otherwise truncate description
+  if (sentences.length > 0 && sentences[0]) {
+    return sentences[0].substring(0, maxLength) + '...';
+  }
+  
+  return clean.substring(0, maxLength).replace(/\s+\S*$/, '') + '...';
 }
 
 /**
