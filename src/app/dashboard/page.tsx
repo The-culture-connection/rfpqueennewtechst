@@ -61,13 +61,7 @@ export default function DashboardPage() {
     }
   }, [loading, opportunities.length]);
 
-  // Auto-refresh when profile changes
-  useEffect(() => {
-    if (userProfile) {
-      // Reload opportunities when profile changes (e.g., after editing)
-      window.location.reload();
-    }
-  }, [userProfile?.interestsMain, userProfile?.keywords, userProfile?.fundingType]);
+  // Note: Removed auto-refresh to prevent crashes. Users can manually refresh if needed.
 
   // Load saved progress when opportunities are ready
   useEffect(() => {

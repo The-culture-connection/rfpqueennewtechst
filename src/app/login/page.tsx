@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
@@ -11,9 +11,27 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loginSuccess, setLoginSuccess] = useState(false);
   
-  const { logIn, userProfile } = useAuth();
+  const { logIn, user, userProfile } = useAuth();
   const router = useRouter();
+
+  // Handle redirect after login and profile loads
+  useEffect(() => {
+    if (loginSuccess && user) {
+      // Wait a bit for profile to load
+      const timer = setTimeout(() => {
+        if (!userProfile || !userProfile.entityName || !userProfile.fundingType || userProfile.fundingType.length === 0) {
+          router.replace('/onboarding');
+        } else {
+          router.replace('/dashboard');
+        }
+        setLoginSuccess(false);
+      }, 1500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [loginSuccess, user, userProfile, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,16 +40,12 @@ export default function LoginPage() {
 
     try {
       await logIn(email, password);
-      
-      // Redirect based on whether they've completed onboarding
-      if (!userProfile || !userProfile.entityName) {
-        router.push('/onboarding');
-      } else {
-        router.push('/dashboard');
-      }
+      setLoginSuccess(true);
+      // Don't set loading to false here - let the redirect handle it
     } catch (err: any) {
       setError(err.message || 'Failed to log in');
       setLoading(false);
+      setLoginSuccess(false);
     }
   };
 

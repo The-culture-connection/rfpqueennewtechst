@@ -32,10 +32,10 @@ export default function InterestsStep({ selected, onChange }: InterestsStepProps
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-2">
+      <h2 className="text-2xl font-primary text-[#ad3c94] mb-2">
         What are your areas of interest?
       </h2>
-      <p className="text-gray-600 mb-6">Select all that apply (minimum 1)</p>
+      <p className="font-secondary text-[#e7e8ef]/80 mb-6">Select all that apply (minimum 1)</p>
 
       <div className="max-h-96 overflow-y-auto pr-2">
         <div className="grid grid-cols-2 gap-3">
@@ -45,15 +45,15 @@ export default function InterestsStep({ selected, onChange }: InterestsStepProps
               onClick={() => toggleInterest(interest.value)}
               className={`p-4 rounded-lg border-2 transition-all text-left ${
                 selected.includes(interest.value)
-                  ? 'border-indigo-600 bg-indigo-50'
-                  : 'border-gray-200 hover:border-gray-300'
+                  ? 'border-[#ad3c94] bg-[#ad3c94]/10'
+                  : 'border-[#ad3c94]/30 hover:border-[#ad3c94]/50 bg-[#1d1d1e]'
               }`}
             >
               <div className="flex items-center">
                 <div className="flex-1">
-                  <span className="text-sm font-medium text-gray-900">{interest.label}</span>
+                  <span className="text-sm font-primary text-[#ad3c94]">{interest.label}</span>
                   {selected.includes(interest.value) && (
-                    <svg className="w-5 h-5 text-indigo-600 inline ml-2" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-5 h-5 text-[#ad3c94] inline ml-2" fill="currentColor" viewBox="0 0 20 20">
                       <path
                         fillRule="evenodd"
                         d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -68,9 +68,9 @@ export default function InterestsStep({ selected, onChange }: InterestsStepProps
         </div>
       </div>
 
-      <div className="mt-4 p-3 bg-blue-50 rounded-md">
-        <p className="text-sm text-blue-800">
-          <strong>{selected.length}</strong> {selected.length === 1 ? 'interest' : 'interests'} selected
+      <div className="mt-4 p-3 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-md">
+        <p className="text-sm font-secondary text-[#e7e8ef]">
+          <strong className="text-[#ad3c94]">{selected.length}</strong> {selected.length === 1 ? 'interest' : 'interests'} selected
         </p>
       </div>
     </div>

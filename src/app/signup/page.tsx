@@ -35,8 +35,12 @@ export default function SignUpPage() {
 
     try {
       await signUp(email, password);
+      
+      // Wait for auth state to update
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       // Redirect to onboarding after successful signup
-      router.push('/onboarding');
+      router.replace('/onboarding');
     } catch (err: any) {
       setError(err.message || 'Failed to create account');
       setLoading(false);

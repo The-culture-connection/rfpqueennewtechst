@@ -90,12 +90,12 @@ export default function OnboardingPage() {
 
       console.log('✅ Profile saved successfully!');
       
-      // Longer delay to ensure Firestore propagation and state update
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Wait for state to update and Firestore to propagate
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Redirect to dashboard
+      // Use replace instead of push to prevent back navigation issues
       console.log('🔄 Redirecting to dashboard...');
-      router.push('/dashboard');
+      router.replace('/dashboard');
     } catch (error) {
       console.error('❌ Error saving profile:', error);
       alert('Failed to save profile. Please try again.');
@@ -108,28 +108,28 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
+    <div className="min-h-screen bg-[#1d1d1e] py-12 px-4">
       <div className="max-w-2xl mx-auto">
         {/* Progress Bar */}
         <div className="mb-8">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm font-primary text-[#ad3c94]">
               Step {currentStep} of {TOTAL_STEPS}
             </span>
-            <span className="text-sm text-gray-600">
+            <span className="text-sm font-secondary text-[#e7e8ef]/80">
               {Math.round((currentStep / TOTAL_STEPS) * 100)}% Complete
             </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-full h-2">
             <div
-              className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
+              className="bg-[#ad3c94] h-2 rounded-full transition-all duration-300"
               style={{ width: `${(currentStep / TOTAL_STEPS) * 100}%` }}
             />
           </div>
         </div>
 
         {/* Step Content */}
-        <div className="bg-white rounded-lg shadow-xl p-8">
+        <div className="bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg shadow-xl p-8">
           {currentStep === 1 && (
             <FundingTypeStep
               selected={data.fundingTypes || []}
@@ -165,7 +165,7 @@ export default function OnboardingPage() {
             <button
               onClick={handleBack}
               disabled={currentStep === 1}
-              className="px-6 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-6 py-2 font-secondary text-[#e7e8ef] bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg hover:bg-[#1d1d1e]/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               Back
             </button>
@@ -178,7 +178,7 @@ export default function OnboardingPage() {
                   (currentStep === 2 && !data.timeline) ||
                   (currentStep === 3 && (!data.interests || data.interests.length === 0))
                 }
-                className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-6 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-secondary"
               >
                 Next
               </button>
@@ -186,7 +186,7 @@ export default function OnboardingPage() {
               <button
                 onClick={handleComplete}
                 disabled={loading || !data.entityName || !data.entityType}
-                className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-6 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-secondary"
               >
                 {loading ? 'Saving...' : 'Complete'}
               </button>

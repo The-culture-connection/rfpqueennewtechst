@@ -162,7 +162,11 @@ export default function ProfilePage() {
       }
 
       alert('Profile updated successfully!');
-      router.push('/dashboard');
+      
+      // Wait for state to update
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      router.replace('/dashboard');
     } catch (error) {
       console.error('Error updating profile:', error);
       alert('Failed to update profile. Please try again.');
