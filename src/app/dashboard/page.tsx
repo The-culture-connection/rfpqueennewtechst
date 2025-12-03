@@ -501,6 +501,7 @@ export default function DashboardPage() {
               </div>
             )}
             <OpportunityCard
+              userProfile={userProfile}
               opportunity={currentOpportunity}
               onPass={handlePass}
               onSave={handleSave}

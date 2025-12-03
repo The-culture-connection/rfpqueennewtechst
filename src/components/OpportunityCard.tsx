@@ -1,21 +1,29 @@
 'use client';
 
-import { Opportunity } from '@/types';
+import { Opportunity, UserProfile } from '@/types';
 import { useState } from 'react';
+import { getOpportunitySnippet, buildWhyMatchLine } from '@/lib/opportunitySnippets';
 
 interface OpportunityCardProps {
   opportunity: Opportunity;
+  userProfile?: UserProfile | null;
   onPass: (id: string) => void;
   onSave: (id: string) => void;
   onApply: (id: string) => void;
 }
 
-export default function OpportunityCard({ opportunity, onPass, onSave, onApply }: OpportunityCardProps) {
+export default function OpportunityCard({ opportunity, userProfile, onPass, onSave, onApply }: OpportunityCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const winRate = opportunity.winRate || 0;
   const winRateColor = winRate >= 70 ? 'text-[#ad3c94]' : winRate >= 50 ? 'text-yellow-400' : 'text-[#e7e8ef]/60';
   const winRateBg = winRate >= 70 ? 'bg-[#1d1d1e] border-[#ad3c94]/50' : winRate >= 50 ? 'bg-[#1d1d1e] border-yellow-400/50' : 'bg-[#1d1d1e] border-[#e7e8ef]/30';
+
+  // Get snippet using hybrid approach
+  const snippet = getOpportunitySnippet(opportunity, userProfile?.keywords);
+  const whyMatch = buildWhyMatchLine(userProfile, opportunity);
+  const fullDescription = opportunity.description || '';
+  const showExpandButton = fullDescription.length > snippet.length + 50;
 
   // Format deadline
   const formatDeadline = (date: string | null | undefined) => {
@@ -106,18 +114,42 @@ export default function OpportunityCard({ opportunity, onPass, onSave, onApply }
           )}
         </div>
 
-        {/* Description */}
-        {opportunity.description && (
-          <div className="mb-4">
-            <p className={`text-sm font-secondary text-[#e7e8ef]/80 ${!isExpanded && 'line-clamp-3'}`}>
-              {opportunity.description}
+        {/* Why this is a match */}
+        {whyMatch && (
+          <div className="mb-3 p-3 bg-[#ad3c94]/10 border border-[#ad3c94]/30 rounded-lg">
+            <p className="text-sm font-secondary text-[#ad3c94]">
+              <span className="font-semibold">Why this is a match: </span>
+              {whyMatch}
             </p>
-            {opportunity.description.length > 150 && (
+          </div>
+        )}
+
+        {/* Description Snippet */}
+        {snippet && (
+          <div className="mb-4">
+            <p className="text-sm font-secondary text-[#e7e8ef]/80">
+              {isExpanded ? fullDescription : snippet}
+            </p>
+            {showExpandButton && (
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="text-sm text-[#ad3c94] hover:text-[#ad3c94]/80 font-secondary mt-1 transition-colors"
+                className="text-sm text-[#ad3c94] hover:text-[#ad3c94]/80 font-secondary mt-2 transition-colors flex items-center gap-1"
               >
-                {isExpanded ? 'Show less' : 'Show more'}
+                {isExpanded ? (
+                  <>
+                    <span>Show less</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    </svg>
+                  </>
+                ) : (
+                  <>
+                    <span>Show full description</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </>
+                )}
               </button>
             )}
           </div>
