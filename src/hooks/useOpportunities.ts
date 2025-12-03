@@ -2,17 +2,55 @@ import { useState, useEffect } from 'react';
 import { Opportunity, UserProfile } from '@/types';
 import { matchOpportunities } from '@/lib/matchAlgorithm';
 
-export function useOpportunities(profile: UserProfile | null) {
+// Cache key for storing opportunities
+const CACHE_KEY = 'cached_opportunities';
+const CACHE_TIMESTAMP_KEY = 'cached_opportunities_timestamp';
+const CACHE_PROFILE_KEY = 'cached_opportunities_profile';
+
+export function useOpportunities(profile: UserProfile | null, forceReload: boolean = false) {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [matchedOpportunities, setMatchedOpportunities] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
     async function loadAndMatchOpportunities() {
       if (!profile) {
         setLoading(false);
         return;
+      }
+
+      // Check cache first (unless force reload)
+      if (!forceReload && typeof window !== 'undefined') {
+        try {
+          const cached = localStorage.getItem(CACHE_KEY);
+          const cachedTimestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY);
+          const cachedProfile = localStorage.getItem(CACHE_PROFILE_KEY);
+          
+          // Use cache if it exists, is less than 24 hours old, and profile hasn't changed
+          if (cached && cachedTimestamp && cachedProfile) {
+            const timestamp = parseInt(cachedTimestamp);
+            const now = Date.now();
+            const profileHash = JSON.stringify({
+              fundingType: profile.fundingType,
+              interestsMain: profile.interestsMain,
+              keywords: profile.keywords,
+            });
+            
+            // Cache valid for 24 hours and profile hasn't changed
+            if (now - timestamp < 24 * 60 * 60 * 1000 && cachedProfile === profileHash) {
+              const parsed = JSON.parse(cached);
+              setOpportunities(parsed.allOpps || []);
+              setMatchedOpportunities(parsed.matched || []);
+              setLoading(false);
+              console.log('✅ Using cached opportunities');
+              return;
+            }
+          }
+        } catch (err) {
+          console.warn('Error reading cache:', err);
+        }
       }
 
       setLoading(true);
@@ -69,6 +107,26 @@ export function useOpportunities(profile: UserProfile | null) {
         
         setMatchedOpportunities(matched);
 
+        // Cache the results
+        if (typeof window !== 'undefined') {
+          try {
+            const profileHash = JSON.stringify({
+              fundingType: profile.fundingType,
+              interestsMain: profile.interestsMain,
+              keywords: profile.keywords,
+            });
+            localStorage.setItem(CACHE_KEY, JSON.stringify({
+              allOpps,
+              matched,
+            }));
+            localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
+            localStorage.setItem(CACHE_PROFILE_KEY, profileHash);
+            console.log('✅ Cached opportunities');
+          } catch (err) {
+            console.warn('Error caching opportunities:', err);
+          }
+        }
+
         console.log(`✅ Successfully loaded ${allOpps.length} total opportunities`);
         console.log(`✅ Matched ${matched.length} opportunities (30%+ win rate)`);
       } catch (err: any) {
@@ -81,13 +139,18 @@ export function useOpportunities(profile: UserProfile | null) {
     }
 
     loadAndMatchOpportunities();
-  }, [profile]);
+  }, [profile, refreshTrigger, forceReload]);
+
+  const refetch = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
 
   return {
     opportunities: matchedOpportunities,
     allOpportunities: opportunities,
     loading,
     error,
+    refetch,
   };
 }
 

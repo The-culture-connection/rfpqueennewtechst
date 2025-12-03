@@ -90,6 +90,18 @@ export default function OnboardingPage() {
 
       console.log('✅ Profile saved successfully!');
       
+      // Clear opportunity cache when profile is created
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.removeItem('cached_opportunities');
+          localStorage.removeItem('cached_opportunities_timestamp');
+          localStorage.removeItem('cached_opportunities_profile');
+          console.log('✅ Cleared opportunity cache');
+        } catch (err) {
+          console.warn('Error clearing cache:', err);
+        }
+      }
+      
       // Wait for state to update and Firestore to propagate
       await new Promise(resolve => setTimeout(resolve, 2000));
       

@@ -26,7 +26,7 @@ export function FeedbackForm({ questions, page, showInstructions = false }: Feed
 
     setSubmitting(true);
     try {
-      await addDoc(collection(db, 'User Feedback'), {
+      await addDoc(collection(db, 'userFeedback'), {
         userId: user.uid,
         userEmail: user.email,
         page,

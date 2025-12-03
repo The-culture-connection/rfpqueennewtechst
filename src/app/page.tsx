@@ -46,8 +46,8 @@ export default function Home() {
               <h3 className="text-xl font-primary text-[#ad3c94] mb-2">Opportunity Tracker</h3>
               <p className="font-secondary text-[#e7e8ef]/80">
                 Save, apply, and track opportunities all in one place.
-              </p>
-            </div>
+          </p>
+        </div>
           </div>
         </div>
       </div>

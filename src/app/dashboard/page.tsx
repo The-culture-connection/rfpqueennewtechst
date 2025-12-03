@@ -6,7 +6,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { useOpportunities } from '@/hooks/useOpportunities';
 import OpportunityCard from '@/components/OpportunityCard';
 import { doc, setDoc, arrayUnion, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, getFirebaseFunctions, httpsCallable } from '@/lib/firebase';
 import {
   trackDashboardViewed,
   trackOpportunityViewed,
@@ -21,12 +21,14 @@ import { LoadingMeter } from '@/components/LoadingMeter';
 export default function DashboardPage() {
   const { user, userProfile } = useAuth();
   const router = useRouter();
-  const { opportunities, loading, error } = useOpportunities(userProfile);
+  const [forceReload, setForceReload] = useState(false);
+  const { opportunities, loading, error, refetch } = useOpportunities(userProfile, forceReload);
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [passedIds, setPassedIds] = useState<string[]>([]);
   const [actionLoading, setActionLoading] = useState(false);
   const [progressLoaded, setProgressLoaded] = useState(false);
+  const [rerunLoading, setRerunLoading] = useState(false);
 
   // Redirect if not authenticated or profile incomplete
   useEffect(() => {
@@ -120,7 +122,7 @@ export default function DashboardPage() {
       );
 
       if (!db) return;
-      
+
       try {
         const progressRef = doc(db, 'profiles', user.uid, 'dashboard', 'progress');
         await setDoc(progressRef, {
@@ -192,6 +194,44 @@ export default function DashboardPage() {
       } catch (err) {
         console.error('Error resetting progress:', err);
       }
+    }
+  };
+
+  const handleRerunMatching = async () => {
+    if (!user) return;
+    
+    setRerunLoading(true);
+    try {
+      // Clear cache before rerunning
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.removeItem('cached_opportunities');
+          localStorage.removeItem('cached_opportunities_timestamp');
+          localStorage.removeItem('cached_opportunities_profile');
+          console.log('✅ Cleared opportunity cache');
+        } catch (err) {
+          console.warn('Error clearing cache:', err);
+        }
+      }
+
+      const functions = getFirebaseFunctions();
+      const matchOpportunities = httpsCallable<{ pageSize?: number }, { results: any[], meta: any }>(functions, 'matchOpportunities');
+      
+      const result = await matchOpportunities({ pageSize: 500 });
+      console.log('Match opportunities result:', result.data);
+      
+      // Force reload opportunities after matching (clears cache)
+      setForceReload(true);
+      if (refetch) {
+        refetch();
+      }
+      // Reset force reload after a moment
+      setTimeout(() => setForceReload(false), 1000);
+    } catch (err: any) {
+      console.error('Error rerunning matching:', err);
+      alert(`Error rerunning opportunity matching: ${err.message || 'Unknown error'}`);
+    } finally {
+      setRerunLoading(false);
     }
   };
 
@@ -354,6 +394,14 @@ export default function DashboardPage() {
                 Edit Profile
               </button>
               <button
+                onClick={handleRerunMatching}
+                disabled={rerunLoading || loading}
+                className="px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Rerun opportunity matching with updated profile"
+              >
+                {rerunLoading ? 'Rerunning...' : 'Rerun Matching'}
+              </button>
+              <button
                 onClick={handleStartOver}
                 className="px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary"
                 title="Reset progress and start from beginning"
@@ -377,33 +425,33 @@ export default function DashboardPage() {
           {/* Main Content Area */}
           <div className="lg:col-span-2">
             <LoadingMeter loading={loading} />
-            {/* Resume indicator */}
-            {currentIndex > 0 && progressLoaded && (
+        {/* Resume indicator */}
+        {currentIndex > 0 && progressLoaded && (
               <div className="bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg p-3 mb-4 flex items-center gap-2">
                 <svg className="w-5 h-5 text-[#ad3c94]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
                 <p className="text-sm font-secondary text-[#e7e8ef]">
-                  Resumed from where you left off (Opportunity {currentIndex + 1})
-                </p>
-              </div>
-            )}
+              Resumed from where you left off (Opportunity {currentIndex + 1})
+            </p>
+          </div>
+        )}
 
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
               <div className="bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg p-4">
                 <p className="text-sm font-secondary text-[#e7e8ef]/80">Total Matches</p>
                 <p className="text-2xl font-primary text-[#ad3c94]">{opportunities.length}</p>
-              </div>
+          </div>
               <div className="bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg p-4">
                 <p className="text-sm font-secondary text-[#e7e8ef]/80">Remaining</p>
                 <p className="text-2xl font-primary text-[#ad3c94]">{availableOpportunities.length}</p>
-              </div>
+          </div>
               <div className="bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg p-4">
                 <p className="text-sm font-secondary text-[#e7e8ef]/80">Passed</p>
                 <p className="text-2xl font-primary text-[#ad3c94]">{passedIds.length}</p>
-              </div>
-            </div>
+          </div>
+        </div>
 
         {/* Opportunity Card */}
         {currentOpportunity ? (

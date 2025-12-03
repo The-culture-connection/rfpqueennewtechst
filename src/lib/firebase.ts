@@ -4,6 +4,7 @@ import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 import { getAnalytics, Analytics } from 'firebase/analytics';
+import { getFunctions, Functions, httpsCallable } from 'firebase/functions';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -21,6 +22,7 @@ let _auth: Auth | null = null;
 let _db: Firestore | null = null;
 let _storage: FirebaseStorage | null = null;
 let _analytics: Analytics | null = null;
+let _functions: Functions | null = null;
 
 // Initialize Firebase
 function initializeFirebase() {
@@ -40,6 +42,7 @@ function initializeFirebase() {
     _auth = getAuth(_app);
     _db = getFirestore(_app);
     _storage = getStorage(_app);
+    _functions = getFunctions(_app, 'us-central1');
   } catch (error) {
     // During build, this might fail - log but don't throw
     if (typeof window !== 'undefined') {
@@ -51,6 +54,7 @@ function initializeFirebase() {
     _auth = null;
     _db = null;
     _storage = null;
+    _functions = null;
   }
 }
 
@@ -99,8 +103,18 @@ function getFirebaseStorage(): FirebaseStorage {
   return _storage;
 }
 
+function getFirebaseFunctions(): Functions {
+  if (!_functions) {
+    initializeFirebase();
+    if (!_functions) {
+      throw new Error('Firebase Functions is not initialized. This should not happen at runtime.');
+    }
+  }
+  return _functions;
+}
+
 // Export getters for explicit use
-export { getFirebaseApp, getFirebaseAuth, getFirebaseFirestore, getFirebaseStorage };
+export { getFirebaseApp, getFirebaseAuth, getFirebaseFirestore, getFirebaseStorage, getFirebaseFunctions, httpsCallable };
 
 // For backward compatibility, export direct references
 // These use getters that initialize on first access
