@@ -3,7 +3,8 @@ import { Opportunity, UserProfile } from '@/types';
 import { matchOpportunities } from '@/lib/matchAlgorithm';
 import { enhancedMatchOpportunities } from '@/lib/enhancedMatchAlgorithm';
 import { advancedMatchOpportunities } from '@/lib/advancedMatchAlgorithm';
-import { analyzeUserBehavior } from '@/lib/preferenceLearning';
+import { intelligentMatchOpportunities } from '@/lib/intelligentMatchAlgorithm';
+import { loadUserPreferences } from '@/lib/preferenceLearning';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -117,9 +118,9 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
               console.log('✅ Loaded business profile for enhanced matching');
             }
 
-            // Analyze user behavior for preference learning
-            const preferences = await analyzeUserBehavior(profile.uid);
-            if (preferences && Object.keys(preferences).length > 0) {
+            // Load user preferences for behavioral learning
+            const preferences = await loadUserPreferences(profile.uid, db);
+            if (preferences) {
               enrichedProfile.preferences = preferences;
               console.log('✅ Loaded user preferences for enhanced matching');
             }
@@ -128,10 +129,11 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
           }
         }
 
-        console.log('🧠 Starting advanced AI-powered opportunity matching...');
-        // Use advanced matching algorithm with deep semantic analysis
-        const matched = advancedMatchOpportunities(allOpps, enrichedProfile, 35); // 35% minimum score
-        console.log(`✅ Matched ${matched.length} opportunities (35%+ score) with advanced AI analysis`);
+        console.log('🧠 Starting intelligent AI-powered opportunity matching...');
+        // Use intelligent matching algorithm with personalized descriptions
+        const matched = intelligentMatchOpportunities(allOpps, enrichedProfile)
+          .filter(opp => (opp.matchScore || 0) >= 35); // 35% minimum score
+        console.log(`✅ Matched ${matched.length} opportunities (35%+ score) with intelligent analysis`);
         
         setMatchedOpportunities(matched);
 

@@ -1,250 +1,217 @@
-import { Opportunity, UserProfile, UserPreferences } from '@/types';
-import { doc, getDoc, setDoc, collection, query, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { Opportunity, UserPreferences } from '@/types';
+import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
 
 /**
  * Preference Learning System
- * 
- * Analyzes user behavior (passes, saves, applies) to learn patterns
- * and improve future recommendations
+ * Analyzes user behavior (passes, saves, applies) to improve future recommendations
  */
 
-export interface BehaviorPattern {
-  keywords: Map<string, number>;  // keyword -> frequency
-  agencies: Map<string, number>;  // agency -> frequency
-  amounts: Map<string, number>;   // amount range -> frequency
-  categories: Map<string, number>; // category -> frequency
+interface BehavioralData {
+  passedOpportunities: Opportunity[];
+  savedOpportunities: Opportunity[];
+  appliedOpportunities: Opportunity[];
 }
 
-// Extract keywords from opportunity
-function extractOpportunityKeywords(opportunity: Opportunity): string[] {
-  const combined = `${opportunity.title} ${opportunity.description}`.toLowerCase();
+export async function analyzeAndUpdatePreferences(
+  userId: string,
+  behavioralData: BehavioralData,
+  db: any
+): Promise<UserPreferences> {
+  // Extract patterns from behavioral data
+  const passPatterns = extractPatterns(behavioralData.passedOpportunities);
+  const savePatterns = extractPatterns(behavioralData.savedOpportunities);
+  const applyPatterns = extractPatterns(behavioralData.appliedOpportunities);
   
-  const commonWords = new Set([
-    'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
-    'of', 'with', 'by', 'from', 'as', 'is', 'are', 'was', 'were', 'be',
-    'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will',
-    'would', 'should', 'could', 'may', 'might', 'must', 'can', 'this',
-    'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they',
-  ]);
+  const preferences: UserPreferences = {
+    passedOpportunityIds: behavioralData.passedOpportunities.map(o => o.id),
+    savedOpportunityIds: behavioralData.savedOpportunities.map(o => o.id),
+    appliedOpportunityIds: behavioralData.appliedOpportunities.map(o => o.id),
+    passPatterns: {
+      keywords: passPatterns.keywords,
+      agencies: passPatterns.agencies,
+      amounts: passPatterns.amounts,
+    },
+    savePatterns: {
+      keywords: savePatterns.keywords,
+      agencies: savePatterns.agencies,
+      amounts: savePatterns.amounts,
+    },
+    lastAnalyzed: new Date(),
+  };
+  
+  // Save to Firestore
+  try {
+    const prefsRef = doc(db, 'profiles', userId, 'preferences', 'learned');
+    await setDoc(prefsRef, preferences, { merge: true });
+    console.log('✅ Preferences updated based on user behavior');
+  } catch (error) {
+    console.error('Error saving preferences:', error);
+  }
+  
+  return preferences;
+}
 
-  const words = combined
-    .replace(/[^\w\s]/g, ' ')
-    .split(/\s+/)
-    .filter(word => word.length > 3 && !commonWords.has(word));
+export async function loadUserPreferences(userId: string, db: any): Promise<UserPreferences | null> {
+  try {
+    const prefsRef = doc(db, 'profiles', userId, 'preferences', 'learned');
+    const prefsDoc = await getDoc(prefsRef);
+    
+    if (prefsDoc.exists()) {
+      return prefsDoc.data() as UserPreferences;
+    }
+  } catch (error) {
+    console.error('Error loading preferences:', error);
+  }
+  
+  return null;
+}
 
-  // Get top keywords
-  const wordFreq = new Map<string, number>();
-  words.forEach(word => {
-    wordFreq.set(word, (wordFreq.get(word) || 0) + 1);
+function extractPatterns(opportunities: Opportunity[]): {
+  keywords: string[];
+  agencies: string[];
+  amounts: string[];
+} {
+  const keywordFrequency: { [key: string]: number } = {};
+  const agencyFrequency: { [key: string]: number } = {};
+  const amounts: string[] = [];
+  
+  opportunities.forEach(opp => {
+    // Extract keywords from title and description
+    const text = `${opp.title} ${opp.description}`.toLowerCase();
+    const words = extractMeaningfulWords(text);
+    
+    words.forEach(word => {
+      keywordFrequency[word] = (keywordFrequency[word] || 0) + 1;
+    });
+    
+    // Track agencies
+    if (opp.agency) {
+      agencyFrequency[opp.agency] = (agencyFrequency[opp.agency] || 0) + 1;
+    }
+    
+    // Track amounts
+    if (opp.amount) {
+      amounts.push(categorizeAmount(opp.amount));
+    }
   });
-
-  return Array.from(wordFreq.entries())
+  
+  // Get top keywords (appearing in at least 20% of opportunities or min 2 times)
+  const minThreshold = Math.max(2, Math.ceil(opportunities.length * 0.2));
+  const topKeywords = Object.entries(keywordFrequency)
+    .filter(([_, count]) => count >= minThreshold)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 20)
+    .map(([word]) => word);
+  
+  // Get top agencies
+  const topAgencies = Object.entries(agencyFrequency)
+    .filter(([_, count]) => count >= 2)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10)
-    .map(([word]) => word);
-}
-
-// Analyze behavior patterns
-export async function analyzeUserBehavior(userId: string): Promise<UserPreferences> {
-  if (!db) {
-    console.warn('Firebase not initialized');
-    return {};
-  }
-
-  try {
-    const passPattern: BehaviorPattern = {
-      keywords: new Map(),
-      agencies: new Map(),
-      amounts: new Map(),
-      categories: new Map(),
-    };
-
-    const savePattern: BehaviorPattern = {
-      keywords: new Map(),
-      agencies: new Map(),
-      amounts: new Map(),
-      categories: new Map(),
-    };
-
-    // Get passed opportunities from progress
-    const progressRef = doc(db, 'profiles', userId, 'dashboard', 'progress');
-    const progressDoc = await getDoc(progressRef);
-    
-    let passedIds: string[] = [];
-    if (progressDoc.exists()) {
-      passedIds = progressDoc.data().passedIds || [];
-    }
-
-    // Get saved opportunities
-    const savedRef = doc(db, 'profiles', userId, 'tracker', 'saved');
-    const savedDoc = await getDoc(savedRef);
-    
-    let savedOpportunities: Opportunity[] = [];
-    if (savedDoc.exists()) {
-      savedOpportunities = savedDoc.data().opportunities || [];
-    }
-
-    // Get applied opportunities
-    const appliedRef = doc(db, 'profiles', userId, 'tracker', 'applied');
-    const appliedDoc = await getDoc(appliedRef);
-    
-    let appliedOpportunities: Opportunity[] = [];
-    if (appliedDoc.exists()) {
-      appliedOpportunities = appliedDoc.data().opportunities || [];
-    }
-
-    // Analyze saved + applied patterns (positive signals)
-    const positiveOpportunities = [...savedOpportunities, ...appliedOpportunities];
-    positiveOpportunities.forEach(opp => {
-      // Extract and count keywords
-      const keywords = extractOpportunityKeywords(opp);
-      keywords.forEach(keyword => {
-        savePattern.keywords.set(keyword, (savePattern.keywords.get(keyword) || 0) + 1);
-      });
-
-      // Count agencies
-      if (opp.agency) {
-        savePattern.agencies.set(opp.agency, (savePattern.agencies.get(opp.agency) || 0) + 1);
-      }
-
-      // Count amounts
-      if (opp.amount) {
-        savePattern.amounts.set(opp.amount, (savePattern.amounts.get(opp.amount) || 0) + 1);
-      }
-
-      // Count categories
-      if (opp.category) {
-        savePattern.categories.set(opp.category, (savePattern.categories.get(opp.category) || 0) + 1);
-      }
-    });
-
-    // Note: For passed opportunities, we'd need to store the full opportunity data
-    // For now, we'll just track IDs and infer patterns from what wasn't saved
-
-    // Convert to preferences format
-    const preferences: UserPreferences = {
-      passedOpportunityIds: passedIds,
-      savedOpportunityIds: savedOpportunities.map(opp => opp.id),
-      appliedOpportunityIds: appliedOpportunities.map(opp => opp.id),
-      savePatterns: {
-        keywords: getTopN(savePattern.keywords, 20),
-        agencies: getTopN(savePattern.agencies, 10),
-        amounts: getTopN(savePattern.amounts, 5),
-      },
-      passPatterns: {
-        keywords: [], // Would need full opportunity data for passed items
-        agencies: [],
-        amounts: [],
-      },
-      lastAnalyzed: new Date(),
-    };
-
-    // Store updated preferences
-    await updateUserPreferences(userId, preferences);
-
-    return preferences;
-  } catch (error) {
-    console.error('Error analyzing user behavior:', error);
-    return {};
-  }
-}
-
-// Get top N items from a frequency map
-function getTopN(map: Map<string, number>, n: number): string[] {
-  return Array.from(map.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, n)
-    .map(([item]) => item);
-}
-
-// Update user preferences in Firestore
-export async function updateUserPreferences(userId: string, preferences: UserPreferences): Promise<void> {
-  if (!db) return;
-
-  try {
-    const profileRef = doc(db, 'profiles', userId);
-    await setDoc(profileRef, { preferences }, { merge: true });
-    console.log('✅ User preferences updated');
-  } catch (error) {
-    console.error('Error updating preferences:', error);
-  }
-}
-
-// Track when user passes on an opportunity
-export async function trackPass(userId: string, opportunity: Opportunity): Promise<void> {
-  if (!db) return;
-
-  try {
-    // Store the full passed opportunity for pattern analysis
-    const passedRef = doc(db, 'profiles', userId, 'tracker', 'passed');
-    const passedDoc = await getDoc(passedRef);
-
-    const passedOpportunities = passedDoc.exists() 
-      ? passedDoc.data().opportunities || []
-      : [];
-
-    // Add new passed opportunity (limit to last 50 to avoid bloat)
-    passedOpportunities.unshift({
-      ...opportunity,
-      passedAt: new Date().toISOString(),
-    });
-
-    await setDoc(passedRef, {
-      opportunities: passedOpportunities.slice(0, 50),
-    });
-
-    console.log('📊 Tracked pass for preference learning');
-  } catch (error) {
-    console.error('Error tracking pass:', error);
-  }
-}
-
-// Track when user saves an opportunity
-export async function trackSave(userId: string, opportunity: Opportunity): Promise<void> {
-  // This is already handled in the dashboard, but we can trigger preference analysis
-  console.log('📊 Tracked save for preference learning');
+    .map(([agency]) => agency);
   
-  // Periodically re-analyze (e.g., every 10 saves)
-  // Could add a counter here
+  // Get unique amount categories
+  const uniqueAmounts = [...new Set(amounts)];
+  
+  return {
+    keywords: topKeywords,
+    agencies: topAgencies,
+    amounts: uniqueAmounts,
+  };
 }
 
-// Get recommendations boost based on preferences
-export function getPreferenceBoost(
+function extractMeaningfulWords(text: string): string[] {
+  const stopWords = new Set([
+    'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+    'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'been', 'be',
+    'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+    'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those',
+    'who', 'what', 'where', 'when', 'why', 'how', 'all', 'each', 'every',
+    'both', 'few', 'more', 'most', 'other', 'some', 'such', 'than', 'too',
+    'very', 'through', 'during', 'before', 'after', 'above', 'below', 'between',
+    'into', 'out', 'up', 'down', 'off', 'over', 'under', 'again', 'further',
+    'then', 'once', 'here', 'there', 'when', 'where', 'all', 'any', 'both',
+  ]);
+  
+  const words = text
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .split(/\s+/)
+    .filter(word => 
+      word.length > 3 && 
+      !stopWords.has(word) &&
+      !/^\d+$/.test(word) // Remove pure numbers
+    );
+  
+  return words;
+}
+
+function categorizeAmount(amount: string): string {
+  const numericAmount = parseFloat(amount.replace(/[^0-9.]/g, ''));
+  
+  if (isNaN(numericAmount)) return 'unknown';
+  
+  if (numericAmount < 10000) return 'under-10k';
+  if (numericAmount < 25000) return '10k-25k';
+  if (numericAmount < 50000) return '25k-50k';
+  if (numericAmount < 100000) return '50k-100k';
+  if (numericAmount < 250000) return '100k-250k';
+  if (numericAmount < 500000) return '250k-500k';
+  if (numericAmount < 1000000) return '500k-1m';
+  return 'over-1m';
+}
+
+/**
+ * Track user action and update preferences in real-time
+ */
+export async function trackUserAction(
+  userId: string,
   opportunity: Opportunity,
-  preferences: UserPreferences
-): number {
-  if (!preferences.savePatterns) return 0;
-
-  let boost = 0;
-  const combined = `${opportunity.title} ${opportunity.description}`.toLowerCase();
-
-  // Boost if keywords match saved patterns
-  if (preferences.savePatterns.keywords) {
-    const matchedKeywords = preferences.savePatterns.keywords.filter(kw =>
-      combined.includes(kw.toLowerCase())
-    );
-    boost += matchedKeywords.length * 0.02; // +2% per matched keyword
-  }
-
-  // Boost if agency matches saved patterns
-  if (preferences.savePatterns.agencies && opportunity.agency) {
-    const matchedAgency = preferences.savePatterns.agencies.some(ag =>
-      opportunity.agency.toLowerCase().includes(ag.toLowerCase())
-    );
-    if (matchedAgency) {
-      boost += 0.05; // +5% for agency match
+  action: 'pass' | 'save' | 'apply',
+  db: any
+): Promise<void> {
+  try {
+    // Load current preferences
+    const prefs = await loadUserPreferences(userId, db) || {
+      passedOpportunityIds: [],
+      savedOpportunityIds: [],
+      appliedOpportunityIds: [],
+    };
+    
+    // Update appropriate array
+    switch (action) {
+      case 'pass':
+        if (!prefs.passedOpportunityIds) prefs.passedOpportunityIds = [];
+        prefs.passedOpportunityIds.push(opportunity.id);
+        break;
+      case 'save':
+        if (!prefs.savedOpportunityIds) prefs.savedOpportunityIds = [];
+        prefs.savedOpportunityIds.push(opportunity.id);
+        break;
+      case 'apply':
+        if (!prefs.appliedOpportunityIds) prefs.appliedOpportunityIds = [];
+        prefs.appliedOpportunityIds.push(opportunity.id);
+        break;
     }
+    
+    // Quick pattern update
+    const pattern = extractPatterns([opportunity]);
+    
+    if (action === 'pass') {
+      if (!prefs.passPatterns) prefs.passPatterns = { keywords: [], agencies: [], amounts: [] };
+      prefs.passPatterns.keywords = [...new Set([...(prefs.passPatterns.keywords || []), ...pattern.keywords])];
+      prefs.passPatterns.agencies = [...new Set([...(prefs.passPatterns.agencies || []), ...pattern.agencies])];
+    } else if (action === 'save' || action === 'apply') {
+      if (!prefs.savePatterns) prefs.savePatterns = { keywords: [], agencies: [], amounts: [] };
+      prefs.savePatterns.keywords = [...new Set([...(prefs.savePatterns.keywords || []), ...pattern.keywords])];
+      prefs.savePatterns.agencies = [...new Set([...(prefs.savePatterns.agencies || []), ...pattern.agencies])];
+    }
+    
+    // Save updated preferences
+    const prefsRef = doc(db, 'profiles', userId, 'preferences', 'learned');
+    await setDoc(prefsRef, prefs, { merge: true });
+    
+    console.log(`✅ Tracked ${action} action and updated preferences`);
+  } catch (error) {
+    console.error('Error tracking user action:', error);
   }
-
-  // Penalty if keywords match passed patterns
-  if (preferences.passPatterns?.keywords) {
-    const matchedKeywords = preferences.passPatterns.keywords.filter(kw =>
-      combined.includes(kw.toLowerCase())
-    );
-    boost -= matchedKeywords.length * 0.01; // -1% per matched pass keyword
-  }
-
-  return Math.max(-0.2, Math.min(boost, 0.3)); // Cap between -20% and +30%
 }
-

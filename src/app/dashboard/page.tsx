@@ -15,6 +15,7 @@ import {
   trackOpportunityApplied,
   trackDashboardStartOver,
 } from '@/lib/analytics';
+import { trackUserAction } from '@/lib/preferenceLearning';
 import { trackPass } from '@/lib/preferenceLearning';
 import { FeedbackForm } from '@/components/FeedbackForm';
 import { LoadingMeter } from '@/components/LoadingMeter';
@@ -251,8 +252,8 @@ export default function DashboardPage() {
     }
     
     // Track pass for preference learning
-    if (user && opportunity) {
-      await trackPass(user.uid, opportunity);
+    if (user && opportunity && db) {
+      await trackUserAction(user.uid, opportunity, 'pass', db);
       console.log('📊 Tracked pass for preference learning');
     }
     
@@ -336,6 +337,9 @@ export default function DashboardPage() {
         opportunity.type,
         opportunity.amount
       );
+      
+      // Track save for preference learning
+      await trackUserAction(user.uid, opportunity, 'save', db);
 
       // Show success and move to next
       alert('Opportunity saved!');
@@ -393,6 +397,9 @@ export default function DashboardPage() {
         opportunity.type,
         opportunity.amount
       );
+      
+      // Track apply for preference learning
+      await trackUserAction(user.uid, opportunity, 'apply', db);
 
       // Show success and move to next
       alert('Added to Applied tracker! Opening opportunity...');
@@ -432,6 +439,13 @@ export default function DashboardPage() {
                 title="Upload and manage your documents"
               >
                 Documents
+              </button>
+              <button
+                onClick={() => router.push('/executive-summary')}
+                className="px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary"
+                title="Upload your executive summary for better matching"
+              >
+                Executive Summary
               </button>
               <button
                 onClick={() => router.push('/profile')}
