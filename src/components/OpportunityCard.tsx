@@ -3,6 +3,7 @@
 import { Opportunity, UserProfile } from '@/types';
 import { useState } from 'react';
 import { getOpportunitySnippet, buildWhyMatchLine } from '@/lib/opportunitySnippets';
+import { generateMatchReasoning, generateMatchSummary } from '@/lib/matchReasoning';
 
 interface OpportunityCardProps {
   opportunity: Opportunity;
@@ -24,6 +25,10 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
   const whyMatch = buildWhyMatchLine(userProfile, opportunity);
   const fullDescription = opportunity.description || '';
   const showExpandButton = fullDescription.length > snippet.length + 50;
+  
+  // Generate match reasoning from fit components
+  const matchReasons = generateMatchReasoning(opportunity, opportunity.fitComponents);
+  const matchSummary = generateMatchSummary(opportunity.fitComponents);
 
   // Format deadline
   const formatDeadline = (date: string | null | undefined) => {
@@ -121,6 +126,25 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
               <span className="font-semibold">Why this is a match: </span>
               {whyMatch}
             </p>
+          </div>
+        )}
+
+        {/* Detailed Match Reasoning */}
+        {matchReasons.length > 0 && (
+          <div className="mb-3 p-3 bg-[#1d1d1e] border border-[#ad3c94]/20 rounded-lg">
+            <p className="text-xs font-semibold text-[#ad3c94] mb-2">Match Analysis:</p>
+            <div className="space-y-1">
+              {matchReasons.map((reason, idx) => (
+                <p key={idx} className="text-xs font-secondary text-[#e7e8ef]/80">
+                  {reason}
+                </p>
+              ))}
+            </div>
+            {matchSummary && (
+              <p className="text-xs font-secondary text-[#ad3c94]/80 mt-2 pt-2 border-t border-[#ad3c94]/20">
+                {matchSummary}
+              </p>
+            )}
           </div>
         )}
 

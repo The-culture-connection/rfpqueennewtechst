@@ -29,6 +29,15 @@ export interface UserProfile {
   updatedAt: Date;
 }
 
+export interface FitScoreComponents {
+  eligibilityFit: number;      // 0-1: Hard eligibility filter (org type, location, etc.)
+  interestKeywordFit: number;  // 0-1: How well interests match
+  structureFit: number;        // 0-1: Org structure match
+  populationFit: number;      // 0-1: Population served match
+  amountFit: number;          // 0-1: Funding amount match
+  timingFit: number;          // 0-1: Timeline match
+}
+
 export interface Opportunity {
   id: string;
   source: string;
@@ -52,6 +61,7 @@ export interface Opportunity {
   winRate?: number;
   timeBucket?: Timeline;
   matchScore?: number;
+  fitComponents?: FitScoreComponents; // Detailed fit scores for match reasoning
 }
 
 export interface SavedOpportunity {
