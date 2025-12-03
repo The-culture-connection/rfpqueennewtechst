@@ -15,6 +15,7 @@ import {
   trackOpportunityApplied,
   trackDashboardStartOver,
 } from '@/lib/analytics';
+import { trackPass } from '@/lib/preferenceLearning';
 import { FeedbackForm } from '@/components/FeedbackForm';
 import { LoadingMeter } from '@/components/LoadingMeter';
 import KeywordManager from '@/components/KeywordManager';
@@ -247,6 +248,12 @@ export default function DashboardPage() {
         opportunity.winRate || 0,
         opportunity.type
       );
+    }
+    
+    // Track pass for preference learning
+    if (user && opportunity) {
+      await trackPass(user.uid, opportunity);
+      console.log('📊 Tracked pass for preference learning');
     }
     
     // Save passed opportunity to Firestore for AI refinement

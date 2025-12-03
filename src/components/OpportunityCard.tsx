@@ -17,24 +17,48 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
   const [isExpanded, setIsExpanded] = useState(false);
 
   const winRate = opportunity.winRate || 0;
-  const winRateColor = winRate >= 70 ? 'text-[#ad3c94]' : winRate >= 50 ? 'text-yellow-400' : 'text-[#e7e8ef]/60';
-  const winRateBg = winRate >= 70 ? 'bg-[#1d1d1e] border-[#ad3c94]/50' : winRate >= 50 ? 'bg-[#1d1d1e] border-yellow-400/50' : 'bg-[#1d1d1e] border-[#e7e8ef]/30';
-
-  // Get snippet using hybrid approach
-  const snippet = getOpportunitySnippet(opportunity, userProfile?.keywords);
-  const whyMatch = buildWhyMatchLine(userProfile, opportunity);
-  const inDepthSummary = getInDepthSummary(
-    opportunity,
-    opportunity.fitComponents,
-    (opportunity as any).positiveKeywordMatches,
-    userProfile
-  );
-  const fullDescription = opportunity.description || '';
-  const showExpandButton = fullDescription.length > snippet.length + 50;
+  const matchScore = opportunity.matchScore || winRate;
   
-  // Generate match reasoning from fit components
-  const matchReasons = generateMatchReasoning(opportunity, opportunity.fitComponents);
-  const matchSummary = generateMatchSummary(opportunity.fitComponents);
+  // Dynamic color coding based on match score
+  const scoreColor = matchScore >= 75 ? 'text-[#ad3c94]' : matchScore >= 60 ? 'text-yellow-400' : matchScore >= 45 ? 'text-orange-400' : 'text-[#e7e8ef]/60';
+  const scoreBg = matchScore >= 75 ? 'bg-[#1d1d1e] border-[#ad3c94]/50' : matchScore >= 60 ? 'bg-[#1d1d1e] border-yellow-400/50' : matchScore >= 45 ? 'bg-[#1d1d1e] border-orange-400/50' : 'bg-[#1d1d1e] border-[#e7e8ef]/30';
+  
+  // Generate nuanced match label
+  let matchLabel = '';
+  if (matchScore >= 75) {
+    matchLabel = 'Exceptional Match';
+  } else if (matchScore >= 60) {
+    matchLabel = 'Strong Match';
+  } else if (matchScore >= 45) {
+    matchLabel = 'Moderate Match';
+  } else {
+    matchLabel = 'Limited Match';
+  }
+
+  // Use personalized description if available, otherwise fall back to snippet
+  const hasPersonalizedContent = opportunity.matchReasoning && opportunity.personalizedDescription;
+  const snippet = hasPersonalizedContent 
+    ? opportunity.personalizedDescription 
+    : getOpportunitySnippet(opportunity, userProfile?.keywords);
+  
+  const whyMatch = hasPersonalizedContent && opportunity.matchReasoning
+    ? opportunity.matchReasoning.summary
+    : buildWhyMatchLine(userProfile, opportunity);
+    
+  const fullDescription = opportunity.description || '';
+  const showExpandButton = fullDescription.length > 300;
+  
+  // Use enhanced match reasoning if available
+  const matchReasons = opportunity.matchReasoning?.specificReasons || 
+    generateMatchReasoning(opportunity, opportunity.fitComponents);
+  const matchSummary = opportunity.matchReasoning?.summary || 
+    generateMatchSummary(opportunity.fitComponents);
+    
+  // Get eligibility highlights from enhanced reasoning
+  const eligibilityHighlights = opportunity.matchReasoning?.eligibilityHighlights || [];
+  const strengths = opportunity.matchReasoning?.strengths || [];
+  const concerns = opportunity.matchReasoning?.concerns || [];
+  const confidenceScore = opportunity.matchReasoning?.confidenceScore || 60;
 
   // Format deadline
   const formatDeadline = (date: string | null | undefined) => {
@@ -73,9 +97,14 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
-              <span className={`px-3 py-1 rounded-full text-sm font-primary border ${winRateBg} ${winRateColor}`}>
-                {winRate}% Match
+              <span className={`px-3 py-1 rounded-full text-sm font-primary border ${scoreBg} ${scoreColor}`}>
+                {matchLabel} ({matchScore})
               </span>
+              {confidenceScore >= 70 && (
+                <span className="px-2 py-1 rounded text-xs font-secondary bg-[#ad3c94]/20 text-[#ad3c94] border border-[#ad3c94]/50">
+                  High Confidence
+                </span>
+              )}
               <span className={`px-2 py-1 rounded text-xs font-secondary border ${
                 opportunity.type === 'Grant' ? 'bg-[#1d1d1e] text-[#ad3c94] border-[#ad3c94]/50' : 'bg-[#1d1d1e] text-[#ad3c94] border-[#ad3c94]/50'
               }`}>
@@ -125,42 +154,73 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
           )}
         </div>
 
-        {/* Why this is a match */}
+        {/* Eligibility Highlights - Most Important */}
+        {eligibilityHighlights.length > 0 && (
+          <div className="mb-3 p-4 bg-[#ad3c94]/20 border-2 border-[#ad3c94] rounded-lg">
+            <p className="text-sm font-bold text-[#ad3c94] mb-2 flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Why You're Eligible
+            </p>
+            <div className="space-y-2">
+              {eligibilityHighlights.map((highlight, idx) => (
+                <p key={idx} className="text-sm font-secondary text-[#e7e8ef] leading-relaxed">
+                  • {highlight}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Match Summary */}
         {whyMatch && (
-          <div className="mb-3 p-3 bg-[#ad3c94]/10 border border-[#ad3c94]/30 rounded-lg">
-            <p className="text-sm font-secondary text-[#ad3c94]">
-              <span className="font-semibold">Why this is a match: </span>
+          <div className="mb-3 p-3 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg">
+            <p className="text-sm font-secondary text-[#e7e8ef] leading-relaxed">
               {whyMatch}
             </p>
           </div>
         )}
 
-        {/* Detailed Match Reasoning */}
-        {matchReasons.length > 0 && (
-          <div className="mb-3 p-3 bg-[#1d1d1e] border border-[#ad3c94]/20 rounded-lg">
-            <p className="text-xs font-semibold text-[#ad3c94] mb-2">Match Analysis:</p>
+        {/* Strengths */}
+        {strengths.length > 0 && (
+          <div className="mb-3 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+            <p className="text-xs font-bold text-green-400 mb-2">Your Competitive Advantages</p>
             <div className="space-y-1">
-              {matchReasons.map((reason, idx) => (
-                <p key={idx} className="text-xs font-secondary text-[#e7e8ef]/80">
-                  {reason}
+              {strengths.map((strength, idx) => (
+                <p key={idx} className="text-xs font-secondary text-green-300">
+                  ✓ {strength}
                 </p>
               ))}
             </div>
-            {matchSummary && (
-              <p className="text-xs font-secondary text-[#ad3c94]/80 mt-2 pt-2 border-t border-[#ad3c94]/20">
-                {matchSummary}
-              </p>
-            )}
           </div>
         )}
 
-        {/* In-Depth Summary */}
-        {inDepthSummary && (
-          <div className="mb-4 p-3 bg-[#1d1d1e] border border-[#ad3c94]/20 rounded-lg">
-            <p className="text-xs font-semibold text-[#ad3c94] mb-2">Match Analysis Summary</p>
-            <p className="text-sm font-secondary text-[#e7e8ef]/90 leading-relaxed">
-              {inDepthSummary}
-            </p>
+        {/* Concerns */}
+        {concerns.length > 0 && (
+          <div className="mb-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+            <p className="text-xs font-bold text-yellow-400 mb-2">Considerations</p>
+            <div className="space-y-1">
+              {concerns.map((concern, idx) => (
+                <p key={idx} className="text-xs font-secondary text-yellow-300">
+                  ⚠ {concern}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Additional Match Details */}
+        {matchReasons.length > 0 && (
+          <div className="mb-3 p-3 bg-[#1d1d1e] border border-[#ad3c94]/20 rounded-lg">
+            <p className="text-xs font-bold text-[#ad3c94] mb-2">Additional Context</p>
+            <div className="space-y-1">
+              {matchReasons.map((reason, idx) => (
+                <p key={idx} className="text-xs font-secondary text-[#e7e8ef]/80">
+                  • {reason}
+                </p>
+              ))}
+            </div>
           </div>
         )}
 

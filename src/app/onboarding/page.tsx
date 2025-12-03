@@ -8,6 +8,7 @@ import FundingTypeStep from '@/components/onboarding/FundingTypeStep';
 import TimelineStep from '@/components/onboarding/TimelineStep';
 import InterestsStep from '@/components/onboarding/InterestsStep';
 import EntityStep from '@/components/onboarding/EntityStep';
+import ExecutiveSummaryStep from '@/components/onboarding/ExecutiveSummaryStep';
 import {
   trackOnboardingStarted,
   trackOnboardingStepCompleted,
@@ -18,7 +19,7 @@ import {
   trackOnboardingCompleted,
 } from '@/lib/analytics';
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
 
 export default function OnboardingPage() {
   const [currentStep, setCurrentStep] = useState(1);
@@ -38,7 +39,7 @@ export default function OnboardingPage() {
   const handleNext = () => {
     if (currentStep < TOTAL_STEPS) {
       // Track step completion
-      const stepNames = ['funding_type', 'timeline', 'interests', 'entity'];
+      const stepNames = ['funding_type', 'timeline', 'interests', 'entity', 'executive_summary'];
       trackOnboardingStepCompleted(currentStep, stepNames[currentStep - 1]);
       
       // Track specific step data
@@ -48,6 +49,8 @@ export default function OnboardingPage() {
         trackOnboardingTimelineSelected(data.timeline);
       } else if (currentStep === 3 && data.interests) {
         trackOnboardingInterestsSelected(data.interests);
+      } else if (currentStep === 4 && data.entityType) {
+        trackOnboardingEntityTypeSelected(data.entityType);
       }
       
       setCurrentStep(currentStep + 1);
@@ -172,37 +175,41 @@ export default function OnboardingPage() {
             />
           )}
 
-          {/* Navigation Buttons */}
-          <div className="flex justify-between mt-8">
-            <button
-              onClick={handleBack}
-              disabled={currentStep === 1}
-              className="px-6 py-2 font-secondary text-[#e7e8ef] bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg hover:bg-[#1d1d1e]/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            >
-              Back
-            </button>
+          {currentStep === 5 && (
+            <ExecutiveSummaryStep
+              onComplete={(hasUploaded) => {
+                console.log('Executive summary upload:', hasUploaded ? 'completed' : 'skipped');
+                handleComplete();
+              }}
+              onSkip={() => handleComplete()}
+            />
+          )}
 
-            {currentStep < TOTAL_STEPS ? (
+          {/* Navigation Buttons - Only show for steps 1-4 */}
+          {currentStep < 5 && (
+            <div className="flex justify-between mt-8">
+              <button
+                onClick={handleBack}
+                disabled={currentStep === 1}
+                className="px-6 py-2 font-secondary text-[#e7e8ef] bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg hover:bg-[#1d1d1e]/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                Back
+              </button>
+
               <button
                 onClick={handleNext}
                 disabled={
                   (currentStep === 1 && (!data.fundingTypes || data.fundingTypes.length === 0)) ||
                   (currentStep === 2 && !data.timeline) ||
-                  (currentStep === 3 && (!data.interests || data.interests.length === 0))
+                  (currentStep === 3 && (!data.interests || data.interests.length === 0)) ||
+                  (currentStep === 4 && (!data.entityName || !data.entityType))
                 }
                 className="px-6 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-secondary"
               >
                 Next
               </button>
-            ) : (
-              <button
-                onClick={handleComplete}
-                disabled={loading || !data.entityName || !data.entityType}
-                className="px-6 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-secondary"
-              >
-                {loading ? 'Saving...' : 'Complete'}
-              </button>
-            )}
+            </div>
+          )}
           </div>
         </div>
       </div>

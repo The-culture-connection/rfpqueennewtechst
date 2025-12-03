@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Opportunity, UserProfile } from '@/types';
 import { matchOpportunities } from '@/lib/matchAlgorithm';
+import { enhancedMatchOpportunities } from '@/lib/enhancedMatchAlgorithm';
+import { advancedMatchOpportunities } from '@/lib/advancedMatchAlgorithm';
+import { analyzeUserBehavior } from '@/lib/preferenceLearning';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 // Cache key for storing opportunities
 const CACHE_KEY = 'cached_opportunities';
@@ -100,10 +105,33 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
         
         setOpportunities(allOpps);
 
-        console.log('Starting to match opportunities...');
-        // Match and score opportunities based on user profile
-        const matched = matchOpportunities(allOpps, profile, 0); // Show all opportunities, sorted by match
-        console.log(`Matched ${matched.length} opportunities (all matches, sorted by relevance)`);
+        // Load business profile and preferences for enhanced matching
+        let enrichedProfile = { ...profile };
+        if (db) {
+          try {
+            const businessProfileRef = doc(db, 'profiles', profile.uid, 'businessProfile', 'master');
+            const businessProfileDoc = await getDoc(businessProfileRef);
+            
+            if (businessProfileDoc.exists()) {
+              enrichedProfile.businessProfile = businessProfileDoc.data() as any;
+              console.log('✅ Loaded business profile for enhanced matching');
+            }
+
+            // Analyze user behavior for preference learning
+            const preferences = await analyzeUserBehavior(profile.uid);
+            if (preferences && Object.keys(preferences).length > 0) {
+              enrichedProfile.preferences = preferences;
+              console.log('✅ Loaded user preferences for enhanced matching');
+            }
+          } catch (err) {
+            console.warn('Could not load business profile or preferences:', err);
+          }
+        }
+
+        console.log('🧠 Starting advanced AI-powered opportunity matching...');
+        // Use advanced matching algorithm with deep semantic analysis
+        const matched = advancedMatchOpportunities(allOpps, enrichedProfile, 35); // 35% minimum score
+        console.log(`✅ Matched ${matched.length} opportunities (35%+ score) with advanced AI analysis`);
         
         setMatchedOpportunities(matched);
 
@@ -114,6 +142,8 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
               fundingType: profile.fundingType,
               interestsMain: profile.interestsMain,
               keywords: profile.keywords,
+              hasBusinessProfile: !!enrichedProfile.businessProfile,
+              hasPreferences: !!enrichedProfile.preferences,
             });
             localStorage.setItem(CACHE_KEY, JSON.stringify({
               allOpps,
@@ -121,14 +151,14 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
             }));
             localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
             localStorage.setItem(CACHE_PROFILE_KEY, profileHash);
-            console.log('✅ Cached opportunities');
+            console.log('✅ Cached opportunities with enhanced matching data');
           } catch (err) {
             console.warn('Error caching opportunities:', err);
           }
         }
 
         console.log(`✅ Successfully loaded ${allOpps.length} total opportunities`);
-        console.log(`✅ Matched ${matched.length} opportunities (30%+ win rate)`);
+        console.log(`✅ Enhanced matched ${matched.length} opportunities with personalized insights`);
       } catch (err: any) {
         console.error('❌ Error loading opportunities:', err);
         console.error('Error details:', err.message, err.stack);
