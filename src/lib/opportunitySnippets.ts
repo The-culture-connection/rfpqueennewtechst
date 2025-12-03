@@ -165,7 +165,7 @@ export function getOpportunitySnippet(
  * Build "Why this is a match" line from structured data
  */
 export function buildWhyMatchLine(
-  userProfile: UserProfile | null,
+  userProfile: UserProfile | null | undefined,
   opportunity: Opportunity
 ): string {
   const parts: string[] = [];
