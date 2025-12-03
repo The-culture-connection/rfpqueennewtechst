@@ -16,7 +16,6 @@ import {
   trackDashboardStartOver,
 } from '@/lib/analytics';
 import { trackUserAction } from '@/lib/preferenceLearning';
-import { trackPass } from '@/lib/preferenceLearning';
 import { FeedbackForm } from '@/components/FeedbackForm';
 import { LoadingMeter } from '@/components/LoadingMeter';
 import KeywordManager from '@/components/KeywordManager';
