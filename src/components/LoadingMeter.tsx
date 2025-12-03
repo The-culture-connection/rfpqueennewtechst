@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react';
 
 const loadingStages = [
-  { progress: 10, message: "Connecting to opportunity database..." },
-  { progress: 25, message: "Loading funding opportunities..." },
-  { progress: 40, message: "Scanning thousands of opportunities..." },
-  { progress: 60, message: "Filtering by your preferences..." },
-  { progress: 75, message: "Matching you with ideal opportunities..." },
-  { progress: 90, message: "Almost there! Finalizing your matches..." },
+  { progress: 10, message: "Loading your profile and preferences..." },
+  { progress: 20, message: "Connecting to opportunity database..." },
+  { progress: 35, message: "Scanning funding opportunities from multiple sources..." },
+  { progress: 50, message: "Filtering opportunities by your interests and keywords..." },
+  { progress: 65, message: "Calculating match scores and fit analysis..." },
+  { progress: 80, message: "Refining win rate predictions..." },
+  { progress: 90, message: "Sorting results by best matches..." },
+  { progress: 95, message: "Finalizing your personalized opportunity list..." },
 ];
 
 export function LoadingMeter({ loading }: { loading: boolean }) {

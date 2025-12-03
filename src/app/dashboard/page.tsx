@@ -200,7 +200,10 @@ export default function DashboardPage() {
   const handleRerunMatching = async () => {
     if (!user) return;
     
+    // Set loading state FIRST - this triggers LoadingMeter immediately
+    // React will re-render synchronously, showing LoadingMeter before async operations start
     setRerunLoading(true);
+    
     try {
       // Clear cache before rerunning
       if (typeof window !== 'undefined') {
@@ -208,7 +211,7 @@ export default function DashboardPage() {
           localStorage.removeItem('cached_opportunities');
           localStorage.removeItem('cached_opportunities_timestamp');
           localStorage.removeItem('cached_opportunities_profile');
-          console.log('✅ Cleared opportunity cache');
+          console.log('Cleared opportunity cache');
         } catch (err) {
           console.warn('Error clearing cache:', err);
         }
@@ -424,7 +427,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content Area */}
           <div className="lg:col-span-2">
-            <LoadingMeter loading={loading} />
+            <LoadingMeter loading={loading || rerunLoading} />
         {/* Resume indicator */}
         {currentIndex > 0 && progressLoaded && (
               <div className="bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg p-3 mb-4 flex items-center gap-2">
