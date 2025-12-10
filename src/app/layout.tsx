@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Orbitron } from "next/font/google";
+import { Inter, Roboto } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
 import { AnalyticsInitializer } from "@/components/AnalyticsInitializer";
@@ -7,7 +7,8 @@ import { AnalyticsInitializer } from "@/components/AnalyticsInitializer";
 // Prevent static generation to avoid Firebase initialization during build
 export const dynamic = 'force-dynamic';
 
-const orbitron = Orbitron({ 
+const roboto = Roboto({ 
+  weight: ['300', '400', '500', '700', '900'],
   subsets: ["latin"],
   variable: '--font-primary',
   display: 'swap',
@@ -31,7 +32,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${orbitron.variable} ${inter.variable} font-secondary`}>
+      <body className={`${roboto.variable} ${inter.variable} font-secondary`}>
         <AnalyticsInitializer />
         <AuthProvider>
         {children}

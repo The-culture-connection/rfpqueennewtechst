@@ -7,8 +7,13 @@ import { intelligentMatchOpportunities } from '@/lib/intelligentMatchAlgorithm';
 import { loadUserPreferences } from '@/lib/preferenceLearning';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { 
+  getCachedOpportunities, 
+  saveCachedOpportunities,
+  invalidateOpportunityCache 
+} from '@/lib/opportunityCache';
 
-// Cache key for storing opportunities
+// LocalStorage cache keys (fallback)
 const CACHE_KEY = 'cached_opportunities';
 const CACHE_TIMESTAMP_KEY = 'cached_opportunities_timestamp';
 const CACHE_PROFILE_KEY = 'cached_opportunities_profile';
@@ -19,43 +24,80 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [lastProfileHash, setLastProfileHash] = useState<string | null>(null);
+
+  // Create a stable profile hash for dependency checking
+  const profileHash = profile ? JSON.stringify({
+    uid: profile.uid,
+    fundingType: profile.fundingType,
+    interestsMain: profile.interestsMain,
+    keywords: profile.keywords,
+    entityType: profile.entityType,
+    timeline: profile.timeline,
+  }) : null;
 
   useEffect(() => {
     async function loadAndMatchOpportunities() {
-      if (!profile) {
+      if (!profile || !profile.uid) {
         setLoading(false);
         return;
       }
 
-      // Check cache first (unless force reload)
-      if (!forceReload && typeof window !== 'undefined') {
+      // Skip if profile hasn't changed and this isn't a forced reload or manual refresh
+      // This prevents rerunning when navigating back to the dashboard
+      if (profileHash === lastProfileHash && !forceReload && refreshTrigger === 0 && opportunities.length > 0) {
+        setLoading(false);
+        console.log('✅ Skipping reload - using existing opportunities (profile unchanged)');
+        return;
+      }
+
+      // Check Firestore cache first (unless force reload)
+      if (!forceReload) {
         try {
-          const cached = localStorage.getItem(CACHE_KEY);
-          const cachedTimestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY);
-          const cachedProfile = localStorage.getItem(CACHE_PROFILE_KEY);
-          
-          // Use cache if it exists, is less than 24 hours old, and profile hasn't changed
-          if (cached && cachedTimestamp && cachedProfile) {
-            const timestamp = parseInt(cachedTimestamp);
-            const now = Date.now();
-            const profileHash = JSON.stringify({
-              fundingType: profile.fundingType,
-              interestsMain: profile.interestsMain,
-              keywords: profile.keywords,
-            });
-            
-            // Cache valid for 24 hours and profile hasn't changed
-            if (now - timestamp < 24 * 60 * 60 * 1000 && cachedProfile === profileHash) {
-              const parsed = JSON.parse(cached);
-              setOpportunities(parsed.allOpps || []);
-              setMatchedOpportunities(parsed.matched || []);
-              setLoading(false);
-              console.log('✅ Using cached opportunities');
-              return;
-            }
+          const cached = await getCachedOpportunities(profile.uid, profile);
+          if (cached) {
+            setOpportunities(cached.allOpportunities);
+            setMatchedOpportunities(cached.matchedOpportunities);
+            setLoading(false);
+            setLastProfileHash(profileHash);
+            console.log('✅ Using Firestore cached opportunities');
+            return;
           }
         } catch (err) {
-          console.warn('Error reading cache:', err);
+          console.warn('[Cache] Error reading Firestore cache:', err);
+        }
+
+        // Fallback to localStorage cache
+        if (typeof window !== 'undefined') {
+          try {
+            const cached = localStorage.getItem(CACHE_KEY);
+            const cachedTimestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY);
+            const cachedProfile = localStorage.getItem(CACHE_PROFILE_KEY);
+            
+            // Use cache if it exists, is less than 24 hours old, and profile hasn't changed
+            if (cached && cachedTimestamp && cachedProfile) {
+              const timestamp = parseInt(cachedTimestamp);
+              const now = Date.now();
+              const profileHash = JSON.stringify({
+                fundingType: profile.fundingType,
+                interestsMain: profile.interestsMain,
+                keywords: profile.keywords,
+              });
+              
+              // Cache valid for 24 hours and profile hasn't changed
+              if (now - timestamp < 24 * 60 * 60 * 1000 && cachedProfile === profileHash) {
+                const parsed = JSON.parse(cached);
+                setOpportunities(parsed.allOpps || []);
+                setMatchedOpportunities(parsed.matched || []);
+                setLoading(false);
+                setLastProfileHash(profileHash);
+                console.log('✅ Using localStorage cached opportunities');
+                return;
+              }
+            }
+          } catch (err) {
+            console.warn('[Cache] Error reading localStorage cache:', err);
+          }
         }
       }
 
@@ -137,7 +179,16 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
         
         setMatchedOpportunities(matched);
 
-        // Cache the results
+        // Cache the results in Firestore (primary cache)
+        if (profile.uid) {
+          try {
+            await saveCachedOpportunities(profile.uid, enrichedProfile, allOpps, matched);
+          } catch (err) {
+            console.warn('[Cache] Error saving to Firestore, using localStorage fallback:', err);
+          }
+        }
+
+        // Also cache in localStorage as fallback
         if (typeof window !== 'undefined') {
           try {
             const profileHash = JSON.stringify({
@@ -153,14 +204,15 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
             }));
             localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
             localStorage.setItem(CACHE_PROFILE_KEY, profileHash);
-            console.log('✅ Cached opportunities with enhanced matching data');
+            console.log('✅ Cached opportunities in localStorage (fallback)');
           } catch (err) {
-            console.warn('Error caching opportunities:', err);
+            console.warn('[Cache] Error caching in localStorage:', err);
           }
         }
 
         console.log(`✅ Successfully loaded ${allOpps.length} total opportunities`);
         console.log(`✅ Enhanced matched ${matched.length} opportunities with personalized insights`);
+        setLastProfileHash(profileHash);
       } catch (err: any) {
         console.error('❌ Error loading opportunities:', err);
         console.error('Error details:', err.message, err.stack);
@@ -171,9 +223,13 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
     }
 
     loadAndMatchOpportunities();
-  }, [profile, refreshTrigger, forceReload]);
+    // Only depend on profileHash (stable), refreshTrigger (manual), and forceReload (manual)
+    // hasLoadedCache is managed internally and shouldn't trigger reruns
+  }, [profileHash, refreshTrigger, forceReload]);
 
   const refetch = () => {
+    // Reset profile hash to force reload
+    setLastProfileHash(null);
     setRefreshTrigger(prev => prev + 1);
   };
 
@@ -185,4 +241,5 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
     refetch,
   };
 }
+
 

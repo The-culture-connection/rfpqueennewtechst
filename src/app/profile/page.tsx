@@ -39,6 +39,12 @@ export default function ProfilePage() {
   const [entityName, setEntityName] = useState('');
   const [entityType, setEntityType] = useState('');
   const [keywords, setKeywords] = useState<string[]>([]);
+  const [positiveKeywords, setPositiveKeywords] = useState<string[]>([]);
+  const [negativeKeywords, setNegativeKeywords] = useState<string[]>([]);
+  const [keywordSuggestions, setKeywordSuggestions] = useState<{
+    positive: string[];
+    negative: string[];
+  }>({ positive: [], negative: [] });
   const [loading, setLoading] = useState(false);
   const [loadingBusiness, setLoadingBusiness] = useState(true);
   const [activeSection, setActiveSection] = useState<string | null>(null);
@@ -69,6 +75,8 @@ export default function ProfilePage() {
       setEntityName(userProfile.entityName || '');
       setEntityType(userProfile.entityType || '');
       setKeywords(userProfile.keywords || []);
+      setPositiveKeywords(userProfile.positiveKeywords || []);
+      setNegativeKeywords(userProfile.negativeKeywords || []);
     }
   }, [userProfile]);
 
@@ -90,7 +98,7 @@ export default function ProfilePage() {
       const businessProfileSnap = await getDoc(businessProfileRef);
       
       if (businessProfileSnap.exists()) {
-        const data = businessProfileSnap.data() as BusinessProfile;
+        const data = businessProfileSnap.data() as any;
         setBusinessProfile({
           companyOverview: data.companyOverview || '',
           mission: data.mission || '',
@@ -116,6 +124,18 @@ export default function ProfilePage() {
         // Deduplicate
         const uniqueKeywords = [...new Set(allKeywords.map(k => k.toLowerCase().trim()).filter(k => k.length > 0))];
         setKeywords(uniqueKeywords);
+        
+        // Load keyword suggestions from AI extraction
+        if (data.positiveKeywordSuggestions || data.negativeKeywordSuggestions) {
+          setKeywordSuggestions({
+            positive: data.positiveKeywordSuggestions || [],
+            negative: data.negativeKeywordSuggestions || [],
+          });
+        }
+        
+        // Load current positive/negative keywords from user profile
+        setPositiveKeywords(userProfile?.positiveKeywords || []);
+        setNegativeKeywords(userProfile?.negativeKeywords || []);
       }
     } catch (error) {
       console.error('Error loading business profile:', error);
@@ -148,6 +168,8 @@ export default function ProfilePage() {
         entityName: entityName,
         entityType: entityType,
         keywords: keywords,
+        positiveKeywords: positiveKeywords,
+        negativeKeywords: negativeKeywords,
         updatedAt: new Date(),
       } as any);
 
@@ -203,30 +225,30 @@ export default function ProfilePage() {
 
   if (!userProfile) {
     return (
-      <div className="min-h-screen bg-[#000000] flex items-center justify-center">
+      <div className="min-h-screen gradient-bg flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#ad3c94] mx-auto mb-4"></div>
-          <p className="font-secondary text-[#e7e8ef]">Loading profile...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="font-secondary text-foreground">Loading profile...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#000000]">
+    <div className="min-h-screen gradient-bg">
       {/* Header */}
-      <div className="bg-[#000000] border-b border-white/20">
+      <div className="bg-surface/50 backdrop-blur-sm border-b border-primary/20 sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-primary text-[#ad3c94]">Edit Profile</h1>
-              <p className="text-sm font-secondary text-[#e7e8ef] mt-1">
+              <h1 className="text-2xl font-primary gradient-text">Edit Profile</h1>
+              <p className="text-sm font-secondary text-foreground/70 mt-1">
                 Update your preferences to get better opportunity matches
               </p>
             </div>
             <button
               onClick={() => router.push('/dashboard')}
-              className="px-4 py-2 bg-[#1d1d1e] text-[#e7e8ef] rounded-lg hover:bg-[#1d1d1e]/80 transition-all border border-white/20 font-secondary"
+              className="btn-secondary text-sm"
             >
               Cancel
             </button>
@@ -238,12 +260,12 @@ export default function ProfilePage() {
       <div className="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         <div className="space-y-6">
           {/* Funding Types Section */}
-          <div className="bg-[#1d1d1e] border border-white rounded-lg p-6">
+          <div className="card">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-primary text-[#ad3c94]">Funding Types</h2>
+              <h2 className="text-xl font-primary gradient-text">Funding Types</h2>
               <button
                 onClick={() => setActiveSection(activeSection === 'funding' ? null : 'funding')}
-                className="text-[#ad3c94] hover:text-[#ad3c94]/80 text-sm font-secondary"
+                className="text-primary hover:text-primary-light text-sm font-secondary"
               >
                 {activeSection === 'funding' ? 'Collapse' : 'Edit'}
               </button>
@@ -256,7 +278,7 @@ export default function ProfilePage() {
             ) : (
               <div className="flex gap-2 flex-wrap">
                 {fundingTypes.map(type => (
-                  <span key={type} className="px-3 py-1 bg-[#ad3c94]/20 text-[#ad3c94] rounded-full text-sm font-secondary border border-[#ad3c94]/30">
+                  <span key={type} className="px-3 py-1 bg-primary/20 text-primary rounded-full text-sm font-secondary border border-primary/30">
                     {type}
                   </span>
                 ))}
@@ -265,12 +287,12 @@ export default function ProfilePage() {
           </div>
 
           {/* Timeline Section */}
-          <div className="bg-[#1d1d1e] border border-white rounded-lg p-6">
+          <div className="card">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-primary text-[#ad3c94]">Timeline</h2>
+              <h2 className="text-xl font-primary gradient-text">Timeline</h2>
               <button
                 onClick={() => setActiveSection(activeSection === 'timeline' ? null : 'timeline')}
-                className="text-[#ad3c94] hover:text-[#ad3c94]/80 text-sm font-secondary"
+                className="text-primary hover:text-primary-light text-sm font-secondary"
               >
                 {activeSection === 'timeline' ? 'Collapse' : 'Edit'}
               </button>
@@ -281,17 +303,17 @@ export default function ProfilePage() {
                 onChange={setTimeline}
               />
             ) : (
-              <p className="font-secondary text-[#e7e8ef]">{timeline}</p>
+              <p className="font-secondary text-foreground">{timeline}</p>
             )}
           </div>
 
           {/* Interests Section */}
-          <div className="bg-[#1d1d1e] border border-white rounded-lg p-6">
+          <div className="card">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-primary text-[#ad3c94]">Areas of Interest</h2>
+              <h2 className="text-xl font-primary gradient-text">Areas of Interest</h2>
               <button
                 onClick={() => setActiveSection(activeSection === 'interests' ? null : 'interests')}
-                className="text-[#ad3c94] hover:text-[#ad3c94]/80 text-sm font-secondary"
+                className="text-primary hover:text-primary-light text-sm font-secondary"
               >
                 {activeSection === 'interests' ? 'Collapse' : 'Edit'}
               </button>
@@ -304,7 +326,7 @@ export default function ProfilePage() {
             ) : (
               <div className="flex gap-2 flex-wrap">
                 {interests.map(interest => (
-                  <span key={interest} className="px-3 py-1 bg-[#ad3c94]/20 text-[#ad3c94] rounded-full text-sm font-secondary border border-[#ad3c94]/30">
+                  <span key={interest} className="px-3 py-1 bg-primary/20 text-primary rounded-full text-sm font-secondary border border-primary/30">
                     {interest}
                   </span>
                 ))}
@@ -313,12 +335,12 @@ export default function ProfilePage() {
           </div>
 
           {/* Entity Information Section */}
-          <div className="bg-[#1d1d1e] border border-white rounded-lg p-6">
+          <div className="card">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-primary text-[#ad3c94]">Organization Information</h2>
+              <h2 className="text-xl font-primary gradient-text">Organization Information</h2>
               <button
                 onClick={() => setActiveSection(activeSection === 'entity' ? null : 'entity')}
-                className="text-[#ad3c94] hover:text-[#ad3c94]/80 text-sm font-secondary"
+                className="text-primary hover:text-primary-light text-sm font-secondary"
               >
                 {activeSection === 'entity' ? 'Collapse' : 'Edit'}
               </button>
@@ -332,24 +354,24 @@ export default function ProfilePage() {
               />
             ) : (
               <div>
-                <p className="font-secondary text-[#e7e8ef] font-medium">{entityName}</p>
-                <p className="font-secondary text-[#e7e8ef]/80 text-sm capitalize">{entityType}</p>
+                <p className="font-secondary text-foreground font-medium">{entityName}</p>
+                <p className="font-secondary text-foreground/70 text-sm capitalize">{entityType}</p>
               </div>
             )}
           </div>
 
           {/* Keywords Section */}
-          <div className="bg-[#1d1d1e] border border-white rounded-lg p-6">
+          <div className="card">
             <div className="flex justify-between items-center mb-4">
               <div>
-                <h2 className="text-xl font-primary text-[#ad3c94]">Keywords</h2>
-                <p className="text-sm font-secondary text-[#e7e8ef]/80 mt-1">
+                <h2 className="text-xl font-primary gradient-text">Keywords</h2>
+                <p className="text-sm font-secondary text-foreground/70 mt-1">
                   Keywords extracted from your documents or manually added. These help refine your opportunity matches.
                 </p>
               </div>
               <button
                 onClick={() => setActiveSection(activeSection === 'keywords' ? null : 'keywords')}
-                className="text-[#ad3c94] hover:text-[#ad3c94]/80 text-sm font-secondary"
+                className="text-primary hover:text-primary-light text-sm font-secondary"
               >
                 {activeSection === 'keywords' ? 'Collapse' : 'Edit'}
               </button>
@@ -424,6 +446,150 @@ export default function ProfilePage() {
               </div>
             )}
           </div>
+
+          {/* Keyword Suggestions Section */}
+          {(keywordSuggestions.positive.length > 0 || keywordSuggestions.negative.length > 0) && (
+            <div className="card">
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <h2 className="text-xl font-primary gradient-text">AI Keyword Suggestions</h2>
+                  <p className="text-sm font-secondary text-foreground/70 mt-1">
+                    AI-generated keyword suggestions from your documents. Accept or decline to refine your matching.
+                  </p>
+                </div>
+              </div>
+              
+              {/* Positive Keyword Suggestions */}
+              {keywordSuggestions.positive.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold font-secondary text-green-400 mb-3">
+                    Positive Keywords (Prioritize these)
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {keywordSuggestions.positive
+                      .filter(k => !positiveKeywords.includes(k))
+                      .map((keyword, index) => (
+                        <div key={index} className="flex items-center gap-2 px-3 py-1 bg-green-500/10 border border-green-500/30 rounded-full">
+                          <span className="text-sm font-secondary text-green-300">{keyword}</span>
+                          <button
+                            onClick={() => {
+                              if (!positiveKeywords.includes(keyword)) {
+                                setPositiveKeywords([...positiveKeywords, keyword]);
+                                // Remove from suggestions
+                                setKeywordSuggestions(prev => ({
+                                  ...prev,
+                                  positive: prev.positive.filter(k => k !== keyword)
+                                }));
+                              }
+                            }}
+                            className="text-green-400 hover:text-green-300 text-xs font-secondary"
+                            title="Accept"
+                          >
+                            ✓
+                          </button>
+                          <button
+                            onClick={() => {
+                              // Remove from suggestions
+                              setKeywordSuggestions(prev => ({
+                                ...prev,
+                                positive: prev.positive.filter(k => k !== keyword)
+                              }));
+                            }}
+                            className="text-red-400 hover:text-red-300 text-xs font-secondary"
+                            title="Decline"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                  </div>
+                  {positiveKeywords.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-xs font-secondary text-foreground/60 mb-2">Accepted:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {positiveKeywords.map((keyword, index) => (
+                          <span key={index} className="px-3 py-1 bg-green-500/20 text-green-300 rounded-full text-sm font-secondary border border-green-500/30">
+                            {keyword}
+                            <button
+                              onClick={() => setPositiveKeywords(positiveKeywords.filter((_, i) => i !== index))}
+                              className="ml-2 text-green-400 hover:text-green-300"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Negative Keyword Suggestions */}
+              {keywordSuggestions.negative.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold font-secondary text-red-400 mb-3">
+                    Negative Keywords (Exclude these)
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {keywordSuggestions.negative
+                      .filter(k => !negativeKeywords.includes(k))
+                      .map((keyword, index) => (
+                        <div key={index} className="flex items-center gap-2 px-3 py-1 bg-red-500/10 border border-red-500/30 rounded-full">
+                          <span className="text-sm font-secondary text-red-300">{keyword}</span>
+                          <button
+                            onClick={() => {
+                              if (!negativeKeywords.includes(keyword)) {
+                                setNegativeKeywords([...negativeKeywords, keyword]);
+                                // Remove from suggestions
+                                setKeywordSuggestions(prev => ({
+                                  ...prev,
+                                  negative: prev.negative.filter(k => k !== keyword)
+                                }));
+                              }
+                            }}
+                            className="text-red-400 hover:text-red-300 text-xs font-secondary"
+                            title="Accept"
+                          >
+                            ✓
+                          </button>
+                          <button
+                            onClick={() => {
+                              // Remove from suggestions
+                              setKeywordSuggestions(prev => ({
+                                ...prev,
+                                negative: prev.negative.filter(k => k !== keyword)
+                              }));
+                            }}
+                            className="text-gray-400 hover:text-gray-300 text-xs font-secondary"
+                            title="Decline"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                  </div>
+                  {negativeKeywords.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-xs font-secondary text-foreground/60 mb-2">Accepted:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {negativeKeywords.map((keyword, index) => (
+                          <span key={index} className="px-3 py-1 bg-red-500/20 text-red-300 rounded-full text-sm font-secondary border border-red-500/30">
+                            {keyword}
+                            <button
+                              onClick={() => setNegativeKeywords(negativeKeywords.filter((_, i) => i !== index))}
+                              className="ml-2 text-red-400 hover:text-red-300"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* AI-Extracted Business Profile Section */}
           <div className="bg-[#1d1d1e] border border-white rounded-lg p-6">

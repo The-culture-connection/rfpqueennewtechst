@@ -3,22 +3,76 @@
 @tailwind utilities;
 
 :root {
-  --background: #1d1d1e;
-  --foreground: #ad3c94;
+  --background: #0a0a0a;
+  --foreground: #ffffff;
+  --primary: #ff6b9d;
+  --secondary: #a855f7;
+  --accent: #ec4899;
 }
 
-body {
-  background-color: #1d1d1e;
-  color: #e7e8ef;
-  font-family: var(--font-secondary), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+@layer base {
+  body {
+    background: linear-gradient(to bottom right, #0a0a0a, #1a1a1a, #0a0a0a);
+    color: #ffffff;
+    font-family: var(--font-secondary), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-attachment: fixed;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-primary), sans-serif;
+    background: linear-gradient(to right, #ff6b9d, #ec4899, #a855f7);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-gradient-to-r from-primary via-accent to-secondary;
+    @apply text-white font-medium;
+    @apply px-6 py-3 rounded-xl;
+    @apply hover:shadow-superlist;
+    @apply transition-all duration-300;
+    @apply hover:scale-105;
+  }
+  
+  .btn-secondary {
+    @apply bg-surface border border-primary/30;
+    @apply text-foreground font-medium;
+    @apply px-6 py-3 rounded-xl;
+    @apply hover:border-primary/50;
+    @apply hover:bg-surface-light;
+    @apply transition-all duration-300;
+  }
+  
+  .card {
+    @apply bg-surface/50 backdrop-blur-sm;
+    @apply border border-primary/20;
+    @apply rounded-2xl;
+    @apply p-6;
+    @apply shadow-superlist;
+    @apply transition-all duration-300;
+    @apply hover:border-primary/40;
+    @apply hover:shadow-superlist-lg;
+  }
+  
+  .gradient-text {
+    @apply text-transparent bg-clip-text;
+    @apply bg-gradient-to-r from-primary via-accent to-secondary;
+  }
+  
+  .gradient-bg {
+    @apply bg-gradient-to-br from-dark via-dark-light to-dark;
+  }
 }
 
 .font-primary {
   font-family: var(--font-primary), sans-serif;
-  color: #ad3c94;
 }
 
 .font-secondary {
   font-family: var(--font-secondary), sans-serif;
-  color: #e7e8ef;
 }

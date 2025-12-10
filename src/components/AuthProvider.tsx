@@ -108,6 +108,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setDoc(profileRef, updatedProfile, { merge: true });
     console.log('✅ Profile saved to Firestore');
     
+    // Invalidate opportunity cache since profile changed
+    try {
+      const { invalidateOpportunityCache } = await import('@/lib/opportunityCache');
+      await invalidateOpportunityCache(user.uid);
+      console.log('✅ Invalidated opportunity cache due to profile update');
+    } catch (err) {
+      console.warn('⚠️ Could not invalidate cache:', err);
+    }
+    
     // Fetch the updated profile to ensure state is in sync
     await fetchUserProfile(user.uid);
     console.log('✅ Profile state refreshed');

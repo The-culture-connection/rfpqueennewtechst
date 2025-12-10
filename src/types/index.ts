@@ -1,6 +1,6 @@
 // Type definitions for the RFP Matcher application
 
-export type FundingType = 'grants' | 'rfps' | 'contracts';
+export type FundingType = 'grants' | 'rfps' | 'contracts' | 'accelerators' | 'investors';
 export type Timeline = 'immediate' | '3-months' | '6-months' | '12-months';
 export type EntityType = 'nonprofit' | 'for-profit' | 'government' | 'education' | 'individual';
 export type Interest = 
@@ -63,6 +63,9 @@ export interface UserProfile {
   negativeKeywords?: string[]; // User-defined keywords to omit/exclude
   businessProfile?: BusinessProfile;  // Extracted from executive summary/documents
   preferences?: UserPreferences;  // Learning from user behavior
+  termsAccepted?: boolean; // Whether user has accepted terms and conditions
+  termsAcceptedAt?: string; // ISO timestamp of when terms were accepted
+  termsVersion?: string; // Version of terms that were accepted
   createdAt: Date;
   updatedAt: Date;
 }
@@ -108,6 +111,12 @@ export interface Opportunity {
   category?: string;
   rfpNumber?: string;
   type: 'RFP' | 'Grant';
+  
+  // Structured eligibility fields (from Grants.gov, SAM.gov APIs)
+  eligibleEntities?: string[]; // e.g., ['for-profit', 'nonprofit', 'state governments']
+  fundingActivityCategories?: string[]; // e.g., ['education', 'health', 'SBIR']
+  applicantTypes?: string[]; // e.g., ['individual', 'nonprofit', 'small business']
+  naicsCodes?: string[]; // NAICS industry codes
   
   // Calculated fields
   winRate?: number;

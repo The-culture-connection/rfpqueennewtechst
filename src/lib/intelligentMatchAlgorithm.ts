@@ -15,6 +15,21 @@ export function intelligentMatchOpportunities(
   opportunities: Opportunity[],
   profile: UserProfile
 ): Opportunity[] {
+  console.log('🧠 Intelligent Matching Algorithm Starting...');
+  console.log('📊 Profile Keywords:', {
+    regular: profile.keywords?.length || 0,
+    positive: profile.positiveKeywords?.length || 0,
+    negative: profile.negativeKeywords?.length || 0
+  });
+  
+  if (profile.positiveKeywords && profile.positiveKeywords.length > 0) {
+    console.log('✅ Positive Keywords (Include):', profile.positiveKeywords);
+  }
+  
+  if (profile.negativeKeywords && profile.negativeKeywords.length > 0) {
+    console.log('🚫 Negative Keywords (Exclude):', profile.negativeKeywords);
+  }
+  
   return opportunities.map(opp => {
     const fitComponents = calculateDetailedFit(opp, profile);
     const matchScore = calculateWeightedMatchScore(fitComponents, profile);
@@ -38,9 +53,12 @@ function calculateDetailedFit(
   const bp = profile.businessProfile;
   const oppText = `${opportunity.title} ${opportunity.description}`.toLowerCase();
   
+  // Calculate keyword fit with positive/negative keywords
+  const keywordFit = calculateKeywordFit(opportunity, profile);
+  
   return {
     eligibilityFit: calculateEligibilityFit(opportunity, profile),
-    interestKeywordFit: calculateInterestFit(opportunity, profile),
+    interestKeywordFit: keywordFit.interestFit,
     structureFit: calculateStructureFit(opportunity, profile),
     populationFit: calculatePopulationFit(opportunity, profile),
     amountFit: calculateAmountFit(opportunity, profile),
@@ -94,9 +112,13 @@ function calculateEligibilityFit(opportunity: Opportunity, profile: UserProfile)
   return Math.max(0, Math.min(1, score));
 }
 
-function calculateInterestFit(opportunity: Opportunity, profile: UserProfile): number {
+function calculateKeywordFit(
+  opportunity: Opportunity,
+  profile: UserProfile
+): { interestFit: number; positiveBoost: number; negativePenalty: number } {
   const oppText = `${opportunity.title} ${opportunity.description}`.toLowerCase();
   
+  // Calculate interest-based keyword fit
   const interestKeywords: { [key: string]: string[] } = {
     'healthcare': ['health', 'medical', 'wellness', 'hospital', 'clinic', 'patient', 'care', 'medicine'],
     'education': ['education', 'school', 'learning', 'student', 'teacher', 'training', 'academic', 'curriculum'],
@@ -121,7 +143,52 @@ function calculateInterestFit(opportunity: Opportunity, profile: UserProfile): n
     });
   });
   
-  return totalKeywords > 0 ? Math.min(1, matchCount / (totalKeywords * 0.3)) : 0;
+  let interestFit = totalKeywords > 0 ? Math.min(1, matchCount / (totalKeywords * 0.3)) : 0;
+  
+  // Apply positive keywords (boost score)
+  let positiveBoost = 0;
+  let positiveMatches: string[] = [];
+  if (profile.positiveKeywords && profile.positiveKeywords.length > 0) {
+    profile.positiveKeywords.forEach(keyword => {
+      const kw = keyword.toLowerCase().trim();
+      if (kw && oppText.includes(kw)) {
+        positiveBoost += 0.15; // Each positive keyword match adds 15%
+        positiveMatches.push(keyword);
+      }
+    });
+    positiveBoost = Math.min(0.3, positiveBoost); // Cap at 30% boost
+    
+    if (positiveMatches.length > 0) {
+      console.log(`✅ Positive Keywords Matched for "${opportunity.title.substring(0, 50)}...":`, positiveMatches);
+    }
+  }
+  
+  // Apply negative keywords (penalty)
+  let negativePenalty = 0;
+  let negativeMatches: string[] = [];
+  if (profile.negativeKeywords && profile.negativeKeywords.length > 0) {
+    profile.negativeKeywords.forEach(keyword => {
+      const kw = keyword.toLowerCase().trim();
+      if (kw && oppText.includes(kw)) {
+        negativePenalty += 0.25; // Each negative keyword match removes 25%
+        negativeMatches.push(keyword);
+      }
+    });
+    negativePenalty = Math.min(0.5, negativePenalty); // Cap at 50% penalty
+    
+    if (negativeMatches.length > 0) {
+      console.log(`🚫 Negative Keywords Matched for "${opportunity.title.substring(0, 50)}...":`, negativeMatches);
+    }
+  }
+  
+  // Apply adjustments to interest fit
+  interestFit = Math.max(0, Math.min(1, interestFit + positiveBoost - negativePenalty));
+  
+  return {
+    interestFit,
+    positiveBoost,
+    negativePenalty
+  };
 }
 
 function calculateStructureFit(opportunity: Opportunity, profile: UserProfile): number {
@@ -179,7 +246,10 @@ function calculatePopulationFit(opportunity: Opportunity, profile: UserProfile):
 function calculateAmountFit(opportunity: Opportunity, profile: UserProfile): number {
   if (!opportunity.amount) return 0.7; // Neutral if no amount specified
   
-  const amountStr = opportunity.amount.toLowerCase();
+  // Convert to string if it's not already
+  const amountStr = typeof opportunity.amount === 'string' 
+    ? opportunity.amount.toLowerCase() 
+    : String(opportunity.amount).toLowerCase();
   const amount = parseFloat(amountStr.replace(/[^0-9.]/g, ''));
   
   if (isNaN(amount)) return 0.7;

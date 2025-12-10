@@ -181,7 +181,10 @@ export default function DocumentsPage() {
 
   // Get document requirements based on user's funding types
   const getAvailableDocuments = () => {
-    if (!userProfile?.fundingType) return [];
+    // Always include Executive Summary at the top
+    const executiveSummary = { type: 'executive-summary' as DocumentType, label: 'Executive Summary', required: false };
+    
+    if (!userProfile?.fundingType) return [executiveSummary];
     
     const types = userProfile.fundingType;
     let docs: typeof DOCUMENT_REQUIREMENTS.rfps = [];
@@ -196,12 +199,13 @@ export default function DocumentsPage() {
       docs = [...docs, ...DOCUMENT_REQUIREMENTS.contracts];
     }
     
-    // Remove duplicates
+    // Remove duplicates and ensure executive-summary is not duplicated
     const uniqueDocs = docs.filter((doc, index, self) =>
-      index === self.findIndex(d => d.type === doc.type)
+      index === self.findIndex(d => d.type === doc.type) && doc.type !== 'executive-summary'
     );
     
-    return uniqueDocs;
+    // Return executive summary first, then other documents
+    return [executiveSummary, ...uniqueDocs];
   };
 
   const getDocumentStatus = (docType: DocumentType) => {

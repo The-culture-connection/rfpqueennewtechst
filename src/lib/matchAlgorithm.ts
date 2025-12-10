@@ -1,4 +1,207 @@
-import { Opportunity, UserProfile, FundingType, Interest, Timeline } from '@/types';
+import { Opportunity, UserProfile, FundingType, Interest, Timeline, EntityType } from '@/types';
+
+/**
+ * Get default negative keywords based on entity type.
+ * These are automatically applied if user hasn't set their own negative keywords.
+ */
+export function getDefaultNegativeKeywords(entityType: EntityType): string[] {
+  if (entityType === 'for-profit') {
+    return [
+      'postdoctoral fellowship',
+      'undergraduate',
+      'graduate student',
+      'dissertation',
+      'k-12',
+      'k12',
+      'elementary school',
+      'high school',
+      'tenure-track',
+      'principal investigator', // Unless it's SBIR/STTR, but we handle that in pre-filter
+      'nonprofit only',
+      'non-profits only',
+      'state governments only',
+      'county governments only',
+      'tribal organizations only',
+      'individuals only',
+      'students only',
+      'faculty only',
+      'artists only',
+    ];
+  }
+  
+  // Add defaults for other entity types if needed
+  if (entityType === 'nonprofit') {
+    return [
+      'for-profit only',
+      'business only',
+      'commercial only',
+      'small business only',
+    ];
+  }
+  
+  return [];
+}
+
+/**
+ * Pre-filter opportunities based on hard eligibility criteria before scoring.
+ * This aggressively filters out ineligible opportunities for for-profit startups.
+ */
+export function preFilterForEntityType(opportunity: Opportunity, entityType: EntityType): boolean {
+  // 1. Check structured eligibility fields first (most reliable)
+  if (opportunity.applicantTypes && opportunity.applicantTypes.length > 0) {
+    const applicantTypesLower = opportunity.applicantTypes.map(t => t.toLowerCase());
+    
+    // For for-profit startups, exclude opportunities targeted to:
+    if (entityType === 'for-profit') {
+      const excludedTypes = [
+        'individual',
+        'individuals',
+        'student',
+        'students',
+        'postdoc',
+        'postdocs',
+        'postdoctoral',
+        'faculty',
+        'artist',
+        'artists',
+        'nonprofit',
+        'non-profits',
+        'nonprofit only',
+        'non-profits only',
+        'state governments only',
+        'county governments only',
+        'local governments only',
+        'tribal organizations only',
+        'tribal organizations',
+        'educational institutions only',
+        'universities only',
+      ];
+      
+      // If any excluded type is in the applicant types, filter out
+      if (applicantTypesLower.some(t => excludedTypes.some(ex => t.includes(ex)))) {
+        return false;
+      }
+      
+      // If it explicitly says "for-profit" or "small business", allow it
+      const allowedTypes = ['for-profit', 'for profit', 'small business', 'business', 'commercial'];
+      if (!applicantTypesLower.some(t => allowedTypes.some(allowed => t.includes(allowed)))) {
+        // If no allowed types and we have explicit applicant types, be cautious
+        // But don't filter out if applicantTypes might be incomplete
+      }
+    }
+    
+    // For nonprofits, exclude for-profit only opportunities
+    if (entityType === 'nonprofit') {
+      if (applicantTypesLower.some(t => 
+        ['for-profit only', 'for profit only', 'business only', 'commercial only'].some(ex => t.includes(ex))
+      )) {
+        return false;
+      }
+    }
+  }
+  
+  // 2. Filter by funding activity categories (for for-profit startups)
+  if (entityType === 'for-profit' && opportunity.fundingActivityCategories && opportunity.fundingActivityCategories.length > 0) {
+    const categoriesLower = opportunity.fundingActivityCategories.map(c => c.toLowerCase());
+    
+    // Exclude pure academic/research categories that aren't business-focused
+    const excludedCategories = [
+      'education', // Too broad, but K-12 and higher ed grants are usually not for startups
+      'health', // Unless it's SBIR/STTR or commercial health tech
+      'humanities',
+      'social science research',
+      'basic research', // Unless SBIR/STTR
+      'fellowships',
+      'postdoctoral',
+      'dissertation',
+      'undergraduate',
+      'graduate',
+      'faculty',
+    ];
+    
+    // Check if ALL categories are excluded (if so, filter out)
+    // But allow if it's SBIR/STTR or commercial-focused
+    const hasSBIR = categoriesLower.some(c => 
+      c.includes('sbir') || c.includes('sttr') || c.includes('small business innovation')
+    );
+    const hasCommercial = categoriesLower.some(c =>
+      c.includes('commercial') || c.includes('business') || c.includes('innovation') || c.includes('technology transfer')
+    );
+    
+    if (!hasSBIR && !hasCommercial) {
+      // If all categories are in the excluded list, filter out
+      const allExcluded = categoriesLower.every(c => 
+        excludedCategories.some(ex => c.includes(ex))
+      );
+      if (allExcluded) {
+        return false;
+      }
+    }
+  }
+  
+  // 3. Check eligibleEntities field
+  if (opportunity.eligibleEntities && opportunity.eligibleEntities.length > 0) {
+    const eligibleLower = opportunity.eligibleEntities.map(e => e.toLowerCase());
+    
+    if (entityType === 'for-profit') {
+      const excludedEntities = [
+        'individuals',
+        'students',
+        'postdocs',
+        'faculty',
+        'artists',
+        'nonprofits only',
+        'state governments only',
+        'county governments only',
+        'tribal organizations only',
+      ];
+      
+      if (eligibleLower.some(e => excludedEntities.some(ex => e.includes(ex)))) {
+        return false;
+      }
+    }
+  }
+  
+  // 4. Fallback: Check description/title for hard exclusion keywords (for for-profit)
+  if (entityType === 'for-profit') {
+    const desc = (opportunity.description || '').toLowerCase();
+    const title = (opportunity.title || '').toLowerCase();
+    const combined = `${title} ${desc}`;
+    
+    // Hard exclusion patterns that indicate this is NOT for a startup
+    const hardExclusions = [
+      'postdoctoral fellowship',
+      'undergraduate research',
+      'graduate student',
+      'dissertation research',
+      'faculty only',
+      'tenure-track',
+      'principal investigator', // Unless it's SBIR/STTR
+      'k-12',
+      'k12',
+      'elementary school',
+      'high school',
+      'nonprofit only',
+      'non-profits only',
+      'state governments only',
+      'county governments only',
+    ];
+    
+    // Allow if it's SBIR/STTR (these use "principal investigator" but are for businesses)
+    const isSBIR = combined.includes('sbir') || combined.includes('sttr') || 
+                   combined.includes('small business innovation');
+    
+    if (!isSBIR) {
+      for (const exclusion of hardExclusions) {
+        if (combined.includes(exclusion)) {
+          return false;
+        }
+      }
+    }
+  }
+  
+  return true; // Passes all filters
+}
 
 // Calculate win rate for an opportunity based on user profile
 export function calculateWinRate(opportunity: Opportunity, profile: UserProfile): number {
@@ -7,7 +210,7 @@ export function calculateWinRate(opportunity: Opportunity, profile: UserProfile)
 
   // 1. Interest/Category Match (40 points) - HIGHEST WEIGHT
   maxScore += 40;
-  const interestScore = matchesInterests(opportunity, profile.interestsMain, profile.grantsByInterest);
+  const interestScore = matchesInterests(opportunity, profile.interestsMain, profile.grantsByInterest, profile.entityType);
   score += interestScore;
 
   // 2. Funding Type Match (25 points)
@@ -18,7 +221,16 @@ export function calculateWinRate(opportunity: Opportunity, profile: UserProfile)
 
   // 3. Keywords Match (20 points)
   maxScore += 20;
-  const keywordsScore = matchesKeywords(opportunity, profile.keywords || []);
+  // Use user's negative keywords, or default ones based on entity type
+  const negativeKeywords = profile.negativeKeywords && profile.negativeKeywords.length > 0
+    ? profile.negativeKeywords
+    : getDefaultNegativeKeywords(profile.entityType);
+  const keywordsScore = matchesKeywords(
+    opportunity, 
+    profile.keywords || [],
+    negativeKeywords,
+    profile.preferences?.passPatterns
+  );
   score += keywordsScore;
 
   // 4. Entity Type Match (10 points)
@@ -53,20 +265,45 @@ function matchesFundingType(opportunity: Opportunity, fundingTypes: FundingType[
 }
 
 // Check if opportunity matches entity type
-function matchesEntityType(opportunity: Opportunity, entityType: string): boolean {
+// NOTE: This is now used as a secondary boost, not the main eligibility gate.
+// Main eligibility filtering happens in preFilterForEntityType().
+function matchesEntityType(opportunity: Opportunity, entityType: EntityType): boolean {
+  // First check structured fields (most reliable)
+  if (opportunity.applicantTypes && opportunity.applicantTypes.length > 0) {
+    const applicantTypesLower = opportunity.applicantTypes.map(t => t.toLowerCase());
+    
+    const entityMap: Record<EntityType, string[]> = {
+      'nonprofit': ['nonprofit', 'non-profit', '501c3', 'charity', 'charitable', 'ngo'],
+      'for-profit': ['for-profit', 'for profit', 'business', 'company', 'corporation', 'enterprise', 'commercial', 'small business'],
+      'government': ['government', 'municipality', 'county', 'state', 'federal', 'public sector', 'state governments', 'local governments'],
+      'education': ['education', 'school', 'university', 'college', 'academic', 'educational', 'educational institutions'],
+      'individual': ['individual', 'individuals', 'person', 'artist', 'researcher', 'fellow'],
+    };
+    
+    const keywords = entityMap[entityType] || [];
+    
+    // Check if any applicant type matches our entity type keywords
+    for (const keyword of keywords) {
+      if (applicantTypesLower.some(t => t.includes(keyword))) {
+        return true;
+      }
+    }
+  }
+  
+  // Fallback to text search in description/title
   const desc = (opportunity.description || '').toLowerCase();
   const title = (opportunity.title || '').toLowerCase();
   const combined = `${title} ${desc}`;
   
-  const entityMap: Record<string, string[]> = {
+  const entityMap: Record<EntityType, string[]> = {
     'nonprofit': ['nonprofit', 'non-profit', '501c3', 'charity', 'charitable', 'ngo'],
-    'for-profit': ['for-profit', 'business', 'company', 'corporation', 'enterprise', 'commercial'],
+    'for-profit': ['for-profit', 'business', 'company', 'corporation', 'enterprise', 'commercial', 'small business'],
     'government': ['government', 'municipality', 'county', 'state', 'federal', 'public sector'],
     'education': ['education', 'school', 'university', 'college', 'academic', 'educational'],
     'individual': ['individual', 'person', 'artist', 'researcher', 'fellow'],
   };
   
-  const keywords = entityMap[entityType.toLowerCase()] || [];
+  const keywords = entityMap[entityType] || [];
   
   // If any keyword matches, give full score
   for (const keyword of keywords) {
@@ -75,15 +312,18 @@ function matchesEntityType(opportunity: Opportunity, entityType: string): boolea
     }
   }
   
-  // If no explicit mention, still give partial credit (opportunity might be open to all)
+  // If no explicit mention, return false (don't give partial credit)
+  // The pre-filter handles eligibility, this is just a boost
   return false;
 }
 
 // Calculate interest match score (0-40 points) - HIGHEST WEIGHT
+// Improved to distinguish academic research vs commercial startup interests
 function matchesInterests(
   opportunity: Opportunity, 
   mainInterests: Interest[], 
-  grantsByInterest: Interest[]
+  grantsByInterest: Interest[],
+  entityType?: EntityType
 ): number {
   const allInterests = [...new Set([...mainInterests, ...grantsByInterest])];
   
@@ -94,28 +334,111 @@ function matchesInterests(
   const category = (opportunity.category || '').toLowerCase();
   const combined = `${title} ${desc} ${category}`;
   
-  // Interest keyword mapping
-  const interestKeywords: Record<Interest, string[]> = {
-    healthcare: ['health', 'medical', 'hospital', 'wellness', 'care', 'patient', 'clinical'],
-    education: ['education', 'school', 'training', 'learning', 'student', 'academic', 'teacher'],
-    environment: ['environment', 'climate', 'green', 'sustainability', 'conservation', 'renewable', 'ecology'],
-    arts: ['art', 'culture', 'museum', 'creative', 'artist', 'music', 'theater', 'performance'],
-    technology: ['technology', 'tech', 'software', 'digital', 'IT', 'computer', 'innovation', 'cyber'],
-    'social-services': ['social', 'service', 'community', 'welfare', 'assistance', 'support', 'outreach'],
-    research: ['research', 'study', 'scientific', 'investigation', 'analysis', 'development', 'R&D'],
-    infrastructure: ['infrastructure', 'construction', 'building', 'facility', 'transportation', 'public works'],
-    'economic-development': ['economic', 'development', 'business', 'growth', 'employment', 'workforce', 'jobs'],
-    housing: ['housing', 'home', 'shelter', 'residential', 'affordable housing', 'homelessness'],
+  // Check if this is SBIR/STTR (these are commercial even if they mention research)
+  const isSBIR = combined.includes('sbir') || combined.includes('sttr') || 
+                  combined.includes('small business innovation') ||
+                  opportunity.fundingActivityCategories?.some(c => 
+                    c.toLowerCase().includes('sbir') || c.toLowerCase().includes('sttr')
+                  );
+  
+  // Interest keyword mapping - split into commercial vs academic for better matching
+  const interestKeywords: Record<Interest, { commercial: string[]; academic?: string[] }> = {
+    healthcare: {
+      commercial: ['digital health', 'telehealth', 'ehr', 'health tech', 'healthcare software', 'health saas', 'medical device', 'healthcare innovation', 'healthcare technology'],
+      academic: ['clinical trial', 'principal investigator', 'academic institution', 'medical research', 'biomedical research', 'clinical research'],
+    },
+    education: {
+      commercial: ['edtech', 'education technology', 'learning platform', 'educational software', 'online learning', 'education innovation'],
+      academic: ['k-12', 'k12', 'elementary', 'high school', 'university', 'college', 'academic', 'student', 'teacher training', 'curriculum'],
+    },
+    environment: {
+      commercial: ['clean tech', 'renewable energy', 'sustainability tech', 'green technology', 'environmental innovation', 'carbon capture'],
+      academic: ['climate research', 'environmental research', 'conservation research', 'ecology study'],
+    },
+    arts: {
+      commercial: ['creative technology', 'digital art', 'art tech', 'cultural innovation'],
+      academic: ['art history', 'cultural studies', 'museum research', 'artistic research'],
+    },
+    technology: {
+      commercial: ['software', 'saas', 'platform', 'app', 'digital', 'tech startup', 'innovation', 'cybersecurity', 'ai', 'machine learning', 'blockchain'],
+      academic: ['computer science research', 'academic research', 'university research'],
+    },
+    'social-services': {
+      commercial: ['social innovation', 'community tech', 'social enterprise'],
+      academic: ['social research', 'community research', 'welfare research'],
+    },
+    research: {
+      // For "research" interest, we need to be very careful
+      // Only match if it's clearly commercial R&D (SBIR/STTR) or product development
+      commercial: ['product development', 'r&d', 'innovation', 'commercialization', 'technology transfer', 'sbir', 'sttr'],
+      academic: ['basic research', 'fundamental research', 'scientific research', 'academic research', 'university research', 'dissertation', 'postdoctoral'],
+    },
+    infrastructure: {
+      commercial: ['infrastructure tech', 'smart city', 'construction tech', 'infrastructure innovation'],
+      academic: ['infrastructure research', 'urban planning research'],
+    },
+    'economic-development': {
+      commercial: ['business development', 'startup', 'entrepreneurship', 'economic growth', 'job creation', 'workforce development', 'business innovation'],
+      academic: ['economic research', 'economic study', 'labor research'],
+    },
+    housing: {
+      commercial: ['housing tech', 'proptech', 'real estate tech', 'affordable housing innovation'],
+      academic: ['housing research', 'urban studies', 'housing policy research'],
+    },
   };
   
   let matchedInterests = 0;
   
   for (const interest of allInterests) {
-    const keywords = interestKeywords[interest] || [];
-    for (const keyword of keywords) {
-      if (combined.includes(keyword)) {
-        matchedInterests++;
-        break; // Only count each interest once
+    const keywordSets = interestKeywords[interest];
+    if (!keywordSets) continue;
+    
+    let interestMatched = false;
+    
+    // For for-profit entities, prioritize commercial keywords
+    if (entityType === 'for-profit' && !isSBIR) {
+      // Check commercial keywords first
+      for (const keyword of keywordSets.commercial) {
+        if (combined.includes(keyword)) {
+          matchedInterests++;
+          interestMatched = true;
+          break;
+        }
+      }
+      
+      // Only check academic keywords if commercial didn't match AND it's not clearly academic
+      if (!interestMatched && keywordSets.academic) {
+        // For for-profit, be more strict - only match academic if it's clearly relevant
+        // (e.g., SBIR/STTR programs that mention research but are for businesses)
+        const hasAcademicOnly = keywordSets.academic.some(k => combined.includes(k));
+        const hasCommercialIndicators = combined.includes('commercial') || 
+                                        combined.includes('business') ||
+                                        combined.includes('startup') ||
+                                        combined.includes('innovation');
+        
+        // Don't match pure academic research for for-profit unless there are commercial indicators
+        if (hasAcademicOnly && !hasCommercialIndicators) {
+          // Skip this interest match for for-profit
+          continue;
+        }
+      }
+    } else {
+      // For other entity types or SBIR/STTR, check both commercial and academic
+      for (const keyword of keywordSets.commercial) {
+        if (combined.includes(keyword)) {
+          matchedInterests++;
+          interestMatched = true;
+          break;
+        }
+      }
+      
+      if (!interestMatched && keywordSets.academic) {
+        for (const keyword of keywordSets.academic) {
+          if (combined.includes(keyword)) {
+            matchedInterests++;
+            break;
+          }
+        }
       }
     }
   }
@@ -126,15 +449,55 @@ function matchesInterests(
 }
 
 // Calculate keywords match score (0-20 points)
-function matchesKeywords(opportunity: Opportunity, keywords: string[]): number {
-  if (keywords.length === 0) return 10; // Neutral score if no keywords
-  
+// Now includes negative keyword filtering and pass pattern awareness
+function matchesKeywords(
+  opportunity: Opportunity, 
+  keywords: string[], 
+  negativeKeywords?: string[],
+  passPatterns?: { keywords?: string[]; agencies?: string[]; amounts?: string[] }
+): number {
   const desc = (opportunity.description || '').toLowerCase();
   const title = (opportunity.title || '').toLowerCase();
   const category = (opportunity.category || '').toLowerCase();
   const agency = (opportunity.agency || '').toLowerCase();
   const combined = `${title} ${desc} ${category} ${agency}`;
   
+  // HARD EXCLUSION: Check negative keywords first
+  if (negativeKeywords && negativeKeywords.length > 0) {
+    for (const negKeyword of negativeKeywords) {
+      const negLower = negKeyword.toLowerCase().trim();
+      if (negLower.length > 0 && combined.includes(negLower)) {
+        return 0; // Hard exclusion - return 0 points
+      }
+    }
+  }
+  
+  // HARD EXCLUSION: Check pass patterns (learned from user behavior)
+  if (passPatterns) {
+    // Check keyword patterns
+    if (passPatterns.keywords && passPatterns.keywords.length > 0) {
+      for (const pattern of passPatterns.keywords) {
+        const patternLower = pattern.toLowerCase().trim();
+        if (patternLower.length > 0 && combined.includes(patternLower)) {
+          return 0; // User consistently passes on opportunities with this keyword
+        }
+      }
+    }
+    
+    // Check agency patterns
+    if (passPatterns.agencies && passPatterns.agencies.length > 0) {
+      for (const agencyPattern of passPatterns.agencies) {
+        if (agency.toLowerCase().includes(agencyPattern.toLowerCase())) {
+          return 0; // User consistently passes on opportunities from this agency
+        }
+      }
+    }
+  }
+  
+  // If no keywords provided, return neutral score
+  if (keywords.length === 0) return 10;
+  
+  // Positive keyword matching
   let matchedKeywords = 0;
   
   for (const keyword of keywords) {
@@ -205,16 +568,24 @@ export function matchOpportunities(
   profile: UserProfile,
   minWinRate: number = 0
 ): Opportunity[] {
-  // Calculate win rate for each opportunity
-  const scored = opportunities.map(opp => ({
+  // STEP 1: Pre-filter based on hard eligibility criteria
+  // This removes ineligible opportunities BEFORE scoring
+  const preFiltered = opportunities.filter(opp => 
+    preFilterForEntityType(opp, profile.entityType)
+  );
+  
+  console.log(`[Match] Pre-filtered ${opportunities.length} → ${preFiltered.length} opportunities for ${profile.entityType} entity type`);
+  
+  // STEP 2: Calculate win rate for each pre-filtered opportunity
+  const scored = preFiltered.map(opp => ({
     ...opp,
     winRate: calculateWinRate(opp, profile)
   }));
   
-  // Filter by minimum win rate
+  // STEP 3: Filter by minimum win rate
   const filtered = scored.filter(opp => opp.winRate >= minWinRate);
   
-  // Sort by win rate descending
+  // STEP 4: Sort by win rate descending
   filtered.sort((a, b) => (b.winRate || 0) - (a.winRate || 0));
   
   return filtered;

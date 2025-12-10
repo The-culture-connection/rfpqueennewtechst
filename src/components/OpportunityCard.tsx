@@ -4,6 +4,7 @@ import { Opportunity, UserProfile } from '@/types';
 import { useState } from 'react';
 import { getOpportunitySnippet, buildWhyMatchLine, getInDepthSummary } from '@/lib/opportunitySnippets';
 import { generateMatchReasoning, generateMatchSummary } from '@/lib/matchReasoning';
+import { formatAmount } from '@/lib/formatAmount';
 
 interface OpportunityCardProps {
   opportunity: Opportunity;
@@ -20,8 +21,8 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
   const matchScore = opportunity.matchScore || winRate;
   
   // Dynamic color coding based on match score
-  const scoreColor = matchScore >= 75 ? 'text-[#ad3c94]' : matchScore >= 60 ? 'text-yellow-400' : matchScore >= 45 ? 'text-orange-400' : 'text-[#e7e8ef]/60';
-  const scoreBg = matchScore >= 75 ? 'bg-[#1d1d1e] border-[#ad3c94]/50' : matchScore >= 60 ? 'bg-[#1d1d1e] border-yellow-400/50' : matchScore >= 45 ? 'bg-[#1d1d1e] border-orange-400/50' : 'bg-[#1d1d1e] border-[#e7e8ef]/30';
+  const scoreColor = matchScore >= 75 ? 'text-primary' : matchScore >= 60 ? 'text-secondary' : matchScore >= 45 ? 'text-accent' : 'text-foreground/50';
+  const scoreBg = matchScore >= 75 ? 'bg-surface border-primary/50' : matchScore >= 60 ? 'bg-surface border-secondary/50' : matchScore >= 45 ? 'bg-surface border-accent/50' : 'bg-surface border-primary/20';
   
   // Generate nuanced match label
   let matchLabel = '';
@@ -46,7 +47,13 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
     : buildWhyMatchLine(userProfile, opportunity);
     
   const fullDescription = opportunity.description || '';
-  const showExpandButton = fullDescription.length > 300;
+  
+  // Create 50-word summary
+  const getWordCount = (text: string) => text.trim().split(/\s+/).filter(word => word.length > 0).length;
+  const wordCount = getWordCount(fullDescription);
+  const words = fullDescription.trim().split(/\s+/).filter(word => word.length > 0);
+  const summary = words.slice(0, 50).join(' ') + (words.length > 50 ? '...' : '');
+  const showExpandButton = wordCount > 50;
   
   // Use enhanced match reasoning if available
   const matchReasons = opportunity.matchReasoning?.specificReasons || 
@@ -91,7 +98,7 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
   const urgencyBadge = days !== null && days >= 0 && days <= 30;
 
   return (
-    <div className="bg-[#1d1d1e] rounded-xl shadow-lg hover:shadow-xl transition-all border border-[#ad3c94]/30 overflow-hidden">
+    <div className="card overflow-hidden">
       {/* Header with Win Rate */}
       <div className="p-6">
         <div className="flex items-start justify-between mb-3">
@@ -101,25 +108,23 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
                 {matchLabel} ({matchScore})
               </span>
               {confidenceScore >= 70 && (
-                <span className="px-2 py-1 rounded text-xs font-secondary bg-[#ad3c94]/20 text-[#ad3c94] border border-[#ad3c94]/50">
+                <span className="px-2 py-1 rounded-xl text-xs font-secondary bg-primary/20 text-primary border border-primary/50">
                   High Confidence
                 </span>
               )}
-              <span className={`px-2 py-1 rounded text-xs font-secondary border ${
-                opportunity.type === 'Grant' ? 'bg-[#1d1d1e] text-[#ad3c94] border-[#ad3c94]/50' : 'bg-[#1d1d1e] text-[#ad3c94] border-[#ad3c94]/50'
-              }`}>
+              <span className="px-2 py-1 rounded-xl text-xs font-secondary border bg-surface text-primary border-primary/50">
                 {opportunity.type}
               </span>
               {urgencyBadge && (
-                <span className="px-2 py-1 rounded text-xs font-secondary bg-[#1d1d1e] text-red-400 border border-red-400/50">
+                <span className="px-2 py-1 rounded-xl text-xs font-secondary bg-red-500/10 text-red-400 border border-red-400/50">
                   {days} day{days !== 1 ? 's' : ''} left
                 </span>
               )}
             </div>
-            <h3 className="text-xl font-primary text-[#ad3c94] mb-2">
+            <h3 className="text-xl font-primary mb-2 gradient-text">
               {opportunity.title}
             </h3>
-            <p className="text-sm font-secondary text-[#e7e8ef]/80">
+            <p className="text-sm font-secondary text-foreground/70">
               {opportunity.agency || 'Unknown Agency'}
             </p>
           </div>
@@ -129,19 +134,19 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
         <div className="space-y-2 mb-4">
           {opportunity.amount && (
             <div className="flex items-center text-sm font-secondary">
-              <span className="text-[#e7e8ef] font-medium">{opportunity.amount}</span>
+              <span className="text-foreground font-medium">{formatAmount(opportunity.amount)}</span>
             </div>
           )}
           
           <div className="flex items-center text-sm font-secondary">
-            <span className="text-[#e7e8ef]">
-              Deadline: <span className="font-medium">{formatDeadline(opportunity.closeDate || opportunity.deadline)}</span>
+            <span className="text-foreground/80">
+              Deadline: <span className="font-medium text-foreground">{formatDeadline(opportunity.closeDate || opportunity.deadline)}</span>
             </span>
           </div>
 
           {(opportunity.city || opportunity.state) && (
             <div className="flex items-center text-sm font-secondary">
-              <span className="text-[#e7e8ef]">
+              <span className="text-foreground/80">
                 {[opportunity.city, opportunity.state].filter(Boolean).join(', ')}
               </span>
             </div>
@@ -149,23 +154,23 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
 
           {opportunity.source && (
             <div className="flex items-center text-sm font-secondary">
-              <span className="text-[#e7e8ef] capitalize">{opportunity.source}</span>
+              <span className="text-foreground/80 capitalize">{opportunity.source}</span>
             </div>
           )}
         </div>
 
         {/* Eligibility Highlights - Most Important */}
         {eligibilityHighlights.length > 0 && (
-          <div className="mb-3 p-4 bg-[#ad3c94]/20 border-2 border-[#ad3c94] rounded-lg">
-            <p className="text-sm font-bold text-[#ad3c94] mb-2 flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="mb-3 p-4 bg-gradient-to-r from-primary/20 via-accent/20 to-secondary/20 border-2 border-primary/50 rounded-xl">
+            <p className="text-sm font-bold gradient-text mb-2 flex items-center gap-2">
+              <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               Why You're Eligible
             </p>
             <div className="space-y-2">
               {eligibilityHighlights.map((highlight, idx) => (
-                <p key={idx} className="text-sm font-secondary text-[#e7e8ef] leading-relaxed">
+                <p key={idx} className="text-sm font-secondary text-foreground leading-relaxed">
                   • {highlight}
                 </p>
               ))}
@@ -175,8 +180,8 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
 
         {/* Match Summary */}
         {whyMatch && (
-          <div className="mb-3 p-3 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg">
-            <p className="text-sm font-secondary text-[#e7e8ef] leading-relaxed">
+          <div className="mb-3 p-3 bg-surface border border-primary/30 rounded-xl">
+            <p className="text-sm font-secondary text-foreground/90 leading-relaxed">
               {whyMatch}
             </p>
           </div>
@@ -212,11 +217,11 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
 
         {/* Additional Match Details */}
         {matchReasons.length > 0 && (
-          <div className="mb-3 p-3 bg-[#1d1d1e] border border-[#ad3c94]/20 rounded-lg">
-            <p className="text-xs font-bold text-[#ad3c94] mb-2">Additional Context</p>
+          <div className="mb-3 p-3 bg-surface border border-primary/20 rounded-xl">
+            <p className="text-xs font-bold gradient-text mb-2">Additional Context</p>
             <div className="space-y-1">
               {matchReasons.map((reason, idx) => (
-                <p key={idx} className="text-xs font-secondary text-[#e7e8ef]/80">
+                <p key={idx} className="text-xs font-secondary text-foreground/70">
                   • {reason}
                 </p>
               ))}
@@ -224,17 +229,17 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
           </div>
         )}
 
-        {/* Description Snippet */}
-        {snippet && (
+        {/* Description Summary */}
+        {fullDescription && (
           <div className="mb-4">
-            <p className="text-sm font-semibold text-[#ad3c94] mb-2">Opportunity Details</p>
-            <p className="text-sm font-secondary text-[#e7e8ef]/80">
-              {isExpanded ? fullDescription : snippet}
+            <p className="text-sm font-semibold gradient-text mb-2">Summary</p>
+            <p className="text-sm font-secondary text-foreground/80 leading-relaxed">
+              {isExpanded ? fullDescription : summary}
             </p>
             {showExpandButton && (
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="text-sm text-[#ad3c94] hover:text-[#ad3c94]/80 font-secondary mt-2 transition-colors flex items-center gap-1"
+                className="text-sm text-primary hover:text-primary-light font-secondary mt-2 transition-colors flex items-center gap-1"
               >
                 {isExpanded ? (
                   <>
@@ -245,7 +250,7 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
                   </>
                 ) : (
                   <>
-                    <span>Show full description</span>
+                    <span>Show more description</span>
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
@@ -257,23 +262,23 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
         )}
 
         {/* Action Buttons */}
-        <div className="flex gap-2 pt-4 border-t border-[#ad3c94]/30">
+        <div className="flex gap-2 pt-4 border-t border-primary/30">
           <button
             onClick={() => onPass(opportunity.id)}
-            className="flex-1 px-4 py-2 bg-[#1d1d1e] text-[#e7e8ef] rounded-lg hover:bg-[#1d1d1e]/80 transition-all font-secondary border border-[#ad3c94]/30"
+            className="flex-1 btn-secondary"
           >
             Pass
           </button>
           <button
             onClick={() => onSave(opportunity.id)}
-            className="flex-1 px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary"
+            className="flex-1 btn-primary"
           >
             Save
           </button>
           <button
             onClick={() => onApply(opportunity.id)}
             disabled={!opportunity.url}
-            className="flex-1 px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+            className="flex-1 btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
             title={opportunity.url ? "Open opportunity and add to tracker" : "No link available"}
           >
             Apply
@@ -285,8 +290,8 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
 
         {/* Info about Apply button */}
         {opportunity.url && (
-          <div className="mt-3 pt-3 border-t border-[#ad3c94]/30">
-            <p className="text-xs font-secondary text-[#e7e8ef]/70 flex items-center gap-1">
+          <div className="mt-3 pt-3 border-t border-primary/30">
+            <p className="text-xs font-secondary text-foreground/60 flex items-center gap-1">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -296,8 +301,8 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
         )}
 
         {/* Refinement Note */}
-        <div className="mt-3 pt-3 border-t border-[#ad3c94]/30">
-          <p className="text-xs font-secondary text-[#ad3c94]/80 flex items-start gap-2">
+        <div className="mt-3 pt-3 border-t border-primary/30">
+          <p className="text-xs font-secondary text-primary/80 flex items-start gap-2">
             <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>

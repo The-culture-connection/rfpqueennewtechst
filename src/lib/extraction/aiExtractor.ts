@@ -32,6 +32,8 @@ export interface AIExtractedFields {
   proposedSolution?: string | null;
   outcomesImpact?: string[] | null;
   keywords?: string[] | null;
+  positiveKeywordSuggestions?: string[] | null; // Keywords to prioritize/include
+  negativeKeywordSuggestions?: string[] | null; // Keywords to omit/exclude
 }
 
 /**
@@ -99,7 +101,9 @@ Return JSON exactly in this format:
   "problemStatement": string|null,
   "proposedSolution": string|null,
   "outcomesImpact": string[]|null,
-  "keywords": string[]|null
+  "keywords": string[]|null,
+  "positiveKeywordSuggestions": string[]|null,
+  "negativeKeywordSuggestions": string[]|null
 }
 
 Field definitions:
@@ -116,6 +120,8 @@ Field definitions:
 - proposedSolution: For grants/proposals - what solution is being proposed
 - outcomesImpact: Array of outcomes, impact metrics, or success stories
 - keywords: Array of relevant keywords, terms, or phrases that describe the organization's focus areas, expertise, industries, technologies, methodologies, or specializations. Extract 10-20 most important keywords that would help match this organization with relevant opportunities. Examples: "machine learning", "sustainable energy", "community health", "urban planning", "STEM education", etc.
+- positiveKeywordSuggestions: Array of 5-10 keywords or phrases that should be PRIORITIZED when matching opportunities. These are terms that strongly align with the organization's core strengths, services, or focus areas. These keywords should help surface opportunities that are highly relevant. Examples: "healthcare technology", "renewable energy", "education technology", "cybersecurity", etc.
+- negativeKeywordSuggestions: Array of 5-10 keywords or phrases that should be EXCLUDED or given lower priority when matching opportunities. These are terms that indicate opportunities NOT suitable for this organization. Examples: "construction", "real estate", "food service", "retail", etc. Only include terms that are clearly NOT relevant based on the document content.
 
 `;
 

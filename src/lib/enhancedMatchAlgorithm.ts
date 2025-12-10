@@ -326,7 +326,10 @@ function calculatePopulationFit(opportunity: Opportunity, profile: UserProfile):
 function calculateAmountFit(opportunity: Opportunity, profile: UserProfile): number {
   if (!opportunity.amount) return 0.7; // Neutral if no amount specified
 
-  const amountStr = opportunity.amount.toLowerCase();
+  // Convert to string if it's not already
+  const amountStr = typeof opportunity.amount === 'string' 
+    ? opportunity.amount.toLowerCase() 
+    : String(opportunity.amount).toLowerCase();
   const hasLarge = amountStr.includes('million') || amountStr.includes('$1,000,000');
   const hasSmall = amountStr.includes('$50,000') || amountStr.includes('small');
 

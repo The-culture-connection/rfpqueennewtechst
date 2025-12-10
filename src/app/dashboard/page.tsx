@@ -18,7 +18,7 @@ import {
 import { trackUserAction } from '@/lib/preferenceLearning';
 import { FeedbackForm } from '@/components/FeedbackForm';
 import { LoadingMeter } from '@/components/LoadingMeter';
-import KeywordManager from '@/components/KeywordManager';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 
 export default function DashboardPage() {
   const { user, userProfile } = useAuth();
@@ -31,6 +31,7 @@ export default function DashboardPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [progressLoaded, setProgressLoaded] = useState(false);
   const [rerunLoading, setRerunLoading] = useState(false);
+  const [hasExecutiveSummary, setHasExecutiveSummary] = useState(false);
 
   // Redirect if not authenticated or profile incomplete
   useEffect(() => {
@@ -42,10 +43,15 @@ export default function DashboardPage() {
       return;
     }
     
-    // Check if user has completed onboarding
-    // Only redirect if we have a userProfile object that's incomplete
-    // If userProfile is null, we're still loading it
+    // Check if user has accepted terms first
     if (userProfile) {
+      if (!userProfile.termsAccepted) {
+        console.log('⚠️ Terms not accepted, redirecting to terms page');
+        router.push('/terms');
+        return;
+      }
+      
+      // Check if user has completed onboarding
       if (!userProfile.entityName || !userProfile.fundingType || userProfile.fundingType.length === 0) {
         console.log('⚠️ Incomplete profile detected:', userProfile);
         console.log('⚠️ Missing - entityName:', !userProfile.entityName, 'fundingType:', !userProfile.fundingType || userProfile.fundingType.length === 0);
@@ -64,6 +70,36 @@ export default function DashboardPage() {
       trackDashboardViewed(opportunities.length);
     }
   }, [loading, opportunities.length]);
+
+  // Check if executive summary is processed (completed)
+  useEffect(() => {
+    async function checkExecutiveSummary() {
+      if (!user || !db) return;
+      
+      try {
+        const docsRef = collection(db, 'profiles', user.uid, 'documents');
+        const q = query(docsRef, where('documentType', '==', 'executive-summary'));
+        const querySnapshot = await getDocs(q);
+        
+        // Check if any executive summary document has processingStatus === 'completed'
+        const hasCompleted = querySnapshot.docs.some(doc => {
+          const data = doc.data();
+          return data.processingStatus === 'completed';
+        });
+        
+        setHasExecutiveSummary(hasCompleted);
+      } catch (error) {
+        console.error('Error checking executive summary:', error);
+      }
+    }
+    
+    if (user) {
+      checkExecutiveSummary();
+      // Re-check periodically to update when processing completes
+      const interval = setInterval(checkExecutiveSummary, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [user, db]);
 
   // Note: Removed auto-refresh to prevent crashes. Users can manually refresh if needed.
 
@@ -146,7 +182,7 @@ export default function DashboardPage() {
 
   if (loading || !userProfile) {
     return (
-      <div className="min-h-screen bg-[#1d1d1e] flex items-center justify-center">
+      <div className="min-h-screen gradient-bg flex items-center justify-center">
         <div className="text-center max-w-md w-full px-4">
           <LoadingMeter loading={true} />
         </div>
@@ -156,12 +192,12 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#1d1d1e] flex items-center justify-center">
+      <div className="min-h-screen gradient-bg flex items-center justify-center">
         <div className="text-center max-w-md">
           <p className="font-secondary text-red-400 mb-4">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary"
+            className="btn-primary"
           >
             Retry
           </button>
@@ -207,7 +243,11 @@ export default function DashboardPage() {
     setRerunLoading(true);
     
     try {
-      // Clear cache before rerunning
+      // Clear Firestore cache before rerunning
+      const { clearOpportunityCache } = await import('@/lib/opportunityCache');
+      await clearOpportunityCache(user.uid);
+      
+      // Clear localStorage cache as well
       if (typeof window !== 'undefined') {
         try {
           localStorage.removeItem('cached_opportunities');
@@ -215,7 +255,7 @@ export default function DashboardPage() {
           localStorage.removeItem('cached_opportunities_profile');
           console.log('Cleared opportunity cache');
         } catch (err) {
-          console.warn('Error clearing cache:', err);
+          console.warn('Error clearing localStorage cache:', err);
         }
       }
 
@@ -230,8 +270,10 @@ export default function DashboardPage() {
       if (refetch) {
         refetch();
       }
-      // Reset force reload after a moment
-      setTimeout(() => setForceReload(false), 1000);
+      // Reset force reload after a moment to allow the refetch to complete
+      setTimeout(() => {
+        setForceReload(false);
+      }, 2000);
     } catch (err: any) {
       console.error('Error rerunning matching:', err);
       alert(`Error rerunning opportunity matching: ${err.message || 'Unknown error'}`);
@@ -414,41 +456,41 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#1d1d1e]">
+    <div className="min-h-screen gradient-bg">
       {/* Header */}
-      <div className="bg-[#1d1d1e] border-b border-[#ad3c94]/30">
+      <div className="bg-surface/50 backdrop-blur-sm border-b border-primary/20 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-primary text-[#ad3c94]">RFP Matcher</h1>
-              <p className="text-sm font-secondary text-[#e7e8ef] mt-1">
+              <h1 className="text-2xl font-primary gradient-text">RFP Matcher</h1>
+              <p className="text-sm font-secondary text-foreground/70 mt-1">
                 Welcome back, {userProfile.entityName}!
               </p>
             </div>
             <div className="flex gap-3 flex-wrap">
               <button
                 onClick={() => router.push('/tracker')}
-                className="px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary"
+                className="btn-secondary text-sm"
               >
                 My Tracker
               </button>
               <button
                 onClick={() => router.push('/documents')}
-                className="px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary"
+                className="btn-secondary text-sm"
                 title="Upload and manage your documents"
               >
                 Documents
               </button>
               <button
                 onClick={() => router.push('/executive-summary')}
-                className="px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary"
+                className="btn-secondary text-sm"
                 title="Upload your executive summary for better matching"
               >
                 Executive Summary
               </button>
               <button
                 onClick={() => router.push('/profile')}
-                className="px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary"
+                className="btn-secondary text-sm"
                 title="Edit your profile and preferences"
               >
                 Edit Profile
@@ -456,21 +498,21 @@ export default function DashboardPage() {
               <button
                 onClick={handleRerunMatching}
                 disabled={rerunLoading || loading}
-                className="px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Rerun opportunity matching with updated profile"
               >
                 {rerunLoading ? 'Rerunning...' : 'Rerun Matching'}
               </button>
               <button
                 onClick={handleStartOver}
-                className="px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary"
+                className="btn-secondary text-sm"
                 title="Reset progress and start from beginning"
               >
                 Start Over
               </button>
               <button
                 onClick={() => router.push('/')}
-                className="px-4 py-2 bg-[#1d1d1e] text-[#e7e8ef] rounded-lg hover:bg-[#1d1d1e]/80 transition-all border border-[#ad3c94]/30 font-secondary"
+                className="btn-secondary text-sm"
               >
                 Logout
               </button>
@@ -487,11 +529,11 @@ export default function DashboardPage() {
             <LoadingMeter loading={loading || rerunLoading} />
         {/* Resume indicator */}
         {currentIndex > 0 && progressLoaded && (
-              <div className="bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg p-3 mb-4 flex items-center gap-2">
-                <svg className="w-5 h-5 text-[#ad3c94]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="card mb-4 flex items-center gap-2">
+            <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-                <p className="text-sm font-secondary text-[#e7e8ef]">
+            <p className="text-sm font-secondary text-foreground/80">
               Resumed from where you left off (Opportunity {currentIndex + 1})
             </p>
           </div>
@@ -499,17 +541,17 @@ export default function DashboardPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg p-4">
-                <p className="text-sm font-secondary text-[#e7e8ef]/80">Total Matches</p>
-                <p className="text-2xl font-primary text-[#ad3c94]">{opportunities.length}</p>
+          <div className="card">
+            <p className="text-sm font-secondary text-foreground/70">Total Matches</p>
+            <p className="text-2xl font-primary gradient-text">{opportunities.length}</p>
           </div>
-              <div className="bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg p-4">
-                <p className="text-sm font-secondary text-[#e7e8ef]/80">Remaining</p>
-                <p className="text-2xl font-primary text-[#ad3c94]">{availableOpportunities.length}</p>
+          <div className="card">
+            <p className="text-sm font-secondary text-foreground/70">Remaining</p>
+            <p className="text-2xl font-primary gradient-text">{availableOpportunities.length}</p>
           </div>
-              <div className="bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg p-4">
-                <p className="text-sm font-secondary text-[#e7e8ef]/80">Passed</p>
-                <p className="text-2xl font-primary text-[#ad3c94]">{passedIds.length}</p>
+          <div className="card">
+            <p className="text-sm font-secondary text-foreground/70">Passed</p>
+            <p className="text-2xl font-primary gradient-text">{passedIds.length}</p>
           </div>
         </div>
 
@@ -517,8 +559,8 @@ export default function DashboardPage() {
         {currentOpportunity ? (
           <div className="relative">
             {actionLoading && (
-              <div className="absolute inset-0 bg-[#1d1d1e]/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#ad3c94]"></div>
+              <div className="absolute inset-0 bg-surface/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-2xl">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             )}
             <OpportunityCard
@@ -531,23 +573,23 @@ export default function DashboardPage() {
             
             {/* Navigation hint */}
             <div className="text-center mt-4">
-              <p className="text-sm font-secondary text-[#e7e8ef]/80">
+              <p className="text-sm font-secondary text-foreground/70">
                 Showing {currentIndex + 1} of {availableOpportunities.length}
               </p>
             </div>
           </div>
         ) : (
-          <div className="bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg p-12 text-center">
-            <h2 className="text-2xl font-primary text-[#ad3c94] mb-2">
+          <div className="card p-12 text-center">
+            <h2 className="text-2xl font-primary mb-2 gradient-text">
               You've reviewed all opportunities!
             </h2>
-            <p className="font-secondary text-[#e7e8ef]/80 mb-6">
+            <p className="font-secondary text-foreground/70 mb-6">
               Check your tracker to see saved and applied opportunities.
             </p>
             <div className="flex gap-3 justify-center">
               <button
                 onClick={() => router.push('/tracker')}
-                className="px-6 py-3 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary"
+                className="btn-primary"
               >
                 View Tracker
               </button>
@@ -556,7 +598,7 @@ export default function DashboardPage() {
                   setPassedIds([]);
                   setCurrentIndex(0);
                 }}
-                className="px-6 py-3 bg-[#1d1d1e] text-[#e7e8ef] rounded-lg hover:bg-[#1d1d1e]/80 transition-all border border-[#ad3c94]/30 font-secondary"
+                className="btn-secondary"
               >
                 Review Again
               </button>
@@ -565,17 +607,57 @@ export default function DashboardPage() {
         )}
           </div>
 
-          {/* Sidebar with Feedback */}
+          {/* Sidebar with To-Do and Feedback */}
           <div className="lg:col-span-1">
             <div className="sticky top-4 space-y-4">
-              <KeywordManager 
-                user={user} 
-                userProfile={userProfile}
-                onUpdate={() => {
-                  // Trigger a refetch when keywords are updated
-                  if (refetch) refetch();
-                }}
-              />
+              {/* To-Do Section */}
+              <div className="card">
+                <h2 className="text-lg font-primary gradient-text mb-4">To-Do</h2>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => router.push('/documents')}
+                    className={`w-full text-left p-3 bg-surface/50 border rounded-lg hover:border-primary/50 hover:bg-surface/70 transition-all group ${
+                      hasExecutiveSummary 
+                        ? 'border-green-500/50 bg-green-500/10' 
+                        : 'border-primary/30'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`flex-shrink-0 w-5 h-5 border-2 rounded-full flex items-center justify-center transition-colors ${
+                        hasExecutiveSummary
+                          ? 'border-green-500 bg-green-500/20'
+                          : 'border-primary/50 group-hover:border-primary'
+                      }`}>
+                        {hasExecutiveSummary ? (
+                          <svg className="w-3 h-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          <svg className="w-3 h-3 text-primary opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className={`text-sm font-secondary font-medium ${
+                          hasExecutiveSummary ? 'text-green-400' : 'text-foreground'
+                        }`}>
+                          Upload Executive Summary
+                        </p>
+                        <p className="text-xs font-secondary text-foreground/60 mt-1">
+                          {hasExecutiveSummary 
+                            ? 'Executive summary uploaded ✓' 
+                            : 'Enhance matching with your business profile'}
+                        </p>
+                      </div>
+                      <svg className="w-4 h-4 text-foreground/40 group-hover:text-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </button>
+                </div>
+              </div>
+              
               <FeedbackForm
                 questions={[
                   'Do the opportunities shown to you apply to you?',

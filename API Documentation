@@ -1,0 +1,204 @@
+Grants.gov
+Search2
+API Calls
+The endpoint allows you to search for opportunities based on specific search parameters.
+
+Authentication and Authorization
+Authentication and authorization is not required for search2
+
+Getting Started
+Using your API test tool, make a POST call to the following URL: https://api.grants.gov/v1/api/search2, with the expected request in the body below, and you will receive a similar sample response.
+
+Expected Request Body:	Sample Response
+{ "rows": 10, "keyword": "20231011", "oppNum": "TEST-PTS-20231011-OPP1", "eligibilities": "", "agencies": "", "oppStatuses": "forecasted|posted", "aln": "", "fundingCategories": "" }	"errorcode": 0, "msg": "Webservice Succeeds", "token": "eyJ0eX……I1NiJ9. ", "data": { "searchParams": { "resultType": "json", "searchOnly": false, "oppNum": "", "aln": "", "sortBy": "", "oppStatuses": "forecasted|posted", "startRecordNum": 0, "eligibilities": "", "fundingInstruments": "", "fundingCategories": "", "agencies": "", "rows": 10, "keyword": "20231011", "keywordEncoded": true }, "hitCount": 1, "startRecord": 0, "oppHits": [ { "id": "219999", "number": "TEST-ABC-20231011-OPP1", "title": "Test-ABC-20231011-Opp1 title!", "agencyCode": "HHS", "agencyName": "Health & Human Services", "openDate": "10/11/2023", "closeDate": "", "oppStatus": "posted", "docType": "synopsis", "alnist": [ "93.223" ] } ], "oppStatusOptions": [ { "label": "posted", "value": "posted", "count": 1 }, { "label": "closed", "value": "closed", "count": 0 }, { "label": "archived", "value": "archived", "count": 0 }, { "label": "forecasted", "value": "forecasted", "count": 0 } ], "dateRangeOptions": [], "suggestion": "20201111", "eligibilities": [ { "label": "County governments", "value": "01", "count": 1 } ], "fundingCategories": [ { "label": "Arts", "value": "AR", "count": 1 } ], "fundingInstruments": [ { "label": "Grant", "value": "G", "count": 1 } ], "agencies": [], "accessKey": "", "errorMsgs": [] } }
+Here's a visualization of the high-level response:
+
+ID	Number	Title	Agency Code	Agency	Open Date	Close Date	Opportunity Status	Document Type	ALN List
+289999	TEST-PTS-20231011-OPP1	Test-PTS-20231011-Opp1 title!	HHS	HHS	10/11/2023		posted	synopsis	93.223
+Curl Samples
+URL: Search by Multiple Criteria
+The below cURL is a search by fundingCategories, agencies, oppStatuses, and ALN:
+
+curl -k -v -i --location 'https://api.grants.gov/v1/api/search2' --header 'Content-Type: application/json' --data '{"fundingCategories": "HL", "": "HHS-NIH11", "oppStatuses": "forecasted"}'
+
+URL: Search by Multiple Criteria with ALN
+The below cURL is a search by fundingCategories, agencies, and oppStatuses:
+
+curl -k -v -i --location 'https://api.grants.gov/v1/api/search2' --header 'Content-Type: application/json' --data '{"fundingCategories": "HL", "agencies": "HHS", "oppStatuses": "forecasted", "aln": "93.866"}'
+
+URL: Search by Combined Statuses and Keywords
+You might want to send combined statuses as an array or as separate key-value pairs based on your backend handling. Below is an example that treats combined statuses as an array:
+
+curl -k -v -i --location 'https://api.grants.gov/v1/api/search2' --header 'Content-Type: application/json' --data '{"oppStatuses": ["closed| archived"], "keywords": "points"}'
+
+
+
+Simpler Grants.gov
+
+API Gateway Developer Guide
+Overview
+The Simpler Grants API Gateway provides developers with programmatic access to search federal grant opportunities through a RESTful API. This guide walks you through generating an API key via our web interface and integrating with your applications to search for funding opportunities.
+
+The API is currently in early development. Features are under active development and subject to change. To see the latest changes please take a look at our OpenAPI doc. 
+
+Getting Started
+Are you looking for more guidance? Check out our full API tutorial to get started creating applications that leverage the Simpler.Grants.gov API. 
+
+Prerequisites
+A user account on the Simpler Grants platform
+
+Basic understanding of REST APIs and HTTP requests
+
+Access to make HTTP requests from your application
+
+Step 1: Generate Your API Key
+Log into the Platform
+
+Navigate to the Simpler Grants website
+
+Sign in with your Login.gov credentials
+
+Access the API Dashboard
+
+Go to the developer page under the community dropdown or via this link
+
+Click "Manage API Keys" after reading through the developer page.
+
+Create a New API Key
+
+Click "Create API Key" 
+
+Provide a descriptive name for your key (e.g., "My Grant Search App")
+
+Click "Create API Key" to create the key
+
+Step 2: API Authentication
+All API requests must include your API key in the X-API-Key header:
+
+
+Copy
+X-API-Key: YOUR_API_KEY_HERE
+API Endpoints
+Base URL
+Production: https://api.simpler.grants.gov
+
+Development: Contact support for development endpoints
+
+Core Endpoints
+Search opportunities
+Extracts
+Common Issues
+Invalid API Key
+
+Ensure key is included in X-API-Key header
+
+Verify key is active and not expired
+
+Check for typos in the key
+
+Request Format Errors
+
+Ensure Content-Type: application/json header
+
+Validate JSON syntax
+
+Check required fields (pagination is required)
+
+Parameter Validation
+
+page_size must be between 1 and 100
+
+Date formats must be YYYY-MM-DD
+
+Enum values must match exactly (case-sensitive)
+
+Best Practices
+Rate Limiting
+The API implements rate limiting to ensure fair usage
+
+If you receive 429 responses, implement exponential backoff
+
+Consider caching results to reduce API calls
+
+If you are searching all opportunities then use the extracts endpoint
+
+Efficient Searching
+Use specific filters to reduce result sets
+
+Implement pagination for large result sets
+
+Consider using CSV format for bulk data downloads
+
+Security
+Never expose API keys in client-side code
+
+Store keys securely using environment variables
+
+Rotate keys periodically
+
+Use HTTPS for all requests
+
+Error Handling
+Always check HTTP status codes
+
+Implement retry logic with backoff for transient errors
+
+Log errors for debugging but don't expose sensitive information
+
+Example Use Cases
+Grant Discovery Dashboard
+Deadline Monitoring System
+Funding Analytics
+Build a dashboard that shows relevant opportunities based on user preferences:
+
+
+Copy
+def get_relevant_grants(user_interests, applicant_type):
+    filters = {
+        "opportunity_status": {"one_of": ["posted", "forecasted"]},
+        "applicant_type": {"one_of": [applicant_type]}
+    }
+    
+    # Search for each interest area
+    all_opportunities = []
+    for interest in user_interests:
+        payload = {
+            "query": interest,
+            "filters": filters,
+            "pagination": {"page_offset": 1, "page_size": 10}
+        }
+        # Make API call and collect results
+        opportunities = search_opportunities(payload)
+        all_opportunities.extend(opportunities)
+    
+    return deduplicate_opportunities(all_opportunities)
+Support and Resources
+Getting Help
+Documentation: Check this guide and the OpenAPI documentation
+
+Issues: Report bugs or request features through the appropriate channels
+
+Community: Join developer discussions and share experiences
+
+Additional Resources
+OpenAPI Specification - Interactive API documentation
+
+GitHub Repository - Source code and issue tracking
+
+Release Notes - API updates and changes
+
+documentation link - https://wiki.simpler.grants.gov/product/api
+
+API KEY - v08sW5JXAlwXZoWji30tMYkOc
+
+Google custom search api
+C:\Users\grace\my-firebase-project\webapp\client_secret_275041444962-budqrleljgqbft9lv7qf4t1baj39i2lb.apps.googleusercontent.com.json
+
+Sam.gov api key
+SAM-ddb13bbd-7430-4ae4-9d0a-46de996f6d3d
+
+Google api key
+AIzaSyCz4scHPugLYKHg598rWOwMgdYg6Zuvfss
+
+Google search engine ID
+e5f496245fcd04441

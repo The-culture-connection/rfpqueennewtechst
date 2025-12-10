@@ -42,6 +42,8 @@ async function mergeProfileFragments(userId: string) {
     proposedSolutionExamples: [],
     outcomesImpact: [],
     keywords: [],
+    positiveKeywordSuggestions: [],
+    negativeKeywordSuggestions: [],
     lastUpdated: new Date().toISOString(),
   };
   
@@ -88,6 +90,12 @@ async function mergeProfileFragments(userId: string) {
     if (fragment.keywords) {
       mergedProfile.keywords.push(...fragment.keywords);
     }
+    if (fragment.positiveKeywordSuggestions) {
+      mergedProfile.positiveKeywordSuggestions.push(...fragment.positiveKeywordSuggestions);
+    }
+    if (fragment.negativeKeywordSuggestions) {
+      mergedProfile.negativeKeywordSuggestions.push(...fragment.negativeKeywordSuggestions);
+    }
   });
   
   // Deduplicate arrays (simple string comparison)
@@ -95,6 +103,8 @@ async function mergeProfileFragments(userId: string) {
   mergedProfile.certifications = [...new Set(mergedProfile.certifications)];
   // Deduplicate keywords case-insensitively
   mergedProfile.keywords = [...new Set(mergedProfile.keywords.map((k: string) => k.toLowerCase().trim()).filter((k: string) => k.length > 0))];
+  mergedProfile.positiveKeywordSuggestions = [...new Set(mergedProfile.positiveKeywordSuggestions.map((k: string) => k.toLowerCase().trim()).filter((k: string) => k.length > 0))];
+  mergedProfile.negativeKeywordSuggestions = [...new Set(mergedProfile.negativeKeywordSuggestions.map((k: string) => k.toLowerCase().trim()).filter((k: string) => k.length > 0))];
   
   // Store merged profile
   await db
