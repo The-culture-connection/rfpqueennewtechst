@@ -47,3 +47,18 @@ Opportunities/*.txt
 !Opportunities/README.md
 
 .vercel
+
+# Google OAuth secrets - NEVER commit these
+client_secret_*.json
+*client_secret*.json
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!next.config.ts
+!tailwind.config.ts
+!postcss.config.mjs
+!eslint.config.mjs
+!playwright.config.ts
+!railway.json
+!vercel.json
