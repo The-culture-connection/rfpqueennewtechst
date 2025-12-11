@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { fetchAllOpportunities } from '@/lib/apiIntegrations';
 import { loadSAMGovFromCSV } from '@/lib/samGovCsvLoader';
+import { Opportunity } from '@/types';
 
 // Force dynamic rendering and set runtime
 export const dynamic = 'force-dynamic';
