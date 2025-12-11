@@ -26,6 +26,9 @@ export default function DocumentsPage() {
   const [documents, setDocuments] = useState<DocumentMetadata[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadingFiles, setUploadingFiles] = useState<Record<string, number>>({});
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingMessage, setProcessingMessage] = useState('');
+  const [redirecting, setRedirecting] = useState(false);
   
   // Redirect if not authenticated
   useEffect(() => {
