@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { storage, db } from '@/lib/firebase';
 import { DocumentType, DocumentMetadata, DOCUMENT_REQUIREMENTS, getDocumentLabel } from '@/types/documents';
 import { v4 as uuidv4 } from 'uuid';
+import { LoadingMeter } from '@/components/LoadingMeter';
 import {
   trackDocumentsPageViewed,
   trackDocumentUploadStarted,
@@ -40,6 +41,104 @@ export default function DocumentsPage() {
       trackDocumentsPageViewed();
     }
   }, [user]);
+
+  // Monitor document processing status and redirect when complete
+  useEffect(() => {
+    if (!user || !db) return;
+
+    // Set up real-time listener for documents
+    const docsRef = collection(db, 'profiles', user.uid, 'documents');
+    const unsubscribe = onSnapshot(docsRef, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as DocumentMetadata));
+      
+      setDocuments(docs);
+
+      // Check if any documents are uploading or processing
+      const hasUploading = Object.keys(uploadingFiles).length > 0;
+      const hasProcessing = docs.some(d => 
+        d.processingStatus === 'processing' || d.processingStatus === 'pending'
+      );
+      const hasCompleted = docs.some(d => d.processingStatus === 'completed');
+      const allCompleted = docs.length > 0 && docs.every(d => 
+        d.processingStatus === 'completed' || d.processingStatus === 'failed'
+      );
+
+      // Update processing state
+      if (hasUploading || hasProcessing) {
+        setIsProcessing(true);
+        if (hasUploading) {
+          setProcessingMessage('Uploading documents...');
+        } else if (hasProcessing) {
+          setProcessingMessage('Processing documents with AI...');
+        }
+      } else if (hasCompleted && allCompleted && !redirecting) {
+        // All documents are processed, redirect to profile
+        setIsProcessing(false);
+        setRedirecting(true);
+        setProcessingMessage('Documents processed! Redirecting to approve keywords...');
+        
+        setTimeout(() => {
+          router.push('/profile?message=Approve keywords');
+        }, 2000);
+      } else {
+        setIsProcessing(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user, db, uploadingFiles, redirecting, router]);
+
+  // Monitor document processing status and redirect when complete
+  useEffect(() => {
+    if (!user || !db) return;
+
+    // Set up real-time listener for documents
+    const docsRef = collection(db, 'profiles', user.uid, 'documents');
+    const unsubscribe = onSnapshot(docsRef, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as DocumentMetadata));
+      
+      setDocuments(docs);
+
+      // Check if any documents are uploading or processing
+      const hasUploading = Object.keys(uploadingFiles).length > 0;
+      const hasProcessing = docs.some(d => 
+        d.processingStatus === 'processing' || d.processingStatus === 'pending'
+      );
+      const hasCompleted = docs.some(d => d.processingStatus === 'completed');
+      const allCompleted = docs.length > 0 && docs.every(d => 
+        d.processingStatus === 'completed' || d.processingStatus === 'failed'
+      );
+
+      // Update processing state
+      if (hasUploading || hasProcessing) {
+        setIsProcessing(true);
+        if (hasUploading) {
+          setProcessingMessage('Uploading documents...');
+        } else if (hasProcessing) {
+          setProcessingMessage('Processing documents with AI...');
+        }
+      } else if (hasCompleted && allCompleted && !redirecting) {
+        // All documents are processed, redirect to profile
+        setIsProcessing(false);
+        setRedirecting(true);
+        setProcessingMessage('Documents processed! Redirecting to approve keywords...');
+        
+        setTimeout(() => {
+          router.push('/profile?message=Approve keywords');
+        }, 2000);
+      } else {
+        setIsProcessing(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user, db, uploadingFiles, redirecting, router]);
 
   const loadDocuments = async () => {
     if (!user || !db) return;
@@ -239,14 +338,28 @@ export default function DocumentsPage() {
               </p>
             </div>
             <button
-              onClick={() => router.push('/dashboard')}
+              onClick={() => router.push('/profile')}
               className="px-4 py-2 bg-[#1d1d1e] text-[#e7e8ef] rounded-lg hover:bg-[#1d1d1e]/80 transition-all border border-[#ad3c94]/30 font-secondary"
             >
-              Back to Dashboard
+              Edit Profile
             </button>
           </div>
         </div>
       </div>
+
+      {/* Comprehensive Processing Meter */}
+      {(isProcessing || redirecting) && (
+        <div className="mb-6">
+          <LoadingMeter loading={isProcessing || redirecting} />
+          {processingMessage && (
+            <div className="mt-4 p-4 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-xl">
+              <p className="text-sm font-secondary text-[#e7e8ef] text-center">
+                {processingMessage}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">

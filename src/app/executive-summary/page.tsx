@@ -133,10 +133,10 @@ export default function ExecutiveSummaryPage() {
         {/* Header */}
         <div className="mb-8">
           <button
-            onClick={() => router.push('/dashboard')}
+            onClick={() => router.push('/profile')}
             className="text-gray-400 hover:text-white mb-4 flex items-center gap-2"
           >
-            ← Back to Dashboard
+            ← Edit Profile
           </button>
           <h1 className="text-4xl font-primary font-bold text-white mb-2">
             Executive Summary

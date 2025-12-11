@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { FundingType, Timeline, Interest } from '@/types';
 import FundingTypeStep from '@/components/onboarding/FundingTypeStep';
@@ -49,6 +49,24 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(false);
   const [loadingBusiness, setLoadingBusiness] = useState(true);
   const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [showKeywordMessage, setShowKeywordMessage] = useState(false);
+
+  // Check for redirect message from documents page
+  useEffect(() => {
+    const message = searchParams?.get('message');
+    if (message === 'Approve keywords') {
+      setShowKeywordMessage(true);
+      // Auto-expand keyword suggestions section
+      setActiveSection('keywords');
+      // Scroll to keyword section after a brief delay
+      setTimeout(() => {
+        const keywordSection = document.getElementById('keyword-suggestions');
+        if (keywordSection) {
+          keywordSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 500);
+    }
+  }, [searchParams]);
   
   // AI-extracted business profile data
   const [businessProfile, setBusinessProfile] = useState<BusinessProfile>({
@@ -450,7 +468,17 @@ export default function ProfilePage() {
 
           {/* Keyword Suggestions Section */}
           {(keywordSuggestions.positive.length > 0 || keywordSuggestions.negative.length > 0) && (
-            <div className="card">
+            <div id="keyword-suggestions" className="card">
+              {showKeywordMessage && (
+                <div className="mb-4 p-4 bg-[#ad3c94]/20 border-2 border-[#ad3c94] rounded-xl">
+                  <p className="text-lg font-primary text-[#ad3c94] font-bold mb-2">
+                    ⚠️ Approve Keywords
+                  </p>
+                  <p className="text-sm font-secondary text-[#e7e8ef]">
+                    Your documents have been processed. Please review and accept or decline the AI-suggested keywords below to improve your opportunity matching.
+                  </p>
+                </div>
+              )}
               <div className="flex justify-between items-center mb-4">
                 <div>
                   <h2 className="text-xl font-primary gradient-text">AI Keyword Suggestions</h2>

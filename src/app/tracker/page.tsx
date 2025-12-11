@@ -112,10 +112,10 @@ export default function TrackerPage() {
             </div>
             <div className="flex gap-3">
               <button
-                onClick={() => router.push('/dashboard')}
+                onClick={() => router.push('/profile')}
                 className="btn-secondary text-sm"
               >
-                Back to Dashboard
+                Edit Profile
               </button>
               <button
                 onClick={() => router.push('/profile')}
