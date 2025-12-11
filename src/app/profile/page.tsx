@@ -33,6 +33,7 @@ interface BusinessProfile {
 export default function ProfilePage() {
   const { user, userProfile, updateUserProfile } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   
   const [fundingTypes, setFundingTypes] = useState<FundingType[]>([]);
   const [timeline, setTimeline] = useState<Timeline>('immediate');
@@ -53,7 +54,8 @@ export default function ProfilePage() {
 
   // Check for redirect message from documents page
   useEffect(() => {
-    const message = searchParams?.get('message');
+    if (!searchParams) return;
+    const message = searchParams.get('message');
     if (message === 'Approve keywords') {
       setShowKeywordMessage(true);
       // Auto-expand keyword suggestions section
