@@ -46,7 +46,11 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
     ? opportunity.matchReasoning.summary
     : buildWhyMatchLine(userProfile, opportunity);
     
-  const fullDescription = opportunity.description || '';
+  // Get description - try multiple sources
+  const fullDescription = opportunity.description || 
+                          opportunity.personalizedDescription || 
+                          snippet || 
+                          'No description available.';
   
   // Create 50-word summary
   const getWordCount = (text: string) => text.trim().split(/\s+/).filter(word => word.length > 0).length;

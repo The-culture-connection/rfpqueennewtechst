@@ -28,6 +28,8 @@ function generateProfileHash(profile: UserProfile): string {
     fundingType: profile.fundingType || [],
     interestsMain: profile.interestsMain || [],
     keywords: profile.keywords || [],
+    positiveKeywords: profile.positiveKeywords || [],
+    negativeKeywords: profile.negativeKeywords || [],
     entityType: profile.entityType,
     timeline: profile.timeline,
     hasBusinessProfile: !!profile.businessProfile,

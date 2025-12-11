@@ -10,6 +10,7 @@ import InterestsStep from '@/components/onboarding/InterestsStep';
 import EntityStep from '@/components/onboarding/EntityStep';
 import { doc, getDoc, updateDoc, setDoc, collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { suggestNegativeKeywordsForKeywords } from '@/lib/keywordSuggestions';
 
 // AI-extracted business profile fields
 interface BusinessProfile {
@@ -590,6 +591,126 @@ export default function ProfilePage() {
               )}
             </div>
           )}
+
+          {/* Manual Positive/Negative Keywords Section */}
+          <div className="card mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h2 className="text-xl font-primary gradient-text">Keyword Preferences</h2>
+                <p className="text-sm font-secondary text-foreground/70 mt-1">
+                  Manually add keywords to prioritize (positive) or exclude (negative) from your opportunity matching.
+                </p>
+              </div>
+            </div>
+            
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Positive Keywords */}
+              <div>
+                <h3 className="text-sm font-semibold font-secondary text-green-400 mb-3">
+                  Positive Keywords (Prioritize)
+                </h3>
+                <div className="space-y-2">
+                  {positiveKeywords.map((keyword, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={keyword}
+                        onChange={(e) => {
+                          const updated = [...positiveKeywords];
+                          updated[index] = e.target.value;
+                          setPositiveKeywords(updated);
+                        }}
+                        className="flex-1 px-3 py-2 bg-[#1d1d1e] border border-green-500/30 rounded-lg font-secondary text-[#e7e8ef] focus:outline-none focus:ring-2 focus:ring-green-500/50"
+                        placeholder="Enter keyword..."
+                      />
+                      <button
+                        onClick={() => setPositiveKeywords(positiveKeywords.filter((_, i) => i !== index))}
+                        className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-all"
+                        title="Remove"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={async () => {
+                      const newKeyword = '';
+                      setPositiveKeywords([...positiveKeywords, newKeyword]);
+                      
+                      // Auto-suggest related negative keywords when user adds a positive keyword
+                      // This happens after they type and save, but we can show suggestions
+                    }}
+                    className="w-full px-4 py-2 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500/30 transition-all font-secondary border border-green-500/30"
+                  >
+                    + Add Positive Keyword
+                  </button>
+                  {positiveKeywords.length > 0 && (
+                    <button
+                      onClick={() => {
+                        // Suggest related negative keywords for all positive keywords
+                        const suggestions = suggestNegativeKeywordsForKeywords(
+                          positiveKeywords.filter(k => k.trim().length > 0),
+                          negativeKeywords
+                        );
+                        
+                        if (suggestions.length > 0) {
+                          // Add suggestions to keyword suggestions (AI suggestions section)
+                          setKeywordSuggestions(prev => ({
+                            ...prev,
+                            negative: [...(prev.negative || []), ...suggestions.filter(s => !prev.negative?.includes(s))]
+                          }));
+                          alert(`💡 Suggested ${suggestions.length} related negative keywords based on your positive keywords. Check the "AI Keyword Suggestions" section above to review and accept them.`);
+                        } else {
+                          alert('No related negative keywords to suggest at this time.');
+                        }
+                      }}
+                      className="w-full px-4 py-2 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-all font-secondary border border-blue-500/30 mt-2"
+                      title="Get suggestions for negative keywords based on your positive keywords"
+                    >
+                      💡 Suggest Related Negative Keywords
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Negative Keywords */}
+              <div>
+                <h3 className="text-sm font-semibold font-secondary text-red-400 mb-3">
+                  Negative Keywords (Exclude)
+                </h3>
+                <div className="space-y-2">
+                  {negativeKeywords.map((keyword, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={keyword}
+                        onChange={(e) => {
+                          const updated = [...negativeKeywords];
+                          updated[index] = e.target.value;
+                          setNegativeKeywords(updated);
+                        }}
+                        className="flex-1 px-3 py-2 bg-[#1d1d1e] border border-red-500/30 rounded-lg font-secondary text-[#e7e8ef] focus:outline-none focus:ring-2 focus:ring-red-500/50"
+                        placeholder="Enter keyword..."
+                      />
+                      <button
+                        onClick={() => setNegativeKeywords(negativeKeywords.filter((_, i) => i !== index))}
+                        className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-all"
+                        title="Remove"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => setNegativeKeywords([...negativeKeywords, ''])}
+                    className="w-full px-4 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-all font-secondary border border-red-500/30"
+                  >
+                    + Add Negative Keyword
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* AI-Extracted Business Profile Section */}
           <div className="bg-[#1d1d1e] border border-white rounded-lg p-6">

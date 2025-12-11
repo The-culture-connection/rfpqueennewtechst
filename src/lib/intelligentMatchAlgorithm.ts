@@ -30,7 +30,36 @@ export function intelligentMatchOpportunities(
     console.log('🚫 Negative Keywords (Exclude):', profile.negativeKeywords);
   }
   
-  return opportunities.map(opp => {
+  // STEP 1: Filter out passed/saved opportunities FIRST
+  const passedIds = profile.preferences?.passedOpportunityIds || [];
+  const savedIds = profile.preferences?.savedOpportunityIds || [];
+  const allExcludedIds = new Set([...passedIds, ...savedIds]);
+  
+  const notPassedOrSaved = opportunities.filter(opp => !allExcludedIds.has(opp.id));
+  console.log(`[intelligentMatchOpportunities] Filtered out passed/saved: ${opportunities.length} → ${notPassedOrSaved.length} opportunities`);
+  
+  // STEP 2: Hard filter by negative keywords in title
+  const negativeKeywords = profile.negativeKeywords || [];
+  const filteredByNegatives = notPassedOrSaved.filter(opp => {
+    if (negativeKeywords.length === 0) return true;
+    
+    const titleLower = (opp.title || '').toLowerCase();
+    for (const negKeyword of negativeKeywords) {
+      const negLower = negKeyword.toLowerCase().trim();
+      if (negLower.length > 0 && titleLower.includes(negLower)) {
+        console.log('🚫 [intelligentMatchOpportunities] HARD FILTER - Negative keyword in title:', {
+          title: opp.title?.substring(0, 50),
+          negativeKeyword: negKeyword,
+        });
+        return false; // Hard stop - never include
+      }
+    }
+    return true;
+  });
+  
+  console.log(`[intelligentMatchOpportunities] Filtered by negative keywords: ${notPassedOrSaved.length} → ${filteredByNegatives.length} opportunities`);
+  
+  return filteredByNegatives.map(opp => {
     const fitComponents = calculateDetailedFit(opp, profile);
     const matchScore = calculateWeightedMatchScore(fitComponents, profile);
     const matchReasoning = generateMatchReasoning(opp, profile, fitComponents);

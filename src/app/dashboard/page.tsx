@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { useOpportunities } from '@/hooks/useOpportunities';
 import OpportunityCard from '@/components/OpportunityCard';
-import { doc, setDoc, arrayUnion, getDoc } from 'firebase/firestore';
+import { doc, setDoc, arrayUnion, getDoc, writeBatch } from 'firebase/firestore';
 import { db, getFirebaseFunctions, httpsCallable } from '@/lib/firebase';
 import {
   trackDashboardViewed,
@@ -28,6 +28,7 @@ export default function DashboardPage() {
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [passedIds, setPassedIds] = useState<string[]>([]);
+  const [savedIds, setSavedIds] = useState<string[]>([]);
   const [actionLoading, setActionLoading] = useState(false);
   const [progressLoaded, setProgressLoaded] = useState(false);
   const [rerunLoading, setRerunLoading] = useState(false);
@@ -180,6 +181,30 @@ export default function DashboardPage() {
     }
   }, [currentIndex, passedIds, user, progressLoaded, opportunities]);
 
+  // Load saved opportunities IDs to exclude them too
+  useEffect(() => {
+    async function loadSavedIds() {
+      if (!user || !db) return;
+      
+      try {
+        const trackerRef = doc(db, 'profiles', user.uid, 'tracker', 'saved');
+        const trackerDoc = await getDoc(trackerRef);
+        
+        if (trackerDoc.exists()) {
+          const data = trackerDoc.data();
+          const savedOpportunities = data.opportunities || [];
+          const savedIdsList = savedOpportunities.map((opp: any) => opp.id).filter(Boolean);
+          setSavedIds(savedIdsList);
+          console.log(`✅ Loaded ${savedIdsList.length} saved opportunity IDs to exclude`);
+        }
+      } catch (err) {
+        console.error('Error loading saved IDs:', err);
+      }
+    }
+    
+    loadSavedIds();
+  }, [user, db]);
+
   if (loading || !userProfile) {
     return (
       <div className="min-h-screen gradient-bg flex items-center justify-center">
@@ -205,9 +230,10 @@ export default function DashboardPage() {
       </div>
     );
   }
-
-  // Filter out passed opportunities
-  const availableOpportunities = opportunities.filter(opp => !passedIds.includes(opp.id));
+  
+  // Filter out passed AND saved opportunities
+  const allExcludedIds = new Set([...passedIds, ...savedIds]);
+  const availableOpportunities = opportunities.filter(opp => !allExcludedIds.has(opp.id));
   const currentOpportunity = availableOpportunities[currentIndex];
 
   // Reset progress and start over
@@ -243,6 +269,25 @@ export default function DashboardPage() {
     setRerunLoading(true);
     
     try {
+      // PRESERVE USER PROGRESS before clearing cache
+      const savedProgress = {
+        passedIds: [...passedIds],
+        currentIndex: currentIndex,
+        currentOpportunityId: opportunities[currentIndex]?.id,
+      };
+      console.log('💾 Preserving progress before cache clear:', savedProgress);
+      
+      // Save progress to Firestore before clearing cache
+      if (db && user) {
+        const progressRef = doc(db, 'profiles', user.uid, 'dashboard', 'progress');
+        await setDoc(progressRef, {
+          currentOpportunityId: savedProgress.currentOpportunityId,
+          passedIds: savedProgress.passedIds,
+          lastUpdated: new Date().toISOString(),
+        });
+        console.log('✅ Progress saved to Firestore before cache clear');
+      }
+      
       // Clear Firestore cache before rerunning
       const { clearOpportunityCache } = await import('@/lib/opportunityCache');
       await clearOpportunityCache(user.uid);
@@ -270,6 +315,13 @@ export default function DashboardPage() {
       if (refetch) {
         refetch();
       }
+      
+      // Restore progress after opportunities reload
+      // Reset progressLoaded so the useEffect will reload progress from Firestore
+      setProgressLoaded(false);
+      setPassedIds(savedProgress.passedIds);
+      console.log('✅ Progress preserved - will be restored when opportunities load');
+      
       // Reset force reload after a moment to allow the refetch to complete
       setTimeout(() => {
         setForceReload(false);
@@ -283,14 +335,23 @@ export default function DashboardPage() {
   };
 
   const handlePass = async (id: string) => {
-    const opportunity = opportunities.find(opp => opp.id === id);
-    if (opportunity) {
-      trackOpportunityPassed(
-        id,
-        opportunity.winRate || 0,
-        opportunity.type
-      );
+    // Check if already passed - prevent duplicate passes
+    if (passedIds.includes(id)) {
+      console.warn('⚠️ [Pass] Opportunity already passed, skipping:', id);
+      return;
     }
+    
+    const opportunity = opportunities.find(opp => opp.id === id);
+    if (!opportunity) {
+      console.error('❌ [Pass] Opportunity not found:', id);
+      return;
+    }
+    
+    trackOpportunityPassed(
+      id,
+      opportunity.winRate || 0,
+      opportunity.type
+    );
     
     // Track pass for preference learning
     if (user && opportunity && db) {
@@ -301,9 +362,93 @@ export default function DashboardPage() {
     // Save passed opportunity to Firestore for AI refinement
     if (user && db && opportunity) {
       try {
+        // Log authentication and path details
+        const path = `profiles/${user.uid}/dashboard/passed`;
+        console.log('🔍 [Passed Opportunity] Attempting to save:', {
+          userId: user.uid,
+          userEmail: user.email,
+          path: path,
+          opportunityId: id,
+          isAuthenticated: !!user,
+          authToken: user ? 'present' : 'missing',
+          dbInitialized: !!db,
+        });
+        
+        // Test: Try to read the profile document first to verify basic permissions
+        const profileRef = doc(db, 'profiles', user.uid);
+        console.log('🔍 [Passed Opportunity] Testing profile read permissions...');
+        try {
+          const profileDoc = await getDoc(profileRef);
+          console.log('✅ [Passed Opportunity] Profile read successful:', {
+            exists: profileDoc.exists(),
+            canReadProfile: true,
+          });
+        } catch (profileErr: any) {
+          console.error('❌ [Passed Opportunity] Profile read failed:', {
+            error: profileErr?.message,
+            code: profileErr?.code,
+            suggestion: 'User may not have read access to their own profile',
+          });
+        }
+        
+        // Test: Try to read dashboard/progress to verify dashboard subcollection permissions
+        const progressRef = doc(db, 'profiles', user.uid, 'dashboard', 'progress');
+        console.log('🔍 [Passed Opportunity] Testing dashboard/progress read permissions...');
+        try {
+          const progressDoc = await getDoc(progressRef);
+          console.log('✅ [Passed Opportunity] Dashboard/progress read successful:', {
+            exists: progressDoc.exists(),
+            canReadDashboard: true,
+          });
+        } catch (progressErr: any) {
+          console.error('❌ [Passed Opportunity] Dashboard/progress read failed:', {
+            error: progressErr?.message,
+            code: progressErr?.code,
+            suggestion: 'User may not have read access to dashboard subcollection',
+          });
+        }
+        
         // Save to passed opportunities collection
         const passedRef = doc(db, 'profiles', user.uid, 'dashboard', 'passed');
-        const passedDoc = await getDoc(passedRef);
+        
+        // Try to read first to check permissions
+        console.log('🔍 [Passed Opportunity] Attempting to read existing document at:', passedRef.path);
+        console.log('🔍 [Passed Opportunity] Full path breakdown:', {
+          collection: 'profiles',
+          document: user.uid,
+          subcollection: 'dashboard',
+          docId: 'passed',
+          fullPath: passedRef.path,
+        });
+        
+        let passedDoc;
+        try {
+          passedDoc = await getDoc(passedRef);
+          console.log('✅ [Passed Opportunity] Read successful:', {
+            exists: passedDoc.exists(),
+            hasData: !!passedDoc.data(),
+            path: passedRef.path,
+          });
+        } catch (readErr: any) {
+          console.error('❌ [Passed Opportunity] Read failed:', {
+            error: readErr?.message,
+            code: readErr?.code,
+            path: passedRef.path,
+            suggestion: 'This indicates a Firestore rules issue. Check that rules are deployed.',
+          });
+          throw readErr; // Re-throw to be caught by outer catch
+        }
+        
+        // Check if this opportunity ID is already in the passed document
+        const existingData = passedDoc.exists() ? passedDoc.data() : {};
+        if (existingData[id]) {
+          console.warn('⚠️ [Passed Opportunity] Already passed in Firestore, skipping duplicate save:', id);
+          // Still add to passedIds to filter it out
+          if (!passedIds.includes(id)) {
+            setPassedIds([...passedIds, id]);
+          }
+          return; // Don't save duplicate
+        }
         
         const passedData = {
           [id]: {
@@ -316,21 +461,72 @@ export default function DashboardPage() {
           }
         };
         
+        console.log('🔍 [Passed Opportunity] Data to save:', {
+          dataKeys: Object.keys(passedData),
+          opportunityId: id,
+          dataSize: JSON.stringify(passedData).length,
+        });
+        
         if (passedDoc.exists()) {
           // Merge with existing passed opportunities
           const existing = passedDoc.data();
+          console.log('🔍 [Passed Opportunity] Merging with existing data, existing keys:', Object.keys(existing || {}));
           await setDoc(passedRef, {
             ...existing,
             ...passedData
           }, { merge: true });
+          console.log('✅ [Passed Opportunity] Successfully merged passed opportunity');
         } else {
           // Create new document
+          console.log('🔍 [Passed Opportunity] Creating new document...');
           await setDoc(passedRef, passedData);
+          console.log('✅ [Passed Opportunity] Successfully created new document');
         }
-      } catch (err) {
-        console.error('Error saving passed opportunity:', err);
+      } catch (err: any) {
+        // Comprehensive error logging
+        console.error('❌ [Passed Opportunity] Error saving passed opportunity:', {
+          error: err,
+          errorMessage: err?.message,
+          errorCode: err?.code,
+          errorStack: err?.stack,
+          errorName: err?.name,
+          userId: user?.uid,
+          userEmail: user?.email,
+          path: `profiles/${user?.uid}/dashboard/passed`,
+          opportunityId: id,
+          isAuthenticated: !!user,
+          dbInitialized: !!db,
+          // Firebase-specific error details
+          firebaseError: err?.code ? {
+            code: err.code,
+            message: err.message,
+            serverResponse: err.serverResponse,
+          } : null,
+        });
+        
+        // Log specific permission error details
+        if (err?.code === 'permission-denied' || err?.code === 'PERMISSION_DENIED') {
+          console.error('🚫 [Passed Opportunity] Permission denied details:', {
+            userId: user?.uid,
+            expectedPath: `profiles/${user?.uid}/dashboard/passed`,
+            rulePath: 'profiles/{userId}/dashboard/passed',
+            authState: user ? {
+              uid: user.uid,
+              email: user.email,
+              emailVerified: user.emailVerified,
+            } : 'no user',
+            suggestion: 'Check Firestore rules for profiles/{userId}/dashboard/passed',
+          });
+        }
+        
         // Don't block the UI if save fails
       }
+    } else {
+      console.warn('⚠️ [Passed Opportunity] Missing prerequisites:', {
+        hasUser: !!user,
+        hasDb: !!db,
+        hasOpportunity: !!opportunity,
+      });
     }
     
     setPassedIds([...passedIds, id]);
@@ -345,6 +541,13 @@ export default function DashboardPage() {
   const handleSave = async (id: string) => {
     if (!user || !db) return;
     
+    // Check if already saved - prevent duplicate saves
+    if (savedIds.includes(id)) {
+      console.warn('⚠️ [Save] Opportunity already saved, skipping:', id);
+      alert('This opportunity is already saved!');
+      return;
+    }
+    
     setActionLoading(true);
     try {
       const opportunity = opportunities.find(opp => opp.id === id);
@@ -353,23 +556,32 @@ export default function DashboardPage() {
       const trackerRef = doc(db, 'profiles', user.uid, 'tracker', 'saved');
       const trackerDoc = await getDoc(trackerRef);
 
+      const savedOpportunity = {
+        ...opportunity,
+        savedAt: new Date().toISOString(),
+        status: 'saved'
+      };
+
       if (trackerDoc.exists()) {
+        const existing = trackerDoc.data().opportunities || [];
+        // Check if already exists
+        if (existing.some((opp: any) => opp.id === id)) {
+          console.warn('⚠️ [Save] Opportunity already in tracker, skipping:', id);
+          alert('This opportunity is already saved!');
+          setActionLoading(false);
+          return;
+        }
         await setDoc(trackerRef, {
-          opportunities: arrayUnion({
-            ...opportunity,
-            savedAt: new Date().toISOString(),
-            status: 'saved'
-          })
+          opportunities: [...existing, savedOpportunity]
         }, { merge: true });
       } else {
         await setDoc(trackerRef, {
-          opportunities: [{
-            ...opportunity,
-            savedAt: new Date().toISOString(),
-            status: 'saved'
-          }]
+          opportunities: [savedOpportunity]
         });
       }
+      
+      // Add to savedIds to exclude from dashboard immediately
+      setSavedIds([...savedIds, id]);
 
       // Track save event
       trackOpportunitySaved(
@@ -480,13 +692,6 @@ export default function DashboardPage() {
                 title="Upload and manage your documents"
               >
                 Documents
-              </button>
-              <button
-                onClick={() => router.push('/executive-summary')}
-                className="btn-secondary text-sm"
-                title="Upload your executive summary for better matching"
-              >
-                Executive Summary
               </button>
               <button
                 onClick={() => router.push('/profile')}

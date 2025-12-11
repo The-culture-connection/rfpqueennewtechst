@@ -45,8 +45,29 @@ export function getDefaultNegativeKeywords(entityType: EntityType): string[] {
 /**
  * Pre-filter opportunities based on hard eligibility criteria before scoring.
  * This aggressively filters out ineligible opportunities for for-profit startups.
+ * Also filters by negative keywords (hard stop if any negative keyword in title).
  */
-export function preFilterForEntityType(opportunity: Opportunity, entityType: EntityType): boolean {
+export function preFilterForEntityType(
+  opportunity: Opportunity, 
+  entityType: EntityType,
+  negativeKeywords?: string[]
+): boolean {
+  const title = opportunity.title?.substring(0, 50) || 'NO TITLE';
+  
+  // HARD FILTER: Check negative keywords in title FIRST (before any other checks)
+  if (negativeKeywords && negativeKeywords.length > 0) {
+    const titleLower = (opportunity.title || '').toLowerCase();
+    for (const negKeyword of negativeKeywords) {
+      const negLower = negKeyword.toLowerCase().trim();
+      if (negLower.length > 0 && titleLower.includes(negLower)) {
+        console.log('[preFilterForEntityType] ❌ HARD FILTER - Negative keyword in title:', {
+          title: opportunity.title?.substring(0, 50),
+          negativeKeyword: negKeyword,
+        });
+        return false; // Hard stop - never include this opportunity
+      }
+    }
+  }
   // 1. Check structured eligibility fields first (most reliable)
   if (opportunity.applicantTypes && opportunity.applicantTypes.length > 0) {
     const applicantTypesLower = opportunity.applicantTypes.map(t => t.toLowerCase());
@@ -78,7 +99,14 @@ export function preFilterForEntityType(opportunity: Opportunity, entityType: Ent
       ];
       
       // If any excluded type is in the applicant types, filter out
-      if (applicantTypesLower.some(t => excludedTypes.some(ex => t.includes(ex)))) {
+      const excludedMatches = applicantTypesLower.filter(t => excludedTypes.some(ex => t.includes(ex)));
+      if (excludedMatches.length > 0) {
+        console.log('[preFilterForEntityType] ❌ FILTERED - Excluded applicant types:', {
+          title,
+          entityType,
+          excludedMatches,
+          applicantTypes: opportunity.applicantTypes,
+        });
         return false;
       }
       
@@ -134,6 +162,11 @@ export function preFilterForEntityType(opportunity: Opportunity, entityType: Ent
         excludedCategories.some(ex => c.includes(ex))
       );
       if (allExcluded) {
+        console.log('[preFilterForEntityType] ❌ FILTERED - All categories excluded:', {
+          title,
+          entityType,
+          categories: opportunity.fundingActivityCategories,
+        });
         return false;
       }
     }
@@ -156,7 +189,14 @@ export function preFilterForEntityType(opportunity: Opportunity, entityType: Ent
         'tribal organizations only',
       ];
       
-      if (eligibleLower.some(e => excludedEntities.some(ex => e.includes(ex)))) {
+      const excludedEntityMatches = eligibleLower.filter(e => excludedEntities.some(ex => e.includes(ex)));
+      if (excludedEntityMatches.length > 0) {
+        console.log('[preFilterForEntityType] ❌ FILTERED - Excluded eligible entities:', {
+          title,
+          entityType,
+          excludedEntityMatches,
+          eligibleEntities: opportunity.eligibleEntities,
+        });
         return false;
       }
     }
@@ -194,11 +234,22 @@ export function preFilterForEntityType(opportunity: Opportunity, entityType: Ent
     if (!isSBIR) {
       for (const exclusion of hardExclusions) {
         if (combined.includes(exclusion)) {
+          console.log('[preFilterForEntityType] ❌ FILTERED - Hard exclusion keyword found:', {
+            title,
+            entityType,
+            exclusion,
+          });
           return false;
         }
       }
     }
   }
+  
+  // Log successful pass
+  console.log('[preFilterForEntityType] ✅ PASSED:', {
+    title,
+    entityType,
+  });
   
   return true; // Passes all filters
 }
@@ -252,69 +303,93 @@ export function calculateWinRate(opportunity: Opportunity, profile: UserProfile)
 // Check if opportunity matches funding type
 function matchesFundingType(opportunity: Opportunity, fundingTypes: FundingType[]): boolean {
   // RFP opportunities
-  if (opportunity.type === 'RFP') {
-    return fundingTypes.includes('contracts') || fundingTypes.includes('rfps');
-  }
+  const isRFP = opportunity.type === 'RFP';
+  const matchesRFP = isRFP && (fundingTypes.includes('contracts') || fundingTypes.includes('rfps'));
   
   // Grant opportunities
-  if (opportunity.type === 'Grant') {
-    return fundingTypes.includes('grants');
-  }
+  const isGrant = opportunity.type === 'Grant';
+  const matchesGrant = isGrant && fundingTypes.includes('grants');
   
-  return false;
+  const result = matchesRFP || matchesGrant;
+  
+  console.log('[matchesFundingType]', {
+    opportunityTitle: opportunity.title?.substring(0, 50),
+    opportunityType: opportunity.type,
+    userFundingTypes: fundingTypes,
+    isRFP,
+    isGrant,
+    matchesRFP,
+    matchesGrant,
+    result,
+    score: result ? 25 : 0,
+  });
+  
+  return result;
 }
 
 // Check if opportunity matches entity type
 // NOTE: This is now used as a secondary boost, not the main eligibility gate.
 // Main eligibility filtering happens in preFilterForEntityType().
 function matchesEntityType(opportunity: Opportunity, entityType: EntityType): boolean {
+  const entityMap: Record<EntityType, string[]> = {
+    'nonprofit': ['nonprofit', 'non-profit', '501c3', 'charity', 'charitable', 'ngo'],
+    'for-profit': ['for-profit', 'for profit', 'business', 'company', 'corporation', 'enterprise', 'commercial', 'small business'],
+    'government': ['government', 'municipality', 'county', 'state', 'federal', 'public sector', 'state governments', 'local governments'],
+    'education': ['education', 'school', 'university', 'college', 'academic', 'educational', 'educational institutions'],
+    'individual': ['individual', 'individuals', 'person', 'artist', 'researcher', 'fellow'],
+  };
+  
+  const keywords = entityMap[entityType] || [];
+  let matchedViaStructured = false;
+  let matchedViaText = false;
+  const hits: string[] = [];
+  
   // First check structured fields (most reliable)
   if (opportunity.applicantTypes && opportunity.applicantTypes.length > 0) {
     const applicantTypesLower = opportunity.applicantTypes.map(t => t.toLowerCase());
     
-    const entityMap: Record<EntityType, string[]> = {
-      'nonprofit': ['nonprofit', 'non-profit', '501c3', 'charity', 'charitable', 'ngo'],
-      'for-profit': ['for-profit', 'for profit', 'business', 'company', 'corporation', 'enterprise', 'commercial', 'small business'],
-      'government': ['government', 'municipality', 'county', 'state', 'federal', 'public sector', 'state governments', 'local governments'],
-      'education': ['education', 'school', 'university', 'college', 'academic', 'educational', 'educational institutions'],
-      'individual': ['individual', 'individuals', 'person', 'artist', 'researcher', 'fellow'],
-    };
-    
-    const keywords = entityMap[entityType] || [];
-    
     // Check if any applicant type matches our entity type keywords
     for (const keyword of keywords) {
-      if (applicantTypesLower.some(t => t.includes(keyword))) {
-        return true;
+      const matchingTypes = applicantTypesLower.filter(t => t.includes(keyword));
+      if (matchingTypes.length > 0) {
+        matchedViaStructured = true;
+        hits.push(...matchingTypes);
+        break;
       }
     }
   }
   
   // Fallback to text search in description/title
-  const desc = (opportunity.description || '').toLowerCase();
-  const title = (opportunity.title || '').toLowerCase();
-  const combined = `${title} ${desc}`;
-  
-  const entityMap: Record<EntityType, string[]> = {
-    'nonprofit': ['nonprofit', 'non-profit', '501c3', 'charity', 'charitable', 'ngo'],
-    'for-profit': ['for-profit', 'business', 'company', 'corporation', 'enterprise', 'commercial', 'small business'],
-    'government': ['government', 'municipality', 'county', 'state', 'federal', 'public sector'],
-    'education': ['education', 'school', 'university', 'college', 'academic', 'educational'],
-    'individual': ['individual', 'person', 'artist', 'researcher', 'fellow'],
-  };
-  
-  const keywords = entityMap[entityType] || [];
-  
-  // If any keyword matches, give full score
-  for (const keyword of keywords) {
-    if (combined.includes(keyword)) {
-      return true;
+  if (!matchedViaStructured) {
+    const desc = (opportunity.description || '').toLowerCase();
+    const title = (opportunity.title || '').toLowerCase();
+    const combined = `${title} ${desc}`;
+    
+    // If any keyword matches, give full score
+    for (const keyword of keywords) {
+      if (combined.includes(keyword)) {
+        matchedViaText = true;
+        hits.push(keyword);
+        break;
+      }
     }
   }
   
-  // If no explicit mention, return false (don't give partial credit)
-  // The pre-filter handles eligibility, this is just a boost
-  return false;
+  const result = matchedViaStructured || matchedViaText;
+  
+  console.log('[matchesEntityType]', {
+    opportunityTitle: opportunity.title?.substring(0, 50),
+    entityType,
+    applicantTypes: opportunity.applicantTypes,
+    keywords,
+    matchedViaStructured,
+    matchedViaText,
+    hits,
+    result,
+    score: result ? 10 : 0,
+  });
+  
+  return result;
 }
 
 // Calculate interest match score (0-40 points) - HIGHEST WEIGHT
@@ -388,6 +463,8 @@ function matchesInterests(
   };
   
   let matchedInterests = 0;
+  const matchedDetails: { interest: Interest; keyword: string; type: 'commercial' | 'academic' }[] = [];
+  const skippedInterests: { interest: Interest; reason: string }[] = [];
   
   for (const interest of allInterests) {
     const keywordSets = interestKeywords[interest];
@@ -402,6 +479,7 @@ function matchesInterests(
         if (combined.includes(keyword)) {
           matchedInterests++;
           interestMatched = true;
+          matchedDetails.push({ interest, keyword, type: 'commercial' });
           break;
         }
       }
@@ -419,6 +497,7 @@ function matchesInterests(
         // Don't match pure academic research for for-profit unless there are commercial indicators
         if (hasAcademicOnly && !hasCommercialIndicators) {
           // Skip this interest match for for-profit
+          skippedInterests.push({ interest, reason: 'Academic-only keywords without commercial indicators' });
           continue;
         }
       }
@@ -428,6 +507,7 @@ function matchesInterests(
         if (combined.includes(keyword)) {
           matchedInterests++;
           interestMatched = true;
+          matchedDetails.push({ interest, keyword, type: 'commercial' });
           break;
         }
       }
@@ -436,6 +516,7 @@ function matchesInterests(
         for (const keyword of keywordSets.academic) {
           if (combined.includes(keyword)) {
             matchedInterests++;
+            matchedDetails.push({ interest, keyword, type: 'academic' });
             break;
           }
         }
@@ -445,7 +526,22 @@ function matchesInterests(
   
   // Score proportional to matched interests - full 40 points if all interests match
   const matchRatio = matchedInterests / allInterests.length;
-  return Math.round(matchRatio * 40);
+  const score = Math.round(matchRatio * 40);
+  
+  console.log('[matchesInterests]', {
+    opportunityTitle: opportunity.title?.substring(0, 50),
+    allInterests,
+    entityType,
+    isSBIR,
+    matchedInterests,
+    totalInterests: allInterests.length,
+    matchedDetails,
+    skippedInterests,
+    matchRatio: matchRatio.toFixed(2),
+    score,
+  });
+  
+  return score;
 }
 
 // Calculate keywords match score (0-20 points)
@@ -463,23 +559,33 @@ function matchesKeywords(
   const combined = `${title} ${desc} ${category} ${agency}`;
   
   // HARD EXCLUSION: Check negative keywords first
+  const negativeHits: string[] = [];
   if (negativeKeywords && negativeKeywords.length > 0) {
     for (const negKeyword of negativeKeywords) {
       const negLower = negKeyword.toLowerCase().trim();
       if (negLower.length > 0 && combined.includes(negLower)) {
-        return 0; // Hard exclusion - return 0 points
+        negativeHits.push(negKeyword);
       }
+    }
+    if (negativeHits.length > 0) {
+      console.log('[matchesKeywords] ❌ HARD EXCLUSION - Negative keywords matched:', {
+        opportunityTitle: opportunity.title?.substring(0, 50),
+        negativeHits,
+        score: 0,
+      });
+      return 0; // Hard exclusion - return 0 points
     }
   }
   
   // HARD EXCLUSION: Check pass patterns (learned from user behavior)
+  const passPatternHits: { type: string; pattern: string }[] = [];
   if (passPatterns) {
     // Check keyword patterns
     if (passPatterns.keywords && passPatterns.keywords.length > 0) {
       for (const pattern of passPatterns.keywords) {
         const patternLower = pattern.toLowerCase().trim();
         if (patternLower.length > 0 && combined.includes(patternLower)) {
-          return 0; // User consistently passes on opportunities with this keyword
+          passPatternHits.push({ type: 'keyword', pattern });
         }
       }
     }
@@ -488,38 +594,73 @@ function matchesKeywords(
     if (passPatterns.agencies && passPatterns.agencies.length > 0) {
       for (const agencyPattern of passPatterns.agencies) {
         if (agency.toLowerCase().includes(agencyPattern.toLowerCase())) {
-          return 0; // User consistently passes on opportunities from this agency
+          passPatternHits.push({ type: 'agency', pattern: agencyPattern });
         }
       }
+    }
+    
+    if (passPatternHits.length > 0) {
+      console.log('[matchesKeywords] ❌ HARD EXCLUSION - Pass patterns matched:', {
+        opportunityTitle: opportunity.title?.substring(0, 50),
+        passPatternHits,
+        score: 0,
+      });
+      return 0; // User consistently passes on opportunities with this pattern
     }
   }
   
   // If no keywords provided, return neutral score
-  if (keywords.length === 0) return 10;
+  if (keywords.length === 0) {
+    console.log('[matchesKeywords] No keywords set → neutral 10', {
+      opportunityTitle: opportunity.title?.substring(0, 50),
+    });
+    return 10;
+  }
   
   // Positive keyword matching
   let matchedKeywords = 0;
+  const matchedList: string[] = [];
   
   for (const keyword of keywords) {
     const keywordLower = keyword.toLowerCase().trim();
     if (keywordLower.length > 0 && combined.includes(keywordLower)) {
       matchedKeywords++;
+      matchedList.push(keyword);
     }
   }
   
   // Score proportional to matched keywords (up to 20 points)
   // If 50%+ keywords match, give full score
   const matchRatio = matchedKeywords / keywords.length;
-  if (matchRatio >= 0.5) return 20;
-  if (matchRatio >= 0.3) return 15;
-  if (matchRatio >= 0.1) return 8;
-  return 0;
+  let score = 0;
+  if (matchRatio >= 0.5) score = 20;
+  else if (matchRatio >= 0.3) score = 15;
+  else if (matchRatio >= 0.1) score = 8;
+  
+  console.log('[matchesKeywords]', {
+    opportunityTitle: opportunity.title?.substring(0, 50),
+    keywords,
+    negativeKeywords: negativeKeywords?.length || 0,
+    matchedKeywords,
+    totalKeywords: keywords.length,
+    matchedList,
+    matchRatio: matchRatio.toFixed(2),
+    score,
+  });
+  
+  return score;
 }
 
 // Calculate timeline match score (0-5 points)
 function matchesTimeline(opportunity: Opportunity, timeline: Timeline): number {
   const deadline = opportunity.closeDate || opportunity.deadline;
-  if (!deadline) return 2; // Give neutral score if no deadline
+  if (!deadline) {
+    console.log('[matchesTimeline] No deadline → neutral 2', {
+      opportunityTitle: opportunity.title?.substring(0, 50),
+      timeline,
+    });
+    return 2; // Give neutral score if no deadline
+  }
   
   try {
     const deadlineDate = new Date(deadline);
@@ -527,37 +668,65 @@ function matchesTimeline(opportunity: Opportunity, timeline: Timeline): number {
     const daysUntil = Math.floor((deadlineDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     
     // If deadline has passed, return 0
-    if (daysUntil < 0) return 0;
+    if (daysUntil < 0) {
+      console.log('[matchesTimeline] Deadline passed → 0', {
+        opportunityTitle: opportunity.title?.substring(0, 50),
+        deadline,
+        daysUntil,
+      });
+      return 0;
+    }
+    
+    let score = 0;
     
     // Match based on user's timeline preference
     switch (timeline) {
       case 'immediate':
         // 0-30 days: full score, 31-60 days: partial score
-        if (daysUntil <= 30) return 5;
-        if (daysUntil <= 60) return 3;
-        return 1;
+        if (daysUntil <= 30) score = 5;
+        else if (daysUntil <= 60) score = 3;
+        else score = 1;
+        break;
         
       case '3-months':
         // 0-90 days: full score
-        if (daysUntil <= 90) return 5;
-        if (daysUntil <= 120) return 3;
-        return 1;
+        if (daysUntil <= 90) score = 5;
+        else if (daysUntil <= 120) score = 3;
+        else score = 1;
+        break;
         
       case '6-months':
         // 0-180 days: full score
-        if (daysUntil <= 180) return 5;
-        if (daysUntil <= 240) return 3;
-        return 1;
+        if (daysUntil <= 180) score = 5;
+        else if (daysUntil <= 240) score = 3;
+        else score = 1;
+        break;
         
       case '12-months':
         // 0-365 days: full score
-        if (daysUntil <= 365) return 5;
-        return 3;
+        if (daysUntil <= 365) score = 5;
+        else score = 3;
+        break;
         
       default:
-        return 2;
+        score = 2;
     }
-  } catch {
+    
+    console.log('[matchesTimeline]', {
+      opportunityTitle: opportunity.title?.substring(0, 50),
+      timeline,
+      deadline,
+      daysUntil,
+      score,
+    });
+    
+    return score;
+  } catch (e: any) {
+    console.log('[matchesTimeline] Error parsing date → neutral 2', {
+      opportunityTitle: opportunity.title?.substring(0, 50),
+      deadline,
+      error: e?.message,
+    });
     return 2; // Neutral score if date parsing fails
   }
 }
@@ -566,27 +735,73 @@ function matchesTimeline(opportunity: Opportunity, timeline: Timeline): number {
 export function matchOpportunities(
   opportunities: Opportunity[], 
   profile: UserProfile,
-  minWinRate: number = 0
+  minWinRate: number = 0,
+  excludeIds?: string[] // IDs of opportunities to exclude (passed/saved)
 ): Opportunity[] {
-  // STEP 1: Pre-filter based on hard eligibility criteria
+  // Get negative keywords for hard filtering
+  const negativeKeywords = profile.negativeKeywords && profile.negativeKeywords.length > 0
+    ? profile.negativeKeywords
+    : getDefaultNegativeKeywords(profile.entityType);
+  
+  // Get passed/saved IDs to exclude
+  const passedIds = profile.preferences?.passedOpportunityIds || [];
+  const savedIds = profile.preferences?.savedOpportunityIds || [];
+  const allExcludedIds = new Set([
+    ...(excludeIds || []),
+    ...passedIds,
+    ...savedIds,
+  ]);
+  
+  console.log('[matchOpportunities] Called', {
+    totalInput: opportunities.length,
+    profileEntityType: profile.entityType,
+    profileFundingTypes: profile.fundingType,
+    profileInterests: profile.interestsMain,
+    minWinRate,
+    negativeKeywordsCount: negativeKeywords.length,
+    excludedIdsCount: allExcludedIds.size,
+    passedIdsCount: passedIds.length,
+    savedIdsCount: savedIds.length,
+  });
+  
+  // STEP 1: Filter out passed/saved opportunities FIRST
+  const notPassedOrSaved = opportunities.filter(opp => !allExcludedIds.has(opp.id));
+  console.log(`[matchOpportunities] Filtered out passed/saved: ${opportunities.length} → ${notPassedOrSaved.length} opportunities`);
+  
+  // STEP 2: Pre-filter based on hard eligibility criteria and negative keywords
   // This removes ineligible opportunities BEFORE scoring
-  const preFiltered = opportunities.filter(opp => 
-    preFilterForEntityType(opp, profile.entityType)
+  const preFiltered = notPassedOrSaved.filter(opp => 
+    preFilterForEntityType(opp, profile.entityType, negativeKeywords)
   );
   
-  console.log(`[Match] Pre-filtered ${opportunities.length} → ${preFiltered.length} opportunities for ${profile.entityType} entity type`);
+  console.log(`[matchOpportunities] Pre-filtered ${notPassedOrSaved.length} → ${preFiltered.length} opportunities for ${profile.entityType} entity type`);
   
   // STEP 2: Calculate win rate for each pre-filtered opportunity
-  const scored = preFiltered.map(opp => ({
-    ...opp,
-    winRate: calculateWinRate(opp, profile)
-  }));
+  const scored = preFiltered.map(opp => {
+    const winRate = calculateWinRate(opp, profile);
+    return { ...opp, winRate };
+  });
   
   // STEP 3: Filter by minimum win rate
-  const filtered = scored.filter(opp => opp.winRate >= minWinRate);
+  const filtered = scored.filter(opp => (opp.winRate || 0) >= minWinRate);
+  
+  console.log('[matchOpportunities] After filtering', {
+    minWinRate,
+    totalScored: scored.length,
+    totalKept: filtered.length,
+    filteredOut: scored.length - filtered.length,
+  });
   
   // STEP 4: Sort by win rate descending
   filtered.sort((a, b) => (b.winRate || 0) - (a.winRate || 0));
+  
+  // Log top 5 results
+  const top5 = filtered.slice(0, 5).map(o => ({
+    title: o.title?.substring(0, 50),
+    winRate: o.winRate,
+    type: o.type,
+  }));
+  console.log('[matchOpportunities] Top 5 results:', top5);
   
   return filtered;
 }

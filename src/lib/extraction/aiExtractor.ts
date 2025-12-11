@@ -120,8 +120,40 @@ Field definitions:
 - proposedSolution: For grants/proposals - what solution is being proposed
 - outcomesImpact: Array of outcomes, impact metrics, or success stories
 - keywords: Array of relevant keywords, terms, or phrases that describe the organization's focus areas, expertise, industries, technologies, methodologies, or specializations. Extract 10-20 most important keywords that would help match this organization with relevant opportunities. Examples: "machine learning", "sustainable energy", "community health", "urban planning", "STEM education", etc.
+
 - positiveKeywordSuggestions: Array of 5-10 keywords or phrases that should be PRIORITIZED when matching opportunities. These are terms that strongly align with the organization's core strengths, services, or focus areas. These keywords should help surface opportunities that are highly relevant. Examples: "healthcare technology", "renewable energy", "education technology", "cybersecurity", etc.
-- negativeKeywordSuggestions: Array of 5-10 keywords or phrases that should be EXCLUDED or given lower priority when matching opportunities. These are terms that indicate opportunities NOT suitable for this organization. Examples: "construction", "real estate", "food service", "retail", etc. Only include terms that are clearly NOT relevant based on the document content.
+
+- negativeKeywordSuggestions: Array of 5-15 keywords or phrases that should be EXCLUDED (hard filter) when matching opportunities. These are terms that indicate opportunities NOT suitable for this organization. Be INTELLIGENT and INTUITIVE about this:
+
+  **Context-Aware Exclusion Rules:**
+  1. **General vs. Specific**: If the organization focuses on general areas (e.g., "health", "education", "technology"), exclude overly specific or technical sub-domains that don't match their actual work:
+     - If they do "health" or "healthcare" → EXCLUDE: "nervous system", "cardiovascular", "oncology", "neurology", "pathology", "biochemistry", "molecular biology", "clinical trials", "drug development", "pharmaceutical", "medical research", "laboratory research", "biomedical research"
+     - If they do "education" → EXCLUDE: "dissertation", "thesis", "postdoctoral", "graduate research", "academic research", "scholarly research", "university research", "faculty research", "tenure-track"
+     - If they do "technology" → EXCLUDE: "hardware development", "semiconductor", "chip design", "manufacturing", "industrial automation" (unless they specifically do these)
+     - If they do "business" or "consulting" → EXCLUDE: "construction", "real estate", "food service", "retail", "manufacturing" (unless specifically mentioned)
+
+  2. **Research vs. Commercial**: If the organization is commercial/for-profit and focuses on business applications, exclude academic research terms:
+     - EXCLUDE: "principal investigator", "research grant", "academic institution", "university", "college", "scholarly", "peer-reviewed", "publication", "dissertation", "thesis", "postdoc", "faculty", "tenure"
+
+  3. **Scale Mismatch**: If they're a small business/startup, exclude terms for large-scale operations:
+     - EXCLUDE: "infrastructure", "construction", "large-scale manufacturing", "industrial", "enterprise software" (unless they specifically do these)
+
+  4. **Industry Mismatch**: Based on the document, identify industries they DON'T serve:
+     - If no mention of construction → EXCLUDE: "construction", "building", "infrastructure", "civil engineering"
+     - If no mention of food → EXCLUDE: "food service", "restaurant", "catering", "culinary"
+     - If no mention of retail → EXCLUDE: "retail", "e-commerce", "merchandising"
+
+  5. **Related Terms to Auto-Exclude**: When you identify a general keyword (like "health"), automatically suggest related specific terms that should be excluded:
+     - "health" → suggest excluding: "nervous system", "cardiovascular", "oncology", "neurology", "pathology", "biochemistry", "molecular biology", "clinical trials", "drug development", "pharmaceutical", "medical research", "laboratory research", "biomedical research", "anatomy", "physiology", "immunology", "genetics", "genomics"
+     - "education" → suggest excluding: "dissertation", "thesis", "postdoctoral", "graduate research", "academic research", "scholarly research", "university research", "faculty research", "tenure-track", "K-12" (if they do higher ed), "higher education" (if they do K-12)
+     - "technology" → suggest excluding: "hardware development", "semiconductor", "chip design", "manufacturing", "industrial automation" (unless specifically mentioned)
+
+  **Examples of good negative keywords:**
+  - For a general health/wellness company: ["nervous system", "cardiovascular", "oncology", "neurology", "pathology", "biochemistry", "molecular biology", "clinical trials", "drug development", "pharmaceutical", "medical research", "laboratory research"]
+  - For a business consulting firm: ["construction", "real estate", "food service", "retail", "manufacturing", "principal investigator", "research grant", "academic institution"]
+  - For a K-12 education company: ["dissertation", "thesis", "postdoctoral", "graduate research", "university research", "faculty research", "tenure-track", "higher education"]
+
+  **Important**: Only include negative keywords that are CLEARLY not relevant based on the document content. Be conservative - if unsure, don't include it.
 
 `;
 
