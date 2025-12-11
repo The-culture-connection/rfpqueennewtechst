@@ -164,11 +164,15 @@ export default function DashboardPage() {
 
       try {
         const progressRef = doc(db, 'profiles', user.uid, 'dashboard', 'progress');
-        await setDoc(progressRef, {
-          currentOpportunityId: currentOpportunity.id,
-          passedIds: passedIds,
+        // Ensure currentOpportunityId is never undefined
+        const progressData: any = {
+          passedIds: passedIds || [],
           lastUpdated: new Date().toISOString(),
-        });
+        };
+        if (currentOpportunity?.id) {
+          progressData.currentOpportunityId = currentOpportunity.id;
+        }
+        await setDoc(progressRef, progressData);
         console.log(`💾 Progress saved: Opportunity ${currentIndex + 1}`);
       } catch (err) {
         console.error('Error saving progress:', err);
@@ -280,12 +284,29 @@ export default function DashboardPage() {
       // Save progress to Firestore before clearing cache
       if (db && user) {
         const progressRef = doc(db, 'profiles', user.uid, 'dashboard', 'progress');
-        await setDoc(progressRef, {
-          currentOpportunityId: savedProgress.currentOpportunityId,
+        // Ensure currentOpportunityId is never undefined
+        const progressData: any = {
           passedIds: savedProgress.passedIds,
           lastUpdated: new Date().toISOString(),
-        });
+        };
+        if (savedProgress.currentOpportunityId) {
+          progressData.currentOpportunityId = savedProgress.currentOpportunityId;
+        }
+        await setDoc(progressRef, progressData);
         console.log('✅ Progress saved to Firestore before cache clear');
+      }
+      
+      // Check if user has keywords - if not, redirect to profile
+      if (!userProfile?.keywords || userProfile.keywords.length === 0) {
+        const hasPositiveKeywords = userProfile?.positiveKeywords && userProfile.positiveKeywords.length > 0;
+        const hasNegativeKeywords = userProfile?.negativeKeywords && userProfile.negativeKeywords.length > 0;
+        
+        if (!hasPositiveKeywords && !hasNegativeKeywords) {
+          setRerunLoading(false);
+          alert('⚠️ Please accept or decline keyword suggestions in your profile before rerunning matching.\n\nThis helps us provide better opportunity matches. Go to Edit Profile → Keyword Preferences to review AI-suggested keywords.');
+          router.push('/profile');
+          return;
+        }
       }
       
       // Clear Firestore cache before rerunning
@@ -328,7 +349,21 @@ export default function DashboardPage() {
       }, 2000);
     } catch (err: any) {
       console.error('Error rerunning matching:', err);
-      alert(`Error rerunning opportunity matching: ${err.message || 'Unknown error'}`);
+      
+      // Check if error is related to missing keywords
+      if (err?.message?.includes('keywords') || !userProfile?.keywords || userProfile.keywords.length === 0) {
+        const hasPositiveKeywords = userProfile?.positiveKeywords && userProfile.positiveKeywords.length > 0;
+        const hasNegativeKeywords = userProfile?.negativeKeywords && userProfile.negativeKeywords.length > 0;
+        
+        if (!hasPositiveKeywords && !hasNegativeKeywords) {
+          alert('⚠️ Please accept or decline keyword suggestions in your profile before rerunning matching.\n\nThis helps us provide better opportunity matches. Go to Edit Profile → Keyword Preferences to review AI-suggested keywords.');
+          router.push('/profile');
+          setRerunLoading(false);
+          return;
+        }
+      }
+      
+      alert(`Error rerunning opportunity matching: ${err.message || 'Unknown error'}\n\nIf you haven't accepted keyword suggestions yet, please go to Edit Profile → Keyword Preferences first.`);
     } finally {
       setRerunLoading(false);
     }

@@ -73,6 +73,21 @@ export async function extractFieldsWithAI(
     const extracted = JSON.parse(response.choices[0].message.content || '{}');
     console.log(`✅ AI extraction complete. Extracted ${Object.keys(extracted).filter(k => extracted[k] !== null).length} fields`);
     
+    // Ensure keyword suggestions are arrays, not null
+    if (!extracted.positiveKeywordSuggestions || !Array.isArray(extracted.positiveKeywordSuggestions)) {
+      extracted.positiveKeywordSuggestions = [];
+    }
+    if (!extracted.negativeKeywordSuggestions || !Array.isArray(extracted.negativeKeywordSuggestions)) {
+      extracted.negativeKeywordSuggestions = [];
+    }
+    
+    // Log keyword suggestions for debugging
+    if (extracted.negativeKeywordSuggestions.length > 0) {
+      console.log(`📊 AI suggested ${extracted.negativeKeywordSuggestions.length} negative keywords:`, extracted.negativeKeywordSuggestions.slice(0, 5));
+    } else {
+      console.log('⚠️ AI did not suggest any negative keywords - this may indicate the document content was too generic or unclear');
+    }
+    
     return extracted;
   } catch (error: any) {
     console.error('❌ AI extraction error:', error.message);

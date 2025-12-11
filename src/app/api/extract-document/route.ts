@@ -90,10 +90,12 @@ async function mergeProfileFragments(userId: string) {
     if (fragment.keywords) {
       mergedProfile.keywords.push(...fragment.keywords);
     }
-    if (fragment.positiveKeywordSuggestions) {
+    // Handle positive keyword suggestions - check for both null and array
+    if (fragment.positiveKeywordSuggestions && Array.isArray(fragment.positiveKeywordSuggestions) && fragment.positiveKeywordSuggestions.length > 0) {
       mergedProfile.positiveKeywordSuggestions.push(...fragment.positiveKeywordSuggestions);
     }
-    if (fragment.negativeKeywordSuggestions) {
+    // Handle negative keyword suggestions - check for both null and array
+    if (fragment.negativeKeywordSuggestions && Array.isArray(fragment.negativeKeywordSuggestions) && fragment.negativeKeywordSuggestions.length > 0) {
       mergedProfile.negativeKeywordSuggestions.push(...fragment.negativeKeywordSuggestions);
     }
   });
