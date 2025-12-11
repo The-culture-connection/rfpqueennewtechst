@@ -1,0 +1,45 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Public read access for exported CSV files (for public website and Admin SDK)
+    // This allows the public site and server-side code to read opportunity data
+    match /exports/{allPaths=**} {
+      // Allow public read access (no authentication required)
+      // This is safe because exports are public data
+      allow read: if true;
+      
+      // Only Cloud Functions/Admin SDK can write (no user write access)
+      allow write: if false;
+    }
+    
+    // Profile data - requires authentication
+    match /profiles/{uid}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+    
+    // User documents - requires authentication
+    match /Userdocuments/{uid}/{allPaths=**} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      
+      allow write: if request.auth != null 
+        && request.auth.uid == uid
+        && request.resource.size < 50 * 1024 * 1024
+        && (request.resource.contentType.matches('application/pdf')
+          || request.resource.contentType.matches('application/msword')
+          || request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+          || request.resource.contentType.matches('image/jpeg')
+          || request.resource.contentType.matches('image/jpg')
+          || request.resource.contentType.matches('image/png'));
+      
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+    
+    // Deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

@@ -8,6 +8,8 @@ import FundingTypeStep from '@/components/onboarding/FundingTypeStep';
 import TimelineStep from '@/components/onboarding/TimelineStep';
 import InterestsStep from '@/components/onboarding/InterestsStep';
 import EntityStep from '@/components/onboarding/EntityStep';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import {
   trackOnboardingStarted,
   trackOnboardingStepCompleted,
@@ -41,10 +43,26 @@ export default function OnboardingPage() {
     } else if (user && !userProfile) {
       // User exists but profile is loading, wait a bit
       const timer = setTimeout(() => {
-        // If still no profile after 2 seconds, check again
-        if (!userProfile || !userProfile?.termsAccepted) {
-          router.replace('/terms');
-        }
+        // Re-fetch user profile to check terms acceptance
+        // If still no profile after 2 seconds, redirect to terms
+        const checkTerms = async () => {
+          try {
+            const profileRef = doc(db, 'profiles', user.uid);
+            const profileDoc = await getDoc(profileRef);
+            if (profileDoc.exists()) {
+              const data = profileDoc.data();
+              if (!data.termsAccepted) {
+                router.replace('/terms');
+              }
+            } else {
+              router.replace('/terms');
+            }
+          } catch (error) {
+            console.error('Error checking terms:', error);
+            router.replace('/terms');
+          }
+        };
+        checkTerms();
       }, 2000);
       return () => clearTimeout(timer);
     }
