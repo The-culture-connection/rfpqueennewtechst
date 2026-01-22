@@ -128,37 +128,37 @@ export default function ExecutiveSummaryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-white via-blue-50/30 to-white py-12 px-4">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <button
             onClick={() => router.push('/profile')}
-            className="text-gray-600 hover:text-[#406da8] mb-4 flex items-center gap-2"
+            className="text-[#406da8] hover:text-[#2d4f7a] font-semibold mb-4 flex items-center gap-2 transition-colors"
           >
             ← Edit Profile
           </button>
-          <h1 className="text-4xl font-primary font-bold text-[#1a202c] mb-2">
+          <h1 className="text-4xl font-primary font-bold bg-gradient-to-r from-[#406da8] via-[#5c8bc4] to-[#406da8] bg-clip-text text-transparent mb-2">
             Executive Summary
           </h1>
-          <p className="text-gray-600 font-secondary">
+          <p className="text-gray-700 font-secondary font-medium">
             Upload your executive summary to enhance opportunity matching with AI-powered analysis
           </p>
         </div>
 
         {/* Upload Section */}
-        <div className="bg-gray-50 rounded-2xl p-8 border border-gray-200 mb-8">
+        <div className="bg-white rounded-2xl p-8 border-2 border-[#406da8]/20 shadow-lg shadow-[#406da8]/10 mb-8">
           <h2 className="text-2xl font-primary font-bold text-[#1a202c] mb-4">
             Upload Your Executive Summary
           </h2>
-          <p className="text-gray-600 font-secondary mb-6">
+          <p className="text-gray-800 font-secondary font-medium mb-6">
             Upload your business executive summary, pitch deck, or company overview document. 
             Our AI will analyze it to better match you with relevant opportunities.
           </p>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-[#1a202c] font-secondary mb-2">
+              <label className="block text-[#1a202c] font-secondary font-semibold mb-2">
                 Choose File (PDF, DOCX, or TXT)
               </label>
               <input
@@ -166,30 +166,30 @@ export default function ExecutiveSummaryPage() {
                 accept=".pdf,.docx,.txt"
                 onChange={handleFileChange}
                 disabled={uploading || processing}
-                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-[#1a202c] font-secondary focus:outline-none focus:ring-2 focus:ring-[#406da8]"
+                className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-lg text-[#1a202c] font-secondary font-medium focus:outline-none focus:ring-2 focus:ring-[#406da8] focus:border-[#406da8] transition-all"
               />
             </div>
 
             {file && (
-              <div className="bg-[#406da8]/10 border border-[#406da8]/30 rounded-lg p-4">
-                <p className="text-[#1a202c] font-secondary">
-                  <span className="font-bold">Selected:</span> {file.name}
+              <div className="bg-gradient-to-r from-[#406da8]/15 to-[#5c8bc4]/15 border-2 border-[#406da8]/40 rounded-lg p-4 shadow-md">
+                <p className="text-[#1a202c] font-secondary font-semibold">
+                  <span className="font-bold text-[#406da8]">Selected:</span> {file.name}
                 </p>
-                <p className="text-gray-600 text-sm">
+                <p className="text-gray-700 text-sm font-medium">
                   {(file.size / 1024 / 1024).toFixed(2)} MB
                 </p>
               </div>
             )}
 
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <p className="text-red-600 font-secondary">{error}</p>
+              <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4 shadow-md">
+                <p className="text-red-700 font-secondary font-semibold">{error}</p>
               </div>
             )}
 
             {success && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="text-green-600 font-secondary">
+              <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4 shadow-md">
+                <p className="text-green-700 font-secondary font-semibold">
                   ✅ Executive summary uploaded and analyzed successfully!
                 </p>
               </div>
@@ -198,7 +198,7 @@ export default function ExecutiveSummaryPage() {
             <button
               onClick={handleUpload}
               disabled={!file || uploading || processing}
-              className="w-full px-6 py-3 bg-gradient-to-r from-[#406da8] to-[#5c8bc4] text-white rounded-lg font-secondary font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:scale-105 transition-all"
+              className="w-full px-6 py-3 bg-gradient-to-r from-[#406da8] to-[#5c8bc4] text-white rounded-lg font-secondary font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-xl hover:scale-105 transition-all shadow-lg"
             >
               {uploading && 'Uploading...'}
               {processing && 'Analyzing with AI...'}
@@ -209,53 +209,53 @@ export default function ExecutiveSummaryPage() {
 
         {/* Business Profile Preview */}
         {!loadingProfile && businessProfile && (
-          <div className="bg-gray-50 rounded-2xl p-8 border border-gray-200">
-            <h2 className="text-2xl font-primary font-bold text-[#1a202c] mb-6">
+          <div className="bg-white rounded-2xl p-8 border-2 border-[#406da8]/20 shadow-lg shadow-[#406da8]/10">
+            <h2 className="text-2xl font-primary font-bold bg-gradient-to-r from-[#406da8] to-[#5c8bc4] bg-clip-text text-transparent mb-6">
               Your Business Profile
             </h2>
 
             <div className="space-y-6">
               {businessProfile.companyOverview && (
-                <div>
-                  <h3 className="text-lg font-secondary font-bold text-[#406da8] mb-2">
+                <div className="bg-gradient-to-r from-[#406da8]/5 to-transparent rounded-lg p-4 border-l-4 border-[#406da8]">
+                  <h3 className="text-lg font-secondary font-bold text-[#406da8] mb-3">
                     Company Overview
                   </h3>
-                  <p className="text-gray-700 font-secondary leading-relaxed">
+                  <p className="text-gray-800 font-secondary leading-relaxed font-medium">
                     {businessProfile.companyOverview}
                   </p>
                 </div>
               )}
 
               {businessProfile.mission && (
-                <div>
-                  <h3 className="text-lg font-secondary font-bold text-[#406da8] mb-2">
+                <div className="bg-gradient-to-r from-[#406da8]/5 to-transparent rounded-lg p-4 border-l-4 border-[#406da8]">
+                  <h3 className="text-lg font-secondary font-bold text-[#406da8] mb-3">
                     Mission
                   </h3>
-                  <p className="text-gray-700 font-secondary leading-relaxed">
+                  <p className="text-gray-800 font-secondary leading-relaxed font-medium">
                     {businessProfile.mission}
                   </p>
                 </div>
               )}
 
               {businessProfile.vision && (
-                <div>
-                  <h3 className="text-lg font-secondary font-bold text-[#406da8] mb-2">
+                <div className="bg-gradient-to-r from-[#406da8]/5 to-transparent rounded-lg p-4 border-l-4 border-[#406da8]">
+                  <h3 className="text-lg font-secondary font-bold text-[#406da8] mb-3">
                     Vision
                   </h3>
-                  <p className="text-gray-700 font-secondary leading-relaxed">
+                  <p className="text-gray-800 font-secondary leading-relaxed font-medium">
                     {businessProfile.vision}
                   </p>
                 </div>
               )}
 
               {businessProfile.servicesCapabilities && businessProfile.servicesCapabilities.length > 0 && (
-                <div>
-                  <h3 className="text-lg font-secondary font-bold text-[#406da8] mb-2">
+                <div className="bg-gradient-to-r from-[#406da8]/5 to-transparent rounded-lg p-4 border-l-4 border-[#406da8]">
+                  <h3 className="text-lg font-secondary font-bold text-[#406da8] mb-3">
                     Services & Capabilities
                   </h3>
-                  <ul className="list-disc list-inside space-y-1">
+                  <ul className="list-disc list-inside space-y-2">
                     {businessProfile.servicesCapabilities.map((service: string, idx: number) => (
-                      <li key={idx} className="text-gray-700 font-secondary">
+                      <li key={idx} className="text-gray-800 font-secondary font-medium">
                         {service}
                       </li>
                     ))}
@@ -264,15 +264,15 @@ export default function ExecutiveSummaryPage() {
               )}
 
               {businessProfile.certifications && businessProfile.certifications.length > 0 && (
-                <div>
-                  <h3 className="text-lg font-secondary font-bold text-[#406da8] mb-2">
+                <div className="bg-gradient-to-r from-[#406da8]/5 to-transparent rounded-lg p-4 border-l-4 border-[#406da8]">
+                  <h3 className="text-lg font-secondary font-bold text-[#406da8] mb-3">
                     Certifications
                   </h3>
                   <div className="flex flex-wrap gap-2">
                     {businessProfile.certifications.map((cert: string, idx: number) => (
                       <span
                         key={idx}
-                        className="px-3 py-1 bg-[#406da8]/20 text-[#406da8] rounded-full text-sm font-secondary"
+                        className="px-4 py-2 bg-gradient-to-r from-[#406da8] to-[#5c8bc4] text-white rounded-full text-sm font-secondary font-semibold shadow-md"
                       >
                         {cert}
                       </span>
@@ -281,8 +281,8 @@ export default function ExecutiveSummaryPage() {
                 </div>
               )}
 
-              <div className="pt-4 border-t border-gray-200">
-                <p className="text-sm text-gray-500 font-secondary">
+              <div className="pt-4 border-t-2 border-[#406da8]/20">
+                <p className="text-sm text-gray-600 font-secondary font-medium">
                   Last updated: {new Date(businessProfile.lastUpdated).toLocaleDateString()}
                 </p>
               </div>
@@ -291,8 +291,8 @@ export default function ExecutiveSummaryPage() {
         )}
 
         {!loadingProfile && !businessProfile && (
-          <div className="bg-gray-50 rounded-2xl p-8 border border-gray-200 text-center">
-            <p className="text-gray-600 font-secondary">
+          <div className="bg-white rounded-2xl p-8 border-2 border-[#406da8]/20 shadow-lg shadow-[#406da8]/10 text-center">
+            <p className="text-gray-700 font-secondary font-semibold">
               No business profile found. Upload your executive summary to get started!
             </p>
           </div>
