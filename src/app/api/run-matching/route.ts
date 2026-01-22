@@ -158,10 +158,22 @@ export async function POST(request: Request) {
         finalMatches = topMatches.map(match => {
           const aiRefined = aiRefinedMap.get(match.opportunityId);
           if (aiRefined && aiRefined.matchReasoning) {
+            // Use AI-refined scores if available, otherwise keep original
+            const aiRankingScore = aiRefined.matchScore || aiRefined.winRate || match.scores.rankingScore;
+            const aiWinRate = aiRefined.winRate || match.scores.rankingScore;
+            
             return {
               ...match,
+              scores: {
+                ...match.scores,
+                // Update ranking score with AI-refined value (this is the most important)
+                rankingScore: aiRankingScore,
+              },
               notes: {
-                eligibilityNotes: aiRefined.eligibilityNotes || match.notes.eligibilityNotes,
+                // Use AI-refined eligibility notes (array) or convert to array
+                eligibilityNotes: Array.isArray(aiRefined.eligibilityNotes) 
+                  ? aiRefined.eligibilityNotes 
+                  : (aiRefined.eligibilityNotes ? [aiRefined.eligibilityNotes] : match.notes.eligibilityNotes),
                 matchSummary: aiRefined.matchReasoning.summary || match.notes.matchSummary,
               },
               confidenceScore: aiRefined.matchReasoning.confidenceScore || match.confidenceScore,
@@ -169,6 +181,9 @@ export async function POST(request: Request) {
           }
           return match;
         });
+        
+        // Re-sort by AI-refined ranking score
+        finalMatches.sort((a, b) => b.scores.rankingScore - a.scores.rankingScore);
         
         console.log(`[run-matching] AI refinement complete`);
       } catch (aiError: any) {

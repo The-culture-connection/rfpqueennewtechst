@@ -145,6 +145,14 @@ export async function saveMatchRun(
   await db.collection('users').doc(userId).set(updateData, { merge: true });
   await db.collection('profiles').doc(userId).set(updateData, { merge: true });
   
+  // Also save the current matches to profiles collection for easy access
+  await db.collection('profiles').doc(userId).set({
+    currentMatches: currentMatches,
+    lastMatchRun: updateData.lastMatchRun,
+    lastMatchProfileVersion: updateData.lastMatchProfileVersion,
+    lastMatchDocsVersion: updateData.lastMatchDocsVersion,
+  }, { merge: true });
+  
   console.log(`[saveMatchRun] Saved match run ${runId} for user ${userId}`);
 }
 

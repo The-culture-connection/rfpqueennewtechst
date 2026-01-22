@@ -56,12 +56,25 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
             // Try to load current matches from new system
             console.log('[useOpportunities] Matching not needed, loading current matches...');
             try {
-              const currentMatchesRef = doc(db, 'userMatches', profile.uid, 'current', 'latest');
-              const currentMatchesDoc = await getDoc(currentMatchesRef);
+              // Try to load from profiles collection first (primary location)
+              let currentMatches: any = null;
+              const profileRef = doc(db, 'profiles', profile.uid);
+              const profileDoc = await getDoc(profileRef);
               
-              if (currentMatchesDoc.exists()) {
-                const currentMatches = currentMatchesDoc.data();
-                console.log(`[useOpportunities] Found ${currentMatches?.topMatches?.length || 0} current matches`);
+              if (profileDoc.exists() && profileDoc.data()?.currentMatches) {
+                currentMatches = profileDoc.data()?.currentMatches;
+                console.log(`[useOpportunities] Found ${currentMatches?.topMatches?.length || 0} current matches in profiles collection`);
+              } else {
+                // Fallback to userMatches collection
+                const currentMatchesRef = doc(db, 'userMatches', profile.uid, 'current', 'latest');
+                const currentMatchesDoc = await getDoc(currentMatchesRef);
+                if (currentMatchesDoc.exists()) {
+                  currentMatches = currentMatchesDoc.data();
+                  console.log(`[useOpportunities] Found ${currentMatches?.topMatches?.length || 0} current matches in userMatches collection`);
+                }
+              }
+              
+              if (currentMatches && currentMatches.topMatches) {
                 
                 // Load full opportunity data
                 const opportunitiesResponse = await fetch(
@@ -75,22 +88,31 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
                   .map((match: any) => {
                     const opp = allOpps.find((o: Opportunity) => o.id === match.opportunityId);
                     if (!opp) return null;
+                    
+                    // Handle eligibilityNotes - can be array or string
+                    const eligibilityNotes = Array.isArray(match.notes?.eligibilityNotes)
+                      ? match.notes.eligibilityNotes
+                      : (match.notes?.eligibilityNotes ? [match.notes.eligibilityNotes] : []);
+                    
                     return {
                       ...opp,
-                      winRate: match.scores.rankingScore,
-                      matchScore: match.scores.rankingScore,
-                      eligibilityNotes: match.notes.eligibilityNotes,
+                      winRate: match.scores?.rankingScore || match.scores?.fitScore * 100 || 0,
+                      matchScore: match.scores?.rankingScore || match.scores?.fitScore * 100 || 0,
+                      eligibilityNotes: eligibilityNotes.length > 0 ? eligibilityNotes : undefined,
                       matchReasoning: {
-                        summary: match.notes.matchSummary,
+                        summary: match.notes?.matchSummary || '',
                         strengths: [],
                         concerns: [],
-                        specificReasons: match.eligibilityGate.reasons,
-                        eligibilityHighlights: match.notes.eligibilityNotes,
-                        confidenceScore: match.confidenceScore,
+                        specificReasons: match.eligibilityGate?.reasons || [],
+                        eligibilityHighlights: eligibilityNotes,
+                        confidenceScore: match.confidenceScore || 0,
                       },
                     };
                   })
                   .filter(Boolean) as Opportunity[];
+                
+                // Sort by ranking score (AI-refined scores should be highest)
+                matched.sort((a, b) => (b.matchScore || b.winRate || 0) - (a.matchScore || a.winRate || 0));
                 
                 setOpportunities(allOpps);
                 setMatchedOpportunities(matched);
@@ -262,35 +284,57 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
             const runData = await runResponse.json();
             console.log(`✅ [useOpportunities] New matching complete: ${runData.matchesCount} matches`);
             
-            // Load the matched opportunities
-            const currentMatchesRef = doc(db, 'userMatches', profile.uid, 'current', 'latest');
-            const currentMatchesDoc = await getDoc(currentMatchesRef);
+            // Try to load from profiles collection first (primary location)
+            let currentMatches: any = null;
+            const profileRef = doc(db, 'profiles', profile.uid);
+            const profileDoc = await getDoc(profileRef);
             
-            if (currentMatchesDoc.exists()) {
-              const currentMatches = currentMatchesDoc.data();
+            if (profileDoc.exists() && profileDoc.data()?.currentMatches) {
+              currentMatches = profileDoc.data()?.currentMatches;
+              console.log('✅ [useOpportunities] Loaded matches from profiles collection');
+            } else {
+              // Fallback to userMatches collection
+              const currentMatchesRef = doc(db, 'userMatches', profile.uid, 'current', 'latest');
+              const currentMatchesDoc = await getDoc(currentMatchesRef);
+              if (currentMatchesDoc.exists()) {
+                currentMatches = currentMatchesDoc.data();
+                console.log('✅ [useOpportunities] Loaded matches from userMatches collection');
+              }
+            }
+            
+            if (currentMatches && currentMatches.topMatches) {
               matched = (currentMatches.topMatches || [])
                 .map((match: any) => {
                   const opp = allOpps.find((o: Opportunity) => o.id === match.opportunityId);
                   if (!opp) return null;
+                  
+                  // Handle eligibilityNotes - can be array or string
+                  const eligibilityNotes = Array.isArray(match.notes?.eligibilityNotes)
+                    ? match.notes.eligibilityNotes
+                    : (match.notes?.eligibilityNotes ? [match.notes.eligibilityNotes] : []);
+                  
                   return {
                     ...opp,
-                    winRate: match.scores.rankingScore,
-                    matchScore: match.scores.rankingScore,
-                    eligibilityNotes: match.notes.eligibilityNotes,
+                    winRate: match.scores?.rankingScore || match.scores?.fitScore * 100 || 0,
+                    matchScore: match.scores?.rankingScore || match.scores?.fitScore * 100 || 0,
+                    eligibilityNotes: eligibilityNotes.length > 0 ? eligibilityNotes : undefined,
                     matchReasoning: {
-                      summary: match.notes.matchSummary,
+                      summary: match.notes?.matchSummary || '',
                       strengths: [],
                       concerns: [],
-                      specificReasons: match.eligibilityGate.reasons,
-                      eligibilityHighlights: match.notes.eligibilityNotes,
-                      confidenceScore: match.confidenceScore,
+                      specificReasons: match.eligibilityGate?.reasons || [],
+                      eligibilityHighlights: eligibilityNotes,
+                      confidenceScore: match.confidenceScore || 0,
                     },
                   };
                 })
                 .filter(Boolean) as Opportunity[];
               
+              // Sort by ranking score (AI-refined scores should be highest)
+              matched.sort((a, b) => (b.matchScore || b.winRate || 0) - (a.matchScore || a.winRate || 0));
+              
               setMatchedOpportunities(matched);
-              console.log(`✅ [useOpportunities] Loaded ${matched.length} matches from new system`);
+              console.log(`✅ [useOpportunities] Loaded ${matched.length} AI-refined matches from new system`);
             } else {
               // Fallback to old system if new system didn't save matches
               console.warn('[useOpportunities] New system completed but no matches found, using old system');
