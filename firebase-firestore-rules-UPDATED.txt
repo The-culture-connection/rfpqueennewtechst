@@ -3,13 +3,14 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // User profiles
+    // User profiles - requires authentication
     match /profiles/{userId} {
       // Users can read and write their own profile
       allow read, write: if request.auth != null && request.auth.uid == userId;
       
-      // Dashboard progress tracking
-      match /dashboard/progress {
+      // Dashboard subcollection - all documents (progress, passed, etc.)
+      // This matches: profiles/{userId}/dashboard/{anyDocId}
+      match /dashboard/{docId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
       
@@ -34,10 +35,42 @@ service cloud.firestore {
       }
       
       // Master business profile - merged from all fragments
-      // FIXED: Allow users to edit their own business profile
       match /businessProfile/{docId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
+      
+      // User preferences for learning
+      match /preferences/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Opportunity cache - allows users to read/write their cached opportunities
+      // Cache metadata (stores cache info and profile hash)
+      // Path: profiles/{userId}/cache/metadata
+      match /cache/metadata {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Cache chunks (opportunities split into multiple documents to avoid 1MB limit)
+      // Path: profiles/{userId}/cacheChunks/{chunkId}
+      match /cacheChunks/{chunkId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    
+    // User Feedback collection - authenticated users can write their own feedback
+    match /userFeedback/{feedbackId} {
+      // Users can read all feedback (for admin purposes)
+      allow read: if request.auth != null;
+      
+      // Users can create feedback with their own userId
+      allow create: if request.auth != null && 
+                       request.resource.data.userId == request.auth.uid &&
+                       request.resource.data.userEmail == request.auth.token.email;
+      
+      // Users can only update/delete their own feedback
+      allow update, delete: if request.auth != null && 
+                               resource.data.userId == request.auth.uid;
     }
     
     // Deny all other access
@@ -46,6 +79,3 @@ service cloud.firestore {
     }
   }
 }
-
-
-
