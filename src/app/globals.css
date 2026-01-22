@@ -3,16 +3,16 @@
 @tailwind utilities;
 
 :root {
-  --background: #0a0a0a;
+  --background: #000000;
   --foreground: #ffffff;
-  --primary: #ff6b9d;
-  --secondary: #a855f7;
-  --accent: #ec4899;
+  --primary: #406da8;
+  --secondary: #406da8;
+  --accent: #406da8;
 }
 
 @layer base {
   body {
-    background: linear-gradient(to bottom right, #0a0a0a, #1a1a1a, #0a0a0a);
+    background: #000000;
     color: #ffffff;
     font-family: var(--font-secondary), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -22,7 +22,7 @@
   
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-primary), sans-serif;
-    background: linear-gradient(to right, #ff6b9d, #ec4899, #a855f7);
+    background: linear-gradient(to right, #406da8, #5c8bc4, #406da8);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;

@@ -16,7 +16,6 @@ import {
   trackDashboardStartOver,
 } from '@/lib/analytics';
 import { trackUserAction } from '@/lib/preferenceLearning';
-import { FeedbackForm } from '@/components/FeedbackForm';
 import { LoadingMeter } from '@/components/LoadingMeter';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 
@@ -763,9 +762,9 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Main Content Area */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-3">
             <LoadingMeter loading={loading || rerunLoading} />
         {/* Resume indicator */}
         {currentIndex > 0 && progressLoaded && (
@@ -897,14 +896,6 @@ export default function DashboardPage() {
                   </button>
                 </div>
               </div>
-              
-              <FeedbackForm
-                questions={[
-                  'Do the opportunities shown to you apply to you?',
-                  'Is there any information about the opportunities you wish was included?'
-                ]}
-                page="dashboard"
-              />
             </div>
           </div>
         </div>

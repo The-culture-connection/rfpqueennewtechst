@@ -128,7 +128,7 @@ export default function ExecutiveSummaryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1d1d1e] via-[#2a1a2e] to-[#1d1d1e] py-12 px-4">
+    <div className="min-h-screen bg-black py-12 px-4">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -166,12 +166,12 @@ export default function ExecutiveSummaryPage() {
                 accept=".pdf,.docx,.txt"
                 onChange={handleFileChange}
                 disabled={uploading || processing}
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white font-secondary focus:outline-none focus:ring-2 focus:ring-[#ad3c94]"
+                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white font-secondary focus:outline-none focus:ring-2 focus:ring-[#406da8]"
               />
             </div>
 
             {file && (
-              <div className="bg-[#ad3c94]/10 border border-[#ad3c94]/30 rounded-lg p-4">
+              <div className="bg-[#406da8]/10 border border-[#406da8]/30 rounded-lg p-4">
                 <p className="text-white font-secondary">
                   <span className="font-bold">Selected:</span> {file.name}
                 </p>
@@ -198,7 +198,7 @@ export default function ExecutiveSummaryPage() {
             <button
               onClick={handleUpload}
               disabled={!file || uploading || processing}
-              className="w-full px-6 py-3 bg-gradient-to-r from-[#ad3c94] to-[#d946e8] text-white rounded-lg font-secondary font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:scale-105 transition-all"
+              className="w-full px-6 py-3 bg-gradient-to-r from-[#406da8] to-[#5c8bc4] text-white rounded-lg font-secondary font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:scale-105 transition-all"
             >
               {uploading && 'Uploading...'}
               {processing && 'Analyzing with AI...'}

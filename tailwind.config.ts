@@ -11,47 +11,47 @@ const config: Config = {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
-        // Superlist-inspired color palette
+        // Royal blue color palette
         primary: {
-          DEFAULT: "#ff6b9d", // Pink
-          light: "#ff8fb3",
-          dark: "#ff4d7a",
+          DEFAULT: "#406da8", // Royal blue
+          light: "#5c8bc4",
+          dark: "#2d4f7a",
         },
         secondary: {
-          DEFAULT: "#a855f7", // Purple
-          light: "#c084fc",
-          dark: "#9333ea",
+          DEFAULT: "#406da8", // Royal blue
+          light: "#5c8bc4",
+          dark: "#2d4f7a",
         },
         accent: {
-          DEFAULT: "#ec4899", // Pink-purple blend
-          light: "#f472b6",
-          dark: "#db2777",
+          DEFAULT: "#406da8", // Royal blue
+          light: "#5c8bc4",
+          dark: "#2d4f7a",
         },
         dark: {
-          DEFAULT: "#0a0a0a", // Deep black
-          light: "#1a1a1a",
-          lighter: "#2a2a2a",
+          DEFAULT: "#000000", // Pure black
+          light: "#0a0a0a",
+          lighter: "#1a1a1a",
         },
         surface: {
-          DEFAULT: "#1a1a1a",
-          light: "#2a2a2a",
-          lighter: "#3a3a3a",
+          DEFAULT: "#0a0a0a",
+          light: "#1a1a1a",
+          lighter: "#2a2a2a",
         },
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
         'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
-        'gradient-superlist': 'linear-gradient(135deg, #0a0a0a 0%, #1a0a1a 25%, #2a0a2a 50%, #1a0a1a 75%, #0a0a0a 100%)',
-        'gradient-pink-purple': 'linear-gradient(135deg, #ff6b9d 0%, #a855f7 50%, #ec4899 100%)',
-        'gradient-dark': 'linear-gradient(180deg, #0a0a0a 0%, #1a1a1a 100%)',
+        'gradient-superlist': 'linear-gradient(135deg, #000000 0%, #0a0a0a 25%, #1a1a1a 50%, #0a0a0a 75%, #000000 100%)',
+        'gradient-pink-purple': 'linear-gradient(135deg, #406da8 0%, #5c8bc4 50%, #406da8 100%)',
+        'gradient-dark': 'linear-gradient(180deg, #000000 0%, #0a0a0a 100%)',
       },
       fontFamily: {
         primary: ['var(--font-primary)', 'sans-serif'],
         secondary: ['var(--font-secondary)', 'sans-serif'],
       },
       boxShadow: {
-        'superlist': '0 4px 20px rgba(255, 107, 157, 0.1), 0 0 40px rgba(168, 85, 247, 0.05)',
-        'superlist-lg': '0 8px 40px rgba(255, 107, 157, 0.15), 0 0 60px rgba(168, 85, 247, 0.1)',
+        'superlist': '0 4px 20px rgba(64, 109, 168, 0.1), 0 0 40px rgba(64, 109, 168, 0.05)',
+        'superlist-lg': '0 8px 40px rgba(64, 109, 168, 0.15), 0 0 60px rgba(64, 109, 168, 0.1)',
       },
     },
   },

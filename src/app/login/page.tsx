@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
-import { FeedbackForm } from '@/components/FeedbackForm';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -55,13 +54,6 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center gradient-bg p-4">
       <div className="max-w-md w-full">
-        {/* Feedback Form with Instructions */}
-        <FeedbackForm
-          questions={[]}
-          page="login"
-          showInstructions={true}
-        />
-        
         <div className="card">
           <div className="text-center mb-8">
             <h1 className="text-4xl font-primary mb-2 gradient-text">RFP Matcher</h1>
