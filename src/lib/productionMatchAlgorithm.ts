@@ -708,41 +708,38 @@ export function computeEffortScore(
 
 /**
  * Compute all scores for an opportunity
+ * Uses fail-closed eligibility evaluation
  */
 export function computeScores(
   opportunity: Opportunity,
   profile: UserProfile,
   searchProfile: UserSearchProfile
-): { scores: MatchScores; debug: MatchDebug } {
-  const eligibilityGate = checkEligibilityGates(opportunity, profile);
+): { scores: MatchScores; debug: MatchDebug; eligibility: EligibilityEvaluation } {
+  // Use new fail-closed eligibility evaluation
+  const eligibility = evaluateEligibility(opportunity, profile);
   
-  // If not eligible, return zero scores
-  if (!eligibilityGate.eligible) {
-    return {
-      scores: {
-        fitScore: 0,
-        effortScore: 0,
-        eligibilityScore: 0,
-        rankingScore: 0,
-      },
-      debug: {
-        matchedKeywords: [],
-        timeScore: 0,
-        gatesTriggered: eligibilityGate.reasons,
-      },
-    };
-  }
-  
+  // Compute fit and effort scores
   const fitScore = computeFitScore(opportunity, searchProfile);
   const effortScore = computeEffortScore(opportunity, profile);
-  const eligibilityScore = eligibilityGate.eligibilityScore;
   
   // Calculate ranking score
-  const rankingScore = 100 * (
-    WEIGHTS.eligibilityScore * eligibilityScore +
-    WEIGHTS.fitScore * fitScore +
-    WEIGHTS.effortScore * effortScore
-  );
+  // CRITICAL: If not eligible, ranking score = 0
+  let rankingScore = 0;
+  if (eligibility.status === 'eligible') {
+    rankingScore = 100 * (
+      WEIGHTS.eligibilityScore * eligibility.eligibilityScore +
+      WEIGHTS.fitScore * fitScore +
+      WEIGHTS.effortScore * effortScore
+    );
+  } else if (eligibility.status === 'unknown') {
+    // Unknown eligibility: compute score but it will be bucketed separately
+    rankingScore = 100 * (
+      WEIGHTS.eligibilityScore * eligibility.eligibilityScore +
+      WEIGHTS.fitScore * fitScore +
+      WEIGHTS.effortScore * effortScore
+    );
+  }
+  // If ineligible, rankingScore stays 0
   
   // Collect matched keywords for debug
   const matchedKeywords: string[] = [];
@@ -773,23 +770,33 @@ export function computeScores(
       } else {
         timeScore = 0.3; // Too far
       }
-    } catch (e) {
+    } catch {
       timeScore = 0.5;
     }
   }
+  
+  const gatesTriggered: string[] = [];
+  if (eligibility.reasons.length > 0) {
+    gatesTriggered.push('funding_type', 'entity_type', 'timeline', 'program_mechanism');
+  }
+  
+  // Get data quality score
+  const dataQuality = computeEligibilityDataQuality(opportunity);
   
   return {
     scores: {
       fitScore,
       effortScore,
-      eligibilityScore,
-      rankingScore: Math.round(rankingScore),
+      eligibilityScore: eligibility.eligibilityScore,
+      rankingScore,
     },
     debug: {
       matchedKeywords,
       timeScore,
-      gatesTriggered: eligibilityGate.reasons,
+      gatesTriggered,
+      dataQualityScore: dataQuality.qualityScore,
     },
+    eligibility,
   };
 }
 
