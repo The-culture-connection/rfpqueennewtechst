@@ -111,6 +111,20 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
               <span className={`px-3 py-1 rounded-full text-sm font-primary border ${scoreBg} ${scoreColor}`}>
                 {matchLabel} ({matchScore})
               </span>
+              {/* Eligibility Status Badge */}
+              {opportunity.eligibilityStatus && (
+                <span className={`px-2 py-1 rounded-xl text-xs font-secondary border ${
+                  opportunity.eligibilityStatus === 'eligible' 
+                    ? 'bg-green-500/10 text-green-400 border-green-400/50'
+                    : opportunity.eligibilityStatus === 'unknown'
+                    ? 'bg-yellow-500/10 text-yellow-400 border-yellow-400/50'
+                    : 'bg-red-500/10 text-red-400 border-red-400/50'
+                }`}>
+                  {opportunity.eligibilityStatus === 'eligible' ? '✓ Eligible' : 
+                   opportunity.eligibilityStatus === 'unknown' ? '? Unknown Eligibility' : 
+                   '✗ Ineligible'}
+                </span>
+              )}
               {confidenceScore >= 70 && (
                 <span className="px-2 py-1 rounded-xl text-xs font-secondary bg-primary/20 text-primary border border-primary/50">
                   High Confidence
@@ -163,8 +177,42 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
           )}
         </div>
 
-        {/* Eligibility Highlights - Most Important */}
-        {(eligibilityHighlights.length > 0 || (opportunity.eligibilityNotes && opportunity.eligibilityNotes.length > 0)) && (
+        {/* Eligibility Status and Blockers */}
+        {opportunity.eligibilityStatus && opportunity.eligibilityStatus !== 'eligible' && (
+          <div className="mb-3 p-4 bg-yellow-500/10 border-2 border-yellow-400/50 rounded-xl">
+            <p className="text-sm font-bold text-yellow-400 mb-2 flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              Eligibility Status: {opportunity.eligibilityStatus === 'unknown' ? 'Unknown Eligibility' : 'Ineligible'}
+            </p>
+            {opportunity.eligibilityBlockers && opportunity.eligibilityBlockers.length > 0 && (
+              <div className="space-y-1 mb-2">
+                <p className="text-xs font-semibold text-yellow-300">Blockers:</p>
+                {opportunity.eligibilityBlockers.map((blocker, idx) => (
+                  <p key={idx} className="text-xs font-secondary text-yellow-200">
+                    • {blocker.replace(/_/g, ' ')}
+                  </p>
+                ))}
+              </div>
+            )}
+            {opportunity.eligibilityEvidence && opportunity.eligibilityEvidence.length > 0 && (
+              <details className="mt-2">
+                <summary className="text-xs font-semibold text-yellow-300 cursor-pointer">View Evidence</summary>
+                <div className="mt-2 space-y-1">
+                  {opportunity.eligibilityEvidence.map((ev, idx) => (
+                    <p key={idx} className="text-xs font-secondary text-yellow-200">
+                      {ev.field}: {String(ev.value).substring(0, 50)}... (from {ev.source})
+                    </p>
+                  ))}
+                </div>
+              </details>
+            )}
+          </div>
+        )}
+        
+        {/* Eligibility Highlights - Most Important (only show for eligible) */}
+        {opportunity.eligibilityStatus === 'eligible' && (eligibilityHighlights.length > 0 || (opportunity.eligibilityNotes && opportunity.eligibilityNotes.length > 0)) && (
           <div className="mb-3 p-4 bg-gradient-to-r from-primary/20 via-accent/20 to-secondary/20 border-2 border-primary/50 rounded-xl">
             <p className="text-sm font-bold gradient-text mb-2 flex items-center gap-2">
               <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">

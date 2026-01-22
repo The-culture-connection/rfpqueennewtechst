@@ -94,6 +94,9 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
                       ? match.notes.eligibilityNotes
                       : (match.notes?.eligibilityNotes ? [match.notes.eligibilityNotes] : []);
                     
+                    // Use new eligibility structure if available
+                    const eligibility = match.eligibility || match.eligibilityGate;
+                    
                     return {
                       ...opp,
                       winRate: match.scores?.rankingScore || match.scores?.fitScore * 100 || 0,
@@ -103,10 +106,14 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
                         summary: match.notes?.matchSummary || '',
                         strengths: [],
                         concerns: [],
-                        specificReasons: match.eligibilityGate?.reasons || [],
+                        specificReasons: eligibility?.reasons || match.eligibilityGate?.reasons || [],
                         eligibilityHighlights: eligibilityNotes,
                         confidenceScore: match.confidenceScore || 0,
                       },
+                      // Add eligibility status fields
+                      eligibilityStatus: eligibility?.status || (match.eligibilityGate?.eligible ? 'eligible' : 'unknown'),
+                      eligibilityBlockers: eligibility?.blockers || [],
+                      eligibilityEvidence: eligibility?.evidence || [],
                     };
                   })
                   .filter(Boolean) as Opportunity[];
@@ -282,7 +289,7 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
           
           if (runResponse.ok) {
             const runData = await runResponse.json();
-            console.log(`✅ [useOpportunities] New matching complete: ${runData.matchesCount} matches`);
+            console.log(`✅ [useOpportunities] New matching complete: ${runData.matchesCount} eligible matches, ${runData.unknownOpportunities?.length || 0} unknown eligibility`);
             
             // Try to load from profiles collection first (primary location)
             let currentMatches: any = null;
@@ -303,6 +310,7 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
             }
             
             if (currentMatches && currentMatches.topMatches) {
+              // Map eligible matches (ONLY these go to main display)
               matched = (currentMatches.topMatches || [])
                 .map((match: any) => {
                   const opp = allOpps.find((o: Opportunity) => o.id === match.opportunityId);
@@ -313,6 +321,9 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
                     ? match.notes.eligibilityNotes
                     : (match.notes?.eligibilityNotes ? [match.notes.eligibilityNotes] : []);
                   
+                  // Use new eligibility structure if available
+                  const eligibility = match.eligibility || match.eligibilityGate;
+                  
                   return {
                     ...opp,
                     winRate: match.scores?.rankingScore || match.scores?.fitScore * 100 || 0,
@@ -322,10 +333,14 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
                       summary: match.notes?.matchSummary || '',
                       strengths: [],
                       concerns: [],
-                      specificReasons: match.eligibilityGate?.reasons || [],
+                      specificReasons: eligibility?.reasons || match.eligibilityGate?.reasons || [],
                       eligibilityHighlights: eligibilityNotes,
                       confidenceScore: match.confidenceScore || 0,
                     },
+                    // Add eligibility status fields
+                    eligibilityStatus: eligibility?.status || (match.eligibilityGate?.eligible ? 'eligible' : 'unknown'),
+                    eligibilityBlockers: eligibility?.blockers || [],
+                    eligibilityEvidence: eligibility?.evidence || [],
                   };
                 })
                 .filter(Boolean) as Opportunity[];
@@ -334,7 +349,45 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
               matched.sort((a, b) => (b.matchScore || b.winRate || 0) - (a.matchScore || a.winRate || 0));
               
               setMatchedOpportunities(matched);
-              console.log(`✅ [useOpportunities] Loaded ${matched.length} AI-refined matches from new system`);
+              console.log(`✅ [useOpportunities] Loaded ${matched.length} eligible matches from new system`);
+              
+              // Load unknown eligibility matches if available
+              if (currentMatches.unknownEligibilityMatches && currentMatches.unknownEligibilityMatches.length > 0) {
+                const unknownMatched = currentMatches.unknownEligibilityMatches
+                  .map((match: any) => {
+                    const opp = allOpps.find((o: Opportunity) => o.id === match.opportunityId);
+                    if (!opp) return null;
+                    
+                    const eligibilityNotes = Array.isArray(match.notes?.eligibilityNotes)
+                      ? match.notes.eligibilityNotes
+                      : (match.notes?.eligibilityNotes ? [match.notes.eligibilityNotes] : []);
+                    
+                    const eligibility = match.eligibility || match.eligibilityGate;
+                    
+                    return {
+                      ...opp,
+                      winRate: match.scores?.rankingScore || 0,
+                      matchScore: match.scores?.rankingScore || 0,
+                      eligibilityNotes: eligibilityNotes.length > 0 ? eligibilityNotes : undefined,
+                      matchReasoning: {
+                        summary: match.notes?.matchSummary || '',
+                        strengths: [],
+                        concerns: [],
+                        specificReasons: eligibility?.reasons || [],
+                        eligibilityHighlights: eligibilityNotes,
+                        confidenceScore: match.confidenceScore || 0,
+                      },
+                      eligibilityStatus: eligibility?.status || 'unknown',
+                      eligibilityBlockers: eligibility?.blockers || [],
+                      eligibilityEvidence: eligibility?.evidence || [],
+                    };
+                  })
+                  .filter(Boolean) as Opportunity[];
+                
+                unknownMatched.sort((a, b) => (b.matchScore || b.winRate || 0) - (a.matchScore || a.winRate || 0));
+                setUnknownEligibilityOpportunities(unknownMatched);
+                console.log(`✅ [useOpportunities] Loaded ${unknownMatched.length} unknown eligibility matches`);
+              }
             } else {
               // Fallback to old system if new system didn't save matches
               console.warn('[useOpportunities] New system completed but no matches found, using old system');
@@ -413,8 +466,9 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
   };
 
   return {
-    opportunities: matchedOpportunities,
-    allOpportunities: opportunities,
+    opportunities: matchedOpportunities, // Eligible matches only (for backward compatibility)
+    matchedOpportunities, // Eligible matches
+    unknownEligibilityOpportunities, // Unknown eligibility bucket
     loading,
     error,
     refetch,

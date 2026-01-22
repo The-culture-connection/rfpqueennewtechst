@@ -134,6 +134,12 @@ ${profileContext}
 Opportunities to Analyze (${opportunitySummaries.length} total):
 ${JSON.stringify(opportunitySummaries, null, 2)}
 
+CRITICAL ELIGIBILITY RULES:
+- Only opportunities that are ALREADY ELIGIBLE (status="eligible") are being sent to you
+- Do NOT override eligibility status - if an opportunity is eligible, it stays eligible
+- If you identify eligibility concerns, note them in "concerns" but do NOT change the eligibility status
+- Your role is to refine scores and provide detailed notes, NOT to change eligibility determinations
+
 For each opportunity, provide:
 1. refinedWinRate: A refined match score (0-100) based on eligibility and fit
 2. eligibilityNotes: Array of 3-5 specific, actionable notes explaining eligibility (e.g., "Your ${profile.entityType} entity type qualifies", "Your experience in [specific area] aligns with requirements", "Your certifications match the opportunity's needs")

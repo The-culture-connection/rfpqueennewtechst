@@ -23,7 +23,7 @@ export default function DashboardPage() {
   const { user, userProfile } = useAuth();
   const router = useRouter();
   const [forceReload, setForceReload] = useState(false);
-  const { opportunities, loading, error, refetch } = useOpportunities(userProfile, forceReload);
+  const { opportunities, matchedOpportunities, unknownEligibilityOpportunities, loading, error, refetch } = useOpportunities(userProfile, forceReload);
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [passedIds, setPassedIds] = useState<string[]>([]);
@@ -32,6 +32,7 @@ export default function DashboardPage() {
   const [progressLoaded, setProgressLoaded] = useState(false);
   const [rerunLoading, setRerunLoading] = useState(false);
   const [hasExecutiveSummary, setHasExecutiveSummary] = useState(false);
+  const [showUnknownEligibility, setShowUnknownEligibility] = useState(false);
 
   // Redirect if not authenticated or profile incomplete
   useEffect(() => {
@@ -236,7 +237,12 @@ export default function DashboardPage() {
   
   // Filter out passed AND saved opportunities
   const allExcludedIds = new Set([...passedIds, ...savedIds]);
-  const availableOpportunities = opportunities.filter(opp => !allExcludedIds.has(opp.id));
+  // Filter to show either eligible or unknown eligibility based on toggle
+  const displayedOpportunities = showUnknownEligibility 
+    ? unknownEligibilityOpportunities.filter(opp => !allExcludedIds.has(opp.id))
+    : matchedOpportunities.filter(opp => !allExcludedIds.has(opp.id));
+  
+  const availableOpportunities = displayedOpportunities;
   const currentOpportunity = availableOpportunities[currentIndex];
 
   // Reset progress and start over
@@ -820,10 +826,14 @@ export default function DashboardPage() {
         )}
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-4 gap-4 mb-6">
           <div className="card">
-            <p className="text-sm font-secondary text-foreground/70">Total Matches</p>
-            <p className="text-2xl font-primary gradient-text">{opportunities.length}</p>
+            <p className="text-sm font-secondary text-foreground/70">Eligible Matches</p>
+            <p className="text-2xl font-primary gradient-text">{matchedOpportunities.length}</p>
+          </div>
+          <div className="card">
+            <p className="text-sm font-secondary text-foreground/70">Unknown Eligibility</p>
+            <p className="text-2xl font-primary text-yellow-600">{unknownEligibilityOpportunities.length}</p>
           </div>
           <div className="card">
             <p className="text-sm font-secondary text-foreground/70">Remaining</p>
@@ -834,6 +844,26 @@ export default function DashboardPage() {
             <p className="text-2xl font-primary gradient-text">{passedIds.length}</p>
           </div>
         </div>
+        
+        {/* Toggle for Unknown Eligibility */}
+        {unknownEligibilityOpportunities.length > 0 && (
+          <div className="mb-4 card p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-yellow-600">
+                {unknownEligibilityOpportunities.length} opportunities with unknown eligibility
+              </p>
+              <p className="text-xs text-foreground/70 mt-1">
+                These opportunities are missing critical eligibility data. Review them separately.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowUnknownEligibility(!showUnknownEligibility)}
+              className="btn-secondary text-sm"
+            >
+              {showUnknownEligibility ? 'Hide' : 'Show'} Unknown Eligibility
+            </button>
+          </div>
+        )}
 
         {/* Opportunity Card */}
         {currentOpportunity ? (
@@ -850,6 +880,19 @@ export default function DashboardPage() {
               onSave={handleSave}
               onApply={handleApply}
             />
+            
+            {/* Show warning if viewing unknown eligibility */}
+            {showUnknownEligibility && currentOpportunity && (
+              <div className="mt-4 card p-4 bg-yellow-500/10 border-2 border-yellow-400/50">
+                <p className="text-sm font-semibold text-yellow-600 mb-2">
+                  ⚠️ Unknown Eligibility Opportunity
+                </p>
+                <p className="text-xs text-foreground/80">
+                  This opportunity is missing critical eligibility data (applicant types, eligible entities, or deadline).
+                  Please review carefully before applying.
+                </p>
+              </div>
+            )}
             
             {/* Navigation hint */}
             <div className="text-center mt-4">

@@ -142,7 +142,19 @@ export interface Opportunity {
     programMechanism?: string; // e.g., 'research', 'service-delivery', 'capacity-building'
   };
   sourceUrl?: string; // Original source URL
+  synopsisUrl?: string; // Synopsis/details URL if different from sourceUrl
   fetchedAt?: string; // ISO timestamp when opportunity was fetched
+  
+  // NEW: Eligibility data quality tracking
+  eligibilityDataQuality?: {
+    hasEligibleEntities: boolean;
+    hasApplicantTypes: boolean;
+    hasCloseDate: boolean;
+    hasSufficientDescription: boolean; // >= 100 chars
+    isRollingDeadline: boolean;
+    qualityScore: number; // 0..1
+    missingFields: string[];
+  };
   
   // Calculated fields
   winRate?: number;
@@ -152,6 +164,11 @@ export interface Opportunity {
   matchReasoning?: MatchReasoning;  // AI-generated personalized reasoning
   personalizedDescription?: string; // Tailored description highlighting eligibility
   eligibilityNotes?: string[]; // Detailed eligibility notes from AI refinement
+  
+  // NEW: Eligibility status fields (from fail-closed evaluation)
+  eligibilityStatus?: 'eligible' | 'ineligible' | 'unknown';
+  eligibilityBlockers?: string[]; // e.g., ["missing_applicant_types", "entity_type_mismatch"]
+  eligibilityEvidence?: Array<{ field: string; value: any; source: string }>;
 }
 
 export interface SavedOpportunity {
@@ -182,9 +199,23 @@ export interface OnboardingData {
 export type MatchTrigger = 'FIRST_DASHBOARD' | 'DOCS_UPLOAD' | 'RERUN_BUTTON';
 
 export interface EligibilityGate {
-  eligible: boolean;
+  eligible: boolean; // DEPRECATED: Use eligibility.status === "eligible" instead
   reasons: string[]; // Why eligible or not
   eligibilityScore: number; // 0-1 confidence in eligibility
+}
+
+// NEW: Fail-closed eligibility evaluation result
+export interface EligibilityEvaluation {
+  status: 'eligible' | 'ineligible' | 'unknown';
+  eligible: boolean; // Derived: status === "eligible"
+  blockers: string[]; // e.g., ["missing_applicant_types", "entity_type_mismatch", "deadline_passed"]
+  reasons: string[]; // Human-readable explanations
+  evidence: Array<{
+    field: string; // e.g., "applicantTypes", "closeDate"
+    value: any; // Actual value found
+    source: string; // Where value came from: "api", "description", "enriched", "assumed"
+  }>;
+  eligibilityScore: number; // 0..1, only meaningful if status is "eligible" or "unknown"
 }
 
 export interface MatchScores {
@@ -203,11 +234,13 @@ export interface MatchDebug {
   matchedKeywords: string[]; // Keywords that matched
   timeScore: number; // Timeline match score
   gatesTriggered: string[]; // Which eligibility gates were checked
+  dataQualityScore: number; // 0..1, from opportunity.eligibilityDataQuality.qualityScore
 }
 
 export interface TopMatch {
   opportunityId: string;
-  eligibilityGate: EligibilityGate;
+  eligibilityGate: EligibilityGate; // DEPRECATED: Use eligibility instead
+  eligibility: EligibilityEvaluation; // NEW: Fail-closed eligibility evaluation
   scores: MatchScores;
   notes: MatchNotes;
   confidenceScore: number; // 0-100
@@ -221,19 +254,48 @@ export interface MatchRun {
   profileVersionUsed: number;
   docsVersionUsed: number;
   algorithmVersion: string;
-  topMatches: TopMatch[];
+  topMatches: TopMatch[]; // All matches (eligible + unknown + ineligible for audit)
   status: 'complete' | 'running' | 'error';
   error?: string;
+  runStats?: {
+    totalConsidered: number;
+    eligibleCount: number;
+    unknownCount: number;
+    ineligibleCount: number;
+    missingFieldCounts: {
+      applicantTypes: number;
+      eligibleEntities: number;
+      closeDate: number;
+      description: number;
+    };
+    topBlockers: Array<{ blocker: string; count: number }>;
+  };
 }
 
 export interface CurrentMatches {
   runId: string;
   updatedAt: string; // ISO timestamp
-  topMatches: TopMatch[]; // Possibly truncated
+  topMatches: TopMatch[]; // Possibly truncated - ONLY eligible matches
+  unknownEligibilityMatches?: TopMatch[]; // NEW: Unknown eligibility bucket
   counts: {
     total: number;
     eligible: number;
+    unknown: number; // NEW: Unknown eligibility count
+    ineligible: number; // NEW: Ineligible count (for stats)
     highScore: number; // rankingScore >= threshold
+  };
+  runStats?: {
+    totalConsidered: number;
+    eligibleCount: number;
+    unknownCount: number;
+    ineligibleCount: number;
+    missingFieldCounts: {
+      applicantTypes: number;
+      eligibleEntities: number;
+      closeDate: number;
+      description: number;
+    };
+    topBlockers: Array<{ blocker: string; count: number }>;
   };
 }
 

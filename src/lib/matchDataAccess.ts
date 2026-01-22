@@ -83,6 +83,7 @@ export async function shouldRunMatching(userId: string): Promise<{
 
 /**
  * Save match run to Firestore
+ * Includes eligible matches, unknown eligibility matches, and run statistics
  */
 export async function saveMatchRun(
   userId: string,
@@ -90,11 +91,31 @@ export async function saveMatchRun(
   trigger: MatchTrigger,
   profileVersion: number,
   docsVersion: number,
-  topMatches: TopMatch[],
+  topMatches: TopMatch[], // Eligible matches only
   status: 'complete' | 'running' | 'error' = 'complete',
-  error?: string
+  error?: string,
+  unknownMatches?: TopMatch[], // Unknown eligibility bucket
+  runStats?: {
+    totalConsidered: number;
+    eligibleCount: number;
+    unknownCount: number;
+    ineligibleCount: number;
+    missingFieldCounts: {
+      applicantTypes: number;
+      eligibleEntities: number;
+      closeDate: number;
+      description: number;
+    };
+    topBlockers: Array<{ blocker: string; count: number }>;
+  }
 ): Promise<void> {
   const db = getAdminFirestore();
+  
+  // Combine all matches for full run record (eligible + unknown + ineligible for audit)
+  const allMatches = [
+    ...topMatches,
+    ...(unknownMatches || []),
+  ];
   
   const run: MatchRun = {
     runId,
@@ -103,9 +124,10 @@ export async function saveMatchRun(
     profileVersionUsed: profileVersion,
     docsVersionUsed: docsVersion,
     algorithmVersion: '2.0.0',
-    topMatches,
+    topMatches: allMatches, // All matches for audit
     status,
     error,
+    runStats, // Include run statistics
   };
   
   // Save to runs collection
@@ -116,16 +138,20 @@ export async function saveMatchRun(
     .doc(runId)
     .set(run);
   
-  // Update current matches (truncate to top 50)
+  // Update current matches (eligible only in topMatches, unknown in separate bucket)
   const currentMatches: CurrentMatches = {
     runId,
     updatedAt: new Date().toISOString(),
-    topMatches: topMatches.slice(0, 50),
+    topMatches: topMatches.slice(0, 50), // ONLY eligible matches
+    unknownEligibilityMatches: (unknownMatches || []).slice(0, 50), // Unknown eligibility bucket
     counts: {
-      total: topMatches.length,
-      eligible: topMatches.filter(m => m.eligibilityGate.eligible).length,
+      total: topMatches.length + (unknownMatches?.length || 0),
+      eligible: topMatches.length,
+      unknown: unknownMatches?.length || 0,
+      ineligible: runStats?.ineligibleCount || 0,
       highScore: topMatches.filter(m => m.scores.rankingScore >= 35).length,
     },
+    runStats, // Include run statistics
   };
   
   await db

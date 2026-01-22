@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { fetchAllOpportunities } from '@/lib/apiIntegrations';
 import { loadSAMGovFromCSV } from '@/lib/samGovCsvLoader';
 import { Opportunity } from '@/types';
+import { computeEligibilityDataQuality } from '@/lib/productionMatchAlgorithm';
 
 // Force dynamic rendering and set runtime
 export const dynamic = 'force-dynamic';
@@ -103,6 +104,17 @@ export async function GET(request: Request) {
     
     allOpportunities = Array.from(opportunityMap.values());
     console.log(`[API] After combining and deduplicating: ${allOpportunities.length} unique opportunities`);
+    
+    // Compute eligibility data quality for each opportunity
+    for (const opp of allOpportunities) {
+      opp.eligibilityDataQuality = computeEligibilityDataQuality(opp);
+      // Ensure normalizedText exists for matching
+      if (!opp.normalizedText) {
+        const titleStr = opp.title ? String(opp.title) : '';
+        const descStr = opp.description ? String(opp.description) : '';
+        opp.normalizedText = `${titleStr} ${descStr}`.toLowerCase();
+      }
+    }
     
     // Filter opportunities based on criteria
     let filteredOpportunities = allOpportunities;

@@ -1,7 +1,8 @@
 // Production-Grade Matching Algorithm
 // Two-stage approach: (1) Hard eligibility gates + (2) Soft ranking score
+// FAIL-CLOSED: Missing eligibility data = UNKNOWN (not eligible)
 
-import { Opportunity, UserProfile, EntityType, FundingType, Interest, Timeline, UserSearchProfile, EligibilityGate, MatchScores, MatchNotes, MatchDebug, TopMatch } from '@/types';
+import { Opportunity, UserProfile, EntityType, FundingType, Interest, Timeline, UserSearchProfile, EligibilityGate, EligibilityEvaluation, MatchScores, MatchNotes, MatchDebug, TopMatch } from '@/types';
 
 // Algorithm version constant
 export const ALGORITHM_VERSION = '2.0.0';
@@ -34,6 +35,60 @@ export function normalizeText(text: string): string {
     .replace(/[^\w\s]/g, ' ') // Replace punctuation with space
     .replace(/\s+/g, ' ') // Collapse whitespace
     .trim();
+}
+
+/**
+ * Compute eligibility data quality for an opportunity
+ * This helps identify opportunities with missing critical eligibility data
+ */
+export function computeEligibilityDataQuality(opportunity: Opportunity): {
+  hasEligibleEntities: boolean;
+  hasApplicantTypes: boolean;
+  hasCloseDate: boolean;
+  hasSufficientDescription: boolean;
+  isRollingDeadline: boolean;
+  qualityScore: number;
+  missingFields: string[];
+} {
+  const hasEligibleEntities = Array.isArray(opportunity.eligibleEntities) && opportunity.eligibleEntities.length > 0;
+  const hasApplicantTypes = Array.isArray(opportunity.applicantTypes) && opportunity.applicantTypes.length > 0;
+  const hasCloseDate = !!(opportunity.closeDate || opportunity.deadline);
+  
+  // Check if description is sufficient (>= 100 chars)
+  const descriptionLength = (opportunity.description || '').length;
+  const hasSufficientDescription = descriptionLength >= 100;
+  
+  // Check if deadline is rolling (heuristic: look for "rolling", "ongoing", "open until filled" in description)
+  const descText = normalizeText(opportunity.description || '');
+  const isRollingDeadline = 
+    descText.includes('rolling') ||
+    descText.includes('ongoing') ||
+    descText.includes('open until filled') ||
+    descText.includes('continuous') ||
+    descText.includes('no deadline');
+  
+  const missingFields: string[] = [];
+  if (!hasEligibleEntities) missingFields.push('eligibleEntities');
+  if (!hasApplicantTypes) missingFields.push('applicantTypes');
+  if (!hasCloseDate && !isRollingDeadline) missingFields.push('closeDate');
+  if (!hasSufficientDescription) missingFields.push('description');
+  
+  // Quality score: 1.0 if all fields present, decreases with each missing field
+  const qualityScore = 
+    (hasEligibleEntities ? 0.3 : 0) +
+    (hasApplicantTypes ? 0.3 : 0) +
+    (hasCloseDate || isRollingDeadline ? 0.2 : 0) +
+    (hasSufficientDescription ? 0.2 : 0);
+  
+  return {
+    hasEligibleEntities,
+    hasApplicantTypes,
+    hasCloseDate: hasCloseDate || isRollingDeadline,
+    hasSufficientDescription,
+    isRollingDeadline,
+    qualityScore,
+    missingFields,
+  };
 }
 
 /**
@@ -104,7 +159,276 @@ function normalizeEntityType(entityType: EntityType): string[] {
 }
 
 /**
- * Check eligibility gates (hard filters)
+ * FAIL-CLOSED eligibility evaluation
+ * Returns status: "eligible" | "ineligible" | "unknown"
+ * Unknown = missing critical data, treated as NOT eligible for Top Matches
+ */
+export function evaluateEligibility(
+  opportunity: Opportunity,
+  profile: UserProfile
+): EligibilityEvaluation {
+  const blockers: string[] = [];
+  const reasons: string[] = [];
+  const evidence: Array<{ field: string; value: any; source: string }> = [];
+  let eligibilityScore = 1.0;
+  
+  // Compute data quality first
+  const dataQuality = computeEligibilityDataQuality(opportunity);
+  
+  // Gate 1: Funding Type (HARD GATE - must match)
+  const oppType = opportunity.type ? String(opportunity.type).toLowerCase() : '';
+  const userFundingTypes = profile.fundingType || [];
+  const fundingTypeMatch = 
+    (oppType === 'grant' && userFundingTypes.includes('grants')) ||
+    (oppType === 'rfp' && (userFundingTypes.includes('rfps') || userFundingTypes.includes('contracts')));
+  
+  evidence.push({
+    field: 'type',
+    value: oppType,
+    source: 'api',
+  });
+  
+  if (!fundingTypeMatch) {
+    blockers.push('funding_type_mismatch');
+    reasons.push(`Funding type mismatch: opportunity is ${oppType}, user interested in ${userFundingTypes.join(', ')}`);
+    eligibilityScore = 0;
+    return {
+      status: 'ineligible',
+      eligible: false,
+      blockers,
+      reasons,
+      evidence,
+      eligibilityScore: 0,
+    };
+  }
+  reasons.push(`Funding type matches: ${oppType}`);
+  
+  // Gate 2: Entity Type (HARD GATE if explicit, UNKNOWN if missing)
+  const userEntityTypes = normalizeEntityType(profile.entityType);
+  const oppApplicantTypes = (opportunity.applicantTypes || [])
+    .filter(t => t != null)
+    .map(t => String(t).toLowerCase());
+  const oppEligibleEntities = (opportunity.eligibleEntities || [])
+    .filter(t => t != null)
+    .map(t => String(t).toLowerCase());
+  const allOppTypes = [...oppApplicantTypes, ...oppEligibleEntities];
+  
+  evidence.push({
+    field: 'applicantTypes',
+    value: oppApplicantTypes,
+    source: 'api',
+  });
+  evidence.push({
+    field: 'eligibleEntities',
+    value: oppEligibleEntities,
+    source: 'api',
+  });
+  
+  // CRITICAL: If both arrays are empty, status = UNKNOWN
+  if (allOppTypes.length === 0) {
+    blockers.push('missing_applicant_types', 'missing_eligible_entities');
+    reasons.push('Missing eligibility data: applicantTypes and eligibleEntities are both empty');
+    eligibilityScore = 0.5; // Neutral score for unknown
+    return {
+      status: 'unknown',
+      eligible: false,
+      blockers,
+      reasons,
+      evidence,
+      eligibilityScore,
+    };
+  }
+  
+  // Check if user's entity type matches
+  let entityMatch = false;
+  for (const userType of userEntityTypes) {
+    if (allOppTypes.some(oppType => oppType.includes(userType) || userType.includes(oppType))) {
+      entityMatch = true;
+      break;
+    }
+  }
+  
+  // Check description/title for entity type mentions (weaker evidence)
+  if (!entityMatch) {
+    const titleStr = opportunity.title ? String(opportunity.title) : '';
+    const descStr = opportunity.description ? String(opportunity.description) : '';
+    const oppText = normalizeText(`${titleStr} ${descStr}`);
+    for (const userType of userEntityTypes) {
+      if (oppText.includes(userType)) {
+        entityMatch = true;
+        evidence.push({
+          field: 'entityType',
+          value: userType,
+          source: 'description',
+        });
+        break;
+      }
+    }
+  }
+  
+  if (!entityMatch) {
+    blockers.push('entity_type_mismatch');
+    reasons.push(`Entity type mismatch: user is ${profile.entityType}, opportunity requires ${allOppTypes.join(' or ')}`);
+    eligibilityScore = 0;
+    return {
+      status: 'ineligible',
+      eligible: false,
+      blockers,
+      reasons,
+      evidence,
+      eligibilityScore: 0,
+    };
+  }
+  reasons.push(`Entity type compatible: ${profile.entityType} matches opportunity requirements`);
+  
+  // Gate 3: Timeline (HARD GATE if deadline passed, UNKNOWN if missing)
+  const timelinePreferenceDays = profile.timelinePreferenceDays ?? TIMELINE_DAYS[profile.timeline] ?? 90;
+  const deadline = opportunity.closeDate || opportunity.deadline;
+  
+  evidence.push({
+    field: 'closeDate',
+    value: deadline,
+    source: deadline ? 'api' : 'missing',
+  });
+  
+  if (deadline) {
+    try {
+      const deadlineDate = new Date(deadline);
+      const today = new Date();
+      const daysUntil = Math.floor((deadlineDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (daysUntil < 0) {
+        blockers.push('deadline_passed');
+        reasons.push('Deadline has passed');
+        eligibilityScore = 0;
+        return {
+          status: 'ineligible',
+          eligible: false,
+          blockers,
+          reasons,
+          evidence,
+          eligibilityScore: 0,
+        };
+      } else if (daysUntil > timelinePreferenceDays * 3) {
+        // Too far in future (beyond 3x preference) - treat as ineligible unless rolling
+        if (!dataQuality.isRollingDeadline) {
+          blockers.push('deadline_too_far');
+          reasons.push(`Deadline is ${daysUntil} days away, beyond acceptable range (${timelinePreferenceDays * 3} days)`);
+          eligibilityScore = 0;
+          return {
+            status: 'ineligible',
+            eligible: false,
+            blockers,
+            reasons,
+            evidence,
+            eligibilityScore: 0,
+          };
+        }
+      }
+      reasons.push(`Deadline is ${daysUntil} days away, within acceptable range`);
+    } catch (e) {
+      // Invalid date - treat as unknown
+      blockers.push('invalid_deadline');
+      reasons.push('Could not parse deadline date');
+      eligibilityScore = 0.5;
+      return {
+        status: 'unknown',
+        eligible: false,
+        blockers,
+        reasons,
+        evidence,
+        eligibilityScore,
+      };
+    }
+  } else {
+    // No deadline - treat as UNKNOWN unless explicitly rolling
+    if (!dataQuality.isRollingDeadline) {
+      blockers.push('missing_close_date');
+      reasons.push('No deadline specified and not marked as rolling deadline');
+      eligibilityScore = 0.5;
+      return {
+        status: 'unknown',
+        eligible: false,
+        blockers,
+        reasons,
+        evidence,
+        eligibilityScore,
+      };
+    } else {
+      reasons.push('Rolling deadline - no specific close date required');
+    }
+  }
+  
+  // Gate 4: Program Mechanism (HARD GATE for research-heavy)
+  const titleStr = opportunity.title ? String(opportunity.title) : '';
+  const descStr = opportunity.description ? String(opportunity.description) : '';
+  const oppText = normalizeText(`${titleStr} ${descStr}`);
+  const isResearchHeavy = 
+    oppText.includes('research') && 
+    (oppText.includes('principal investigator') || 
+     oppText.includes('dissertation') || 
+     oppText.includes('academic') ||
+     oppText.includes('university research') ||
+     oppText.includes('nih r01') ||
+     oppText.includes('nih u24') ||
+     oppText.includes('nih t32') ||
+     oppText.includes('nih k'));
+  
+  const hasResearchCapacity = 
+    profile.interestsMain?.includes('research') ||
+    profile.businessProfile?.servicesCapabilities?.some(c => 
+      normalizeText(c).includes('research')
+    );
+  
+  if (isResearchHeavy && !hasResearchCapacity) {
+    // Check if it's SBIR/STTR (for-profit can apply)
+    const isSBIR = oppText.includes('sbir') || oppText.includes('sttr') || 
+                   oppText.includes('small business innovation');
+    
+    if (!isSBIR || profile.entityType !== 'for-profit') {
+      blockers.push('research_institution_required_likely');
+      reasons.push('Research-heavy mechanism (likely requires research institution) not suitable for non-research organization');
+      eligibilityScore = 0;
+      return {
+        status: 'ineligible',
+        eligible: false,
+        blockers,
+        reasons,
+        evidence,
+        eligibilityScore: 0,
+      };
+    }
+  }
+  
+  // Gate 5: Geography (soft gate - not blocking)
+  if (profile.geography && profile.geography.length > 0) {
+    const oppLocation = normalizeText(`${opportunity.city || ''} ${opportunity.state || ''}`);
+    const userLocations = profile.geography.map(g => normalizeText(g));
+    const locationMatch = userLocations.some(loc => oppLocation.includes(loc) || loc.includes(oppLocation));
+    
+    if (!locationMatch) {
+      // Soft penalty only (not a blocker)
+      eligibilityScore *= 0.9;
+      reasons.push(`Geography mismatch: opportunity in ${opportunity.city}, ${opportunity.state}, user focuses on ${profile.geography.join(', ')}`);
+    } else {
+      reasons.push(`Geography matches: ${opportunity.city}, ${opportunity.state}`);
+    }
+  }
+  
+  // If we got here, opportunity is ELIGIBLE
+  return {
+    status: 'eligible',
+    eligible: true,
+    blockers: [],
+    reasons,
+    evidence,
+    eligibilityScore: Math.max(0, Math.min(1, eligibilityScore)),
+  };
+}
+
+/**
+ * Check eligibility gates (hard filters) - DEPRECATED: Use evaluateEligibility instead
+ * Kept for backward compatibility
  */
 export function checkEligibilityGates(
   opportunity: Opportunity,
@@ -476,15 +800,38 @@ export async function matchOpportunitiesProduction(
   opportunities: Opportunity[],
   profile: UserProfile,
   excludeIds: string[] = []
-): Promise<TopMatch[]> {
+): Promise<{
+  eligible: TopMatch[];
+  unknown: TopMatch[];
+  ineligible: number;
+  runStats: {
+    totalConsidered: number;
+    eligibleCount: number;
+    unknownCount: number;
+    ineligibleCount: number;
+    missingFieldCounts: {
+      applicantTypes: number;
+      eligibleEntities: number;
+      closeDate: number;
+      description: number;
+    };
+    topBlockers: Array<{ blocker: string; count: number }>;
+  };
+}> {
   console.log(`[Production Matching] Starting match for ${opportunities.length} opportunities`);
   
   // Build user search profile
   const searchProfile = buildUserSearchProfile(profile);
   console.log(`[Production Matching] Built search profile with ${searchProfile.priorityKeywords.length} priority keywords, ${searchProfile.keywords.length} regular keywords`);
   
-  // Stage 1: Hard eligibility gates + scoring
-  const scored: Array<{ opportunity: Opportunity; scores: MatchScores; debug: MatchDebug; eligibilityGate: EligibilityGate }> = [];
+  // Stage 1: Hard eligibility gates + scoring with fail-closed evaluation
+  const scored: Array<{ 
+    opportunity: Opportunity; 
+    scores: MatchScores; 
+    debug: MatchDebug; 
+    eligibility: EligibilityEvaluation;
+    eligibilityGate: EligibilityGate; // Keep for backward compatibility
+  }> = [];
   
   for (const opp of opportunities) {
     // Skip excluded opportunities
@@ -492,47 +839,165 @@ export async function matchOpportunitiesProduction(
       continue;
     }
     
-    const { scores, debug } = computeScores(opp, profile, searchProfile);
-    const eligibilityGate = checkEligibilityGates(opp, profile);
+    // Compute eligibility data quality and store on opportunity
+    const dataQuality = computeEligibilityDataQuality(opp);
+    opp.eligibilityDataQuality = dataQuality;
+    
+    // Compute scores (includes fail-closed eligibility evaluation)
+    const { scores, debug, eligibility } = computeScores(opp, profile, searchProfile);
+    
+    // Keep old eligibilityGate for backward compatibility
+    const eligibilityGate: EligibilityGate = {
+      eligible: eligibility.eligible,
+      reasons: eligibility.reasons,
+      eligibilityScore: eligibility.eligibilityScore,
+    };
     
     scored.push({
       opportunity: opp,
       scores,
       debug,
+      eligibility,
       eligibilityGate,
     });
   }
   
   console.log(`[Production Matching] Scored ${scored.length} opportunities`);
   
-  // Stage 2: Filter by minimum ranking score
-  const filtered = scored.filter(item => 
-    item.eligibilityGate.eligible && item.scores.rankingScore >= MIN_RANKING_SCORE
-  );
+  // Compute run statistics (before filtering)
+  const runStats = computeRunStats(scored.map(item => ({
+    opportunity: item.opportunity,
+    eligibility: item.eligibility,
+  })));
   
-  console.log(`[Production Matching] Filtered to ${filtered.length} opportunities (score >= ${MIN_RANKING_SCORE})`);
+  // Bucket by eligibility status
+  const eligibleMatches = scored.filter(item => item.eligibility.status === 'eligible');
+  const unknownMatches = scored.filter(item => item.eligibility.status === 'unknown');
+  const ineligibleMatches = scored.filter(item => item.eligibility.status === 'ineligible');
   
-  // Sort by ranking score descending
-  filtered.sort((a, b) => b.scores.rankingScore - a.scores.rankingScore);
+  console.log(`[Production Matching] Eligibility breakdown: ${eligibleMatches.length} eligible, ${unknownMatches.length} unknown, ${ineligibleMatches.length} ineligible`);
   
-  // Convert to TopMatch format
-  const topMatches: TopMatch[] = filtered.slice(0, 50).map(item => ({
+  // Filter eligible matches by minimum ranking score
+  const eligibleFiltered = eligibleMatches
+    .filter(item => item.scores.rankingScore >= MIN_RANKING_SCORE)
+    .sort((a, b) => b.scores.rankingScore - a.scores.rankingScore);
+  
+  // Filter unknown matches by minimum ranking score (for separate bucket)
+  const unknownFiltered = unknownMatches
+    .filter(item => item.scores.rankingScore >= MIN_RANKING_SCORE)
+    .sort((a, b) => b.scores.rankingScore - a.scores.rankingScore);
+  
+  console.log(`[Production Matching] After filtering: ${eligibleFiltered.length} eligible, ${unknownFiltered.length} unknown (score >= ${MIN_RANKING_SCORE})`);
+  
+  // Convert to TopMatch format - ONLY eligible matches in main results
+  const topMatches: TopMatch[] = eligibleFiltered.slice(0, 50).map(item => ({
     opportunityId: item.opportunity.id,
-    eligibilityGate: item.eligibilityGate,
+    eligibility: item.eligibility,
+    eligibilityGate: item.eligibilityGate, // Keep for backward compatibility
     scores: item.scores,
     notes: {
-      eligibilityNotes: item.eligibilityGate.reasons,
-      matchSummary: `Ranking score: ${item.scores.rankingScore}. ${item.eligibilityGate.reasons.slice(0, 2).join('. ')}`,
+      eligibilityNotes: item.eligibility.reasons,
+      matchSummary: `Ranking score: ${item.scores.rankingScore}. ${item.eligibility.reasons.slice(0, 2).join('. ')}`,
     },
     confidenceScore: Math.round(
-      item.scores.eligibilityScore * 40 + 
+      item.eligibility.eligibilityScore * 40 +
       item.scores.fitScore * 40 + 
       item.scores.effortScore * 20
     ),
     debug: item.debug,
   }));
   
-  console.log(`[Production Matching] Returning top ${topMatches.length} matches`);
+  // Convert unknown matches to TopMatch format (for separate bucket)
+  const unknownTopMatches: TopMatch[] = unknownFiltered.slice(0, 50).map(item => ({
+    opportunityId: item.opportunity.id,
+    eligibility: item.eligibility,
+    eligibilityGate: item.eligibilityGate,
+    scores: item.scores,
+    notes: {
+      eligibilityNotes: item.eligibility.reasons,
+      matchSummary: `Ranking score: ${item.scores.rankingScore}. ${item.eligibility.reasons.slice(0, 2).join('. ')}`,
+    },
+    confidenceScore: Math.round(
+      item.eligibility.eligibilityScore * 40 +
+      item.scores.fitScore * 40 + 
+      item.scores.effortScore * 20
+    ),
+    debug: item.debug,
+  }));
   
-  return topMatches;
+  console.log(`[Production Matching] Returning ${topMatches.length} eligible matches, ${unknownTopMatches.length} unknown eligibility matches`);
+  
+  return {
+    eligible: topMatches,
+    unknown: unknownTopMatches,
+    ineligible: ineligibleMatches.length,
+    runStats,
+  };
+}
+
+/**
+ * Compute run statistics for auditability
+ * Exported for use in run-matching route
+ */
+export function computeRunStats(
+  allScored: Array<{ opportunity: Opportunity; eligibility: EligibilityEvaluation }>
+): {
+  totalConsidered: number;
+  eligibleCount: number;
+  unknownCount: number;
+  ineligibleCount: number;
+  missingFieldCounts: {
+    applicantTypes: number;
+    eligibleEntities: number;
+    closeDate: number;
+    description: number;
+  };
+  topBlockers: Array<{ blocker: string; count: number }>;
+} {
+  const stats = {
+    totalConsidered: allScored.length,
+    eligibleCount: 0,
+    unknownCount: 0,
+    ineligibleCount: 0,
+    missingFieldCounts: {
+      applicantTypes: 0,
+      eligibleEntities: 0,
+      closeDate: 0,
+      description: 0,
+    },
+    topBlockers: [] as Array<{ blocker: string; count: number }>,
+  };
+  
+  const blockerCounts = new Map<string, number>();
+  
+  for (const item of allScored) {
+    // Count by status
+    if (item.eligibility.status === 'eligible') {
+      stats.eligibleCount++;
+    } else if (item.eligibility.status === 'unknown') {
+      stats.unknownCount++;
+    } else {
+      stats.ineligibleCount++;
+    }
+    
+    // Count missing fields
+    const dataQuality = item.opportunity.eligibilityDataQuality || computeEligibilityDataQuality(item.opportunity);
+    if (!dataQuality.hasApplicantTypes) stats.missingFieldCounts.applicantTypes++;
+    if (!dataQuality.hasEligibleEntities) stats.missingFieldCounts.eligibleEntities++;
+    if (!dataQuality.hasCloseDate) stats.missingFieldCounts.closeDate++;
+    if (!dataQuality.hasSufficientDescription) stats.missingFieldCounts.description++;
+    
+    // Count blockers
+    for (const blocker of item.eligibility.blockers) {
+      blockerCounts.set(blocker, (blockerCounts.get(blocker) || 0) + 1);
+    }
+  }
+  
+  // Get top 10 blockers
+  stats.topBlockers = Array.from(blockerCounts.entries())
+    .map(([blocker, count]) => ({ blocker, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+  
+  return stats;
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAdminFirestore } from '@/lib/firebaseAdmin';
-import { matchOpportunitiesProduction, ALGORITHM_VERSION } from '@/lib/productionMatchAlgorithm';
+import { matchOpportunitiesProduction, ALGORITHM_VERSION, computeRunStats } from '@/lib/productionMatchAlgorithm';
 import { saveMatchRun, getUserProfileWithVersions, migrateUserIfNeeded, getUserOpportunitySignals } from '@/lib/matchDataAccess';
 import { logAIAuditEvent, createAuditRequestId } from '@/lib/aiAudit';
 import { Opportunity, UserProfile, MatchTrigger } from '@/types';
@@ -110,20 +110,25 @@ export async function POST(request: Request) {
     
     console.log(`[run-matching] Excluding ${excludeIds.length} passed/saved opportunities`);
     
-    // Run production matching algorithm
-    let topMatches;
+    // Run production matching algorithm (returns eligible, unknown, ineligible buckets)
+    let matchResults;
     try {
-      topMatches = await matchOpportunitiesProduction(
+      matchResults = await matchOpportunitiesProduction(
         allOpportunities,
         profile,
         excludeIds
       );
-      console.log(`[run-matching] Production matching complete: ${topMatches.length} matches`);
+      console.log(`[run-matching] Production matching complete: ${matchResults.eligible.length} eligible, ${matchResults.unknown.length} unknown, ${matchResults.ineligible} ineligible`);
     } catch (matchError: any) {
       console.error('[run-matching] Error in production matching algorithm:', matchError);
       console.error('[run-matching] Error stack:', matchError.stack);
       throw new Error(`Matching algorithm failed: ${matchError.message}`);
     }
+    
+    // Extract eligible matches (main results)
+    let topMatches = matchResults.eligible;
+    const unknownMatches = matchResults.unknown;
+    const runStats = matchResults.runStats;
     
     // Optionally refine top matches with AI (if enabled and OpenAI key available)
     let finalMatches = topMatches;
@@ -154,13 +159,27 @@ export async function POST(request: Request) {
         const aiRefined = await refineMatchesWithAI(topOpportunities, profile, userId, 20);
         
         // Merge AI refinements back into topMatches
+        // CRITICAL: Eligibility status is NON-OVERRIDABLE - AI cannot make ineligible/unknown eligible
         const aiRefinedMap = new Map(aiRefined.map(opp => [opp.id, opp]));
         finalMatches = topMatches.map(match => {
           const aiRefined = aiRefinedMap.get(match.opportunityId);
+          
+          // ENFORCEMENT: If eligibility status is not "eligible", do not allow AI to boost it
+          if (match.eligibility.status !== 'eligible') {
+            // Keep original eligibility status, but allow AI to update notes/summary
+            return {
+              ...match,
+              notes: {
+                ...match.notes,
+                matchSummary: aiRefined?.matchReasoning?.summary || match.notes.matchSummary,
+              },
+            };
+          }
+          
+          // Only merge AI refinements for eligible matches
           if (aiRefined && aiRefined.matchReasoning) {
             // Use AI-refined scores if available, otherwise keep original
             const aiRankingScore = aiRefined.matchScore || aiRefined.winRate || match.scores.rankingScore;
-            const aiWinRate = aiRefined.winRate || match.scores.rankingScore;
             
             return {
               ...match,
@@ -177,6 +196,8 @@ export async function POST(request: Request) {
                 matchSummary: aiRefined.matchReasoning.summary || match.notes.matchSummary,
               },
               confidenceScore: aiRefined.matchReasoning.confidenceScore || match.confidenceScore,
+              // CRITICAL: Preserve eligibility status - AI cannot override
+              eligibility: match.eligibility,
             };
           }
           return match;
@@ -185,6 +206,10 @@ export async function POST(request: Request) {
         // Re-sort by AI-refined ranking score
         finalMatches.sort((a, b) => b.scores.rankingScore - a.scores.rankingScore);
         
+        // FINAL ENFORCEMENT: Filter out any matches that are not eligible
+        // This is a safety check in case AI merge somehow corrupted eligibility
+        finalMatches = finalMatches.filter(m => m.eligibility.status === 'eligible');
+        
         console.log(`[run-matching] AI refinement complete`);
       } catch (aiError: any) {
         console.error('[run-matching] AI refinement failed, using production matches:', aiError.message);
@@ -192,7 +217,7 @@ export async function POST(request: Request) {
       }
     }
     
-    // Save match run
+    // Save match run (includes eligible, unknown, and stats)
     const runId = requestId;
     await saveMatchRun(
       userId,
@@ -200,13 +225,16 @@ export async function POST(request: Request) {
       trigger as MatchTrigger,
       profileVersion,
       docsVersion,
-      finalMatches,
-      'complete'
+      finalMatches, // Eligible matches only
+      'complete',
+      undefined,
+      unknownMatches, // Unknown eligibility bucket
+      runStats // Run statistics for auditability
     );
     
     const latency = Date.now() - startTime;
     
-    // Log audit event
+    // Log audit event with run statistics
     await logAIAuditEvent({
       requestId,
       userId,
@@ -216,17 +244,31 @@ export async function POST(request: Request) {
       parsed_result: {
         runId,
         matchesCount: finalMatches.length,
+        unknownCount: unknownMatches.length,
+        ineligibleCount: runStats?.ineligibleCount || 0,
         trigger,
         profileVersion,
         docsVersion,
+        runStats, // Include full run statistics
       },
       latency_ms: latency,
       algorithmVersion: ALGORITHM_VERSION,
     });
     
-    console.log(`[run-matching] Match run ${runId} completed in ${latency}ms`);
+    // Log run statistics to console for debugging
+    console.log(`[run-matching] Run Statistics:`, {
+      totalConsidered: runStats?.totalConsidered || 0,
+      eligible: runStats?.eligibleCount || 0,
+      unknown: runStats?.unknownCount || 0,
+      ineligible: runStats?.ineligibleCount || 0,
+      missingFields: runStats?.missingFieldCounts,
+      topBlockers: runStats?.topBlockers?.slice(0, 5),
+    });
     
-    // Convert TopMatch back to Opportunity format for frontend
+    console.log(`[run-matching] Match run ${runId} completed in ${latency}ms`);
+    console.log(`[run-matching] Run stats:`, runStats);
+    
+    // Convert TopMatch back to Opportunity format for frontend (eligible only)
     const matchedOpportunities = finalMatches.slice(0, 50).map(match => {
       const opp = allOpportunities.find(o => o.id === match.opportunityId);
       if (!opp) return null;
@@ -240,10 +282,38 @@ export async function POST(request: Request) {
           summary: match.notes.matchSummary,
           strengths: [],
           concerns: [],
-          specificReasons: match.eligibilityGate.reasons,
+          specificReasons: match.eligibility.reasons, // Use new eligibility.reasons
           eligibilityHighlights: match.notes.eligibilityNotes,
           confidenceScore: match.confidenceScore,
         },
+        // Add eligibility status for UI
+        eligibilityStatus: match.eligibility.status,
+        eligibilityBlockers: match.eligibility.blockers,
+        eligibilityEvidence: match.eligibility.evidence,
+      };
+    }).filter(Boolean) as Opportunity[];
+    
+    // Convert unknown matches for frontend (if needed)
+    const unknownOpportunities = (unknownMatches || []).slice(0, 50).map(match => {
+      const opp = allOpportunities.find(o => o.id === match.opportunityId);
+      if (!opp) return null;
+      
+      return {
+        ...opp,
+        winRate: match.scores.rankingScore,
+        matchScore: match.scores.rankingScore,
+        eligibilityNotes: match.notes.eligibilityNotes,
+        matchReasoning: {
+          summary: match.notes.matchSummary,
+          strengths: [],
+          concerns: [],
+          specificReasons: match.eligibility.reasons,
+          eligibilityHighlights: match.notes.eligibilityNotes,
+          confidenceScore: match.confidenceScore,
+        },
+        eligibilityStatus: match.eligibility.status,
+        eligibilityBlockers: match.eligibility.blockers,
+        eligibilityEvidence: match.eligibility.evidence,
       };
     }).filter(Boolean) as Opportunity[];
     
@@ -251,7 +321,9 @@ export async function POST(request: Request) {
       success: true,
       runId,
       matchesCount: finalMatches.length,
-      opportunities: matchedOpportunities, // Return as opportunities for frontend compatibility
+      opportunities: matchedOpportunities, // Eligible only
+      unknownOpportunities: unknownOpportunities, // Unknown eligibility bucket
+      runStats, // Include run statistics
     });
   } catch (error: any) {
     const latency = Date.now() - startTime;
