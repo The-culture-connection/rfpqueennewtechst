@@ -240,6 +240,9 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
         const shouldRunResponse = await fetch(`/api/should-run-matching?userId=${profile.uid}`);
         const shouldRunData = await shouldRunResponse.json();
         
+        // Declare matched at higher scope so it's available for caching
+        let matched: Opportunity[] = [];
+        
         if (shouldRunData.shouldRun || forceReload) {
           // Use new production matching system
           console.log('🚀 [useOpportunities] Using NEW production matching system...');
@@ -265,7 +268,7 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
             
             if (currentMatchesDoc.exists()) {
               const currentMatches = currentMatchesDoc.data();
-              const matched = (currentMatches.topMatches || [])
+              matched = (currentMatches.topMatches || [])
                 .map((match: any) => {
                   const opp = allOpps.find((o: Opportunity) => o.id === match.opportunityId);
                   if (!opp) return null;
@@ -292,21 +295,21 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
               // Fallback to old system if new system didn't save matches
               console.warn('[useOpportunities] New system completed but no matches found, using old system');
               const matchedResults = await intelligentMatchOpportunities(allOpps, enrichedProfile, profile.uid, true);
-              const matched = matchedResults.filter(opp => (opp.matchScore || opp.winRate || 0) >= 35);
+              matched = matchedResults.filter(opp => (opp.matchScore || opp.winRate || 0) >= 35);
               setMatchedOpportunities(matched);
             }
           } else {
             // Fallback to old system on error
             console.warn('[useOpportunities] New matching system failed, using old system');
             const matchedResults = await intelligentMatchOpportunities(allOpps, enrichedProfile, profile.uid, true);
-            const matched = matchedResults.filter(opp => (opp.matchScore || opp.winRate || 0) >= 35);
+            matched = matchedResults.filter(opp => (opp.matchScore || opp.winRate || 0) >= 35);
             setMatchedOpportunities(matched);
           }
         } else {
           // Use old intelligent matching system (backward compatibility)
           console.log('🧠 [useOpportunities] Using OLD intelligent matching system...');
           const matchedResults = await intelligentMatchOpportunities(allOpps, enrichedProfile, profile.uid, true);
-          const matched = matchedResults.filter(opp => (opp.matchScore || opp.winRate || 0) >= 35);
+          matched = matchedResults.filter(opp => (opp.matchScore || opp.winRate || 0) >= 35);
           console.log(`✅ Matched ${matched.length} opportunities (35%+ score) with intelligent analysis and AI refinement`);
           setMatchedOpportunities(matched);
         }

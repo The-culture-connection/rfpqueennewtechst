@@ -22,7 +22,7 @@ export async function shouldRunMatching(userId: string): Promise<{
     const currentMatchesRef = db.collection('userMatches').doc(userId).collection('current').doc('latest');
     const currentMatchesDoc = await currentMatchesRef.get();
     
-    if (!currentMatchesDoc.exists()) {
+    if (!currentMatchesDoc.exists) {
       return { shouldRun: true, reason: 'FIRST_DASHBOARD' };
     }
     
@@ -34,9 +34,9 @@ export async function shouldRunMatching(userId: string): Promise<{
     const userDoc = await userRef.get();
     
     // Prefer profiles collection, fallback to users
-    const versionData = profileDoc.exists() 
+    const versionData = profileDoc.exists 
       ? profileDoc.data() 
-      : (userDoc.exists() ? userDoc.data() : null);
+      : (userDoc.exists ? userDoc.data() : null);
     
     if (!versionData) {
       return { shouldRun: true, reason: 'FIRST_DASHBOARD' };
@@ -163,7 +163,7 @@ export async function getCurrentMatches(userId: string): Promise<CurrentMatches 
     
     const doc = await currentMatchesRef.get();
     
-    if (!doc.exists()) {
+    if (!doc.exists) {
       return null;
     }
     
@@ -205,7 +205,7 @@ export async function saveUserOpportunitySignal(
     .doc(opportunityId);
   
   const existingDoc = await signalRef.get();
-  const existingData = existingDoc.exists() ? existingDoc.data() : {};
+  const existingData = existingDoc.exists ? existingDoc.data() : {};
   
   const signal: UserOpportunitySignal = {
     opportunityId,
@@ -267,7 +267,7 @@ export async function getUserProfileWithVersions(userId: string): Promise<{
     const profileRef = db.collection('profiles').doc(userId);
     const profileDoc = await profileRef.get();
     
-    if (profileDoc.exists()) {
+    if (profileDoc.exists) {
       const profileData = profileDoc.data() as any;
       
       // Convert Firestore timestamps to Date objects
@@ -328,7 +328,7 @@ export async function incrementProfileVersion(userId: string): Promise<number> {
     const profileRef = db.collection('profiles').doc(userId);
     const profileDoc = await profileRef.get();
     
-    const currentVersion = profileDoc.exists() 
+    const currentVersion = profileDoc.exists 
       ? (profileDoc.data()?.profileVersion || 1) 
       : 1;
     const newVersion = currentVersion + 1;
@@ -362,7 +362,7 @@ export async function incrementDocsVersion(userId: string): Promise<number> {
     const profileRef = db.collection('profiles').doc(userId);
     const profileDoc = await profileRef.get();
     
-    const currentVersion = profileDoc.exists() 
+    const currentVersion = profileDoc.exists 
       ? (profileDoc.data()?.docsVersion || 0) 
       : 0;
     const newVersion = currentVersion + 1;
@@ -408,7 +408,7 @@ export async function migrateUserIfNeeded(userId: string): Promise<void> {
     };
     
     // Migrate profiles collection if needed
-    if (profileDoc.exists()) {
+    if (profileDoc.exists) {
       const profileData = profileDoc.data();
       if (profileData?.profileVersion === undefined) {
         await profileRef.set(defaultVersions, { merge: true });
@@ -424,7 +424,7 @@ export async function migrateUserIfNeeded(userId: string): Promise<void> {
     }
     
     // Migrate users collection if needed
-    if (userDoc.exists()) {
+    if (userDoc.exists) {
       const userData = userDoc.data();
       if (userData?.profileVersion === undefined) {
         await userRef.set(defaultVersions, { merge: true });
