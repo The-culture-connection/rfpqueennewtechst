@@ -20,7 +20,7 @@ import {
 } from '@/lib/analytics';
 
 export default function DocumentsPage() {
-  console.log('🎬 [Documents Page] Component rendering/mounting');
+  console.log('🎬 [Documents Page] Component rendering/mounting - VERSION 2.0 (FIXED)');
   
   const { user, userProfile } = useAuth();
   const router = useRouter();
@@ -33,6 +33,11 @@ export default function DocumentsPage() {
   const [redirecting, setRedirecting] = useState(false);
   const [hasCheckedInitialState, setHasCheckedInitialState] = useState(false);
   const [initialCompletedDocs, setInitialCompletedDocs] = useState<Set<string>>(new Set());
+  
+  console.log('🎬 [Documents Page] State initialized', {
+    hasCheckedInitialState,
+    initialCompletedDocsSize: initialCompletedDocs.size,
+  });
   
   // Redirect if not authenticated
   useEffect(() => {
