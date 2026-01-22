@@ -844,7 +844,35 @@ export async function matchOpportunitiesProduction(
     opp.eligibilityDataQuality = dataQuality;
     
     // Compute scores (includes fail-closed eligibility evaluation)
-    const { scores, debug, eligibility } = computeScores(opp, profile, searchProfile);
+    const scoreResult = computeScores(opp, profile, searchProfile);
+    const { scores, debug, eligibility } = scoreResult;
+    
+    // Safety check: ensure eligibility exists
+    if (!eligibility) {
+      console.error(`[Production Matching] computeScores did not return eligibility for opportunity ${opp.id}`);
+      // Fallback: create a default unknown eligibility
+      const fallbackEligibility: EligibilityEvaluation = {
+        status: 'unknown',
+        eligible: false,
+        blockers: ['eligibility_evaluation_failed'],
+        reasons: ['Could not evaluate eligibility'],
+        evidence: [],
+        eligibilityScore: 0.5,
+      };
+      const eligibilityGate: EligibilityGate = {
+        eligible: false,
+        reasons: ['Could not evaluate eligibility'],
+        eligibilityScore: 0.5,
+      };
+      scored.push({
+        opportunity: opp,
+        scores,
+        debug,
+        eligibility: fallbackEligibility,
+        eligibilityGate,
+      });
+      continue;
+    }
     
     // Keep old eligibilityGate for backward compatibility
     const eligibilityGate: EligibilityGate = {

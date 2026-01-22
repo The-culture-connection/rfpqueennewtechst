@@ -145,8 +145,11 @@ function extractMeaningfulWords(text: string): string[] {
   return words;
 }
 
-function categorizeAmount(amount: string): string {
-  const numericAmount = parseFloat(amount.replace(/[^0-9.]/g, ''));
+function categorizeAmount(amount: string | undefined | null): string {
+  if (!amount) return 'unknown';
+  // Handle both string and number amounts
+  const amountStr = typeof amount === 'string' ? amount : String(amount);
+  const numericAmount = parseFloat(amountStr.replace(/[^0-9.]/g, ''));
   
   if (isNaN(numericAmount)) return 'unknown';
   
