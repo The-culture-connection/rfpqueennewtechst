@@ -358,8 +358,12 @@ export function computeEffortScore(
   
   // Amount-based effort (larger amounts often have more requirements)
   if (opportunity.amount) {
-    const amountNum = parseFloat(opportunity.amount.replace(/[^0-9.]/g, ''));
-    if (amountNum > 1000000) {
+    // Handle both string and number amounts
+    const amountStr = typeof opportunity.amount === 'string' 
+      ? opportunity.amount 
+      : String(opportunity.amount);
+    const amountNum = parseFloat(amountStr.replace(/[^0-9.]/g, ''));
+    if (!isNaN(amountNum) && amountNum > 1000000) {
       // Large amounts = more effort
       score -= 0.1;
     }

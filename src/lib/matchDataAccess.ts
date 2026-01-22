@@ -207,17 +207,28 @@ export async function saveUserOpportunitySignal(
   const existingDoc = await signalRef.get();
   const existingData = existingDoc.exists ? existingDoc.data() : {};
   
-  const signal: UserOpportunitySignal = {
+  // Build signal object, only including fields that have values
+  const signal: any = {
     opportunityId,
     status,
     timestamps: {
-      ...existingData.timestamps,
+      ...(existingData.timestamps || {}),
       ...timestamps,
     },
     lastActionAt: now,
-    runIdContext: runIdContext || existingData.runIdContext,
-    userNotes: userNotes || existingData.userNotes,
   };
+  
+  // Only include runIdContext if it has a value
+  const finalRunIdContext = runIdContext || existingData.runIdContext;
+  if (finalRunIdContext) {
+    signal.runIdContext = finalRunIdContext;
+  }
+  
+  // Only include userNotes if it has a value
+  const finalUserNotes = userNotes || existingData.userNotes;
+  if (finalUserNotes) {
+    signal.userNotes = finalUserNotes;
+  }
   
   await signalRef.set(signal);
   

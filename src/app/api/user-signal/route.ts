@@ -9,8 +9,19 @@ export async function POST(request: Request) {
   const requestId = createAuditRequestId();
   const startTime = Date.now();
   
+  // Parse request body once and store it
+  let requestBody: any;
   try {
-    const { userId, opportunityId, status, runIdContext, userNotes } = await request.json();
+    requestBody = await request.json();
+  } catch (err) {
+    return NextResponse.json(
+      { error: 'Invalid JSON in request body' },
+      { status: 400 }
+    );
+  }
+  
+  try {
+    const { userId, opportunityId, status, runIdContext, userNotes } = requestBody;
     
     if (!userId || !opportunityId || !status) {
       return NextResponse.json(
@@ -63,7 +74,7 @@ export async function POST(request: Request) {
     
     await logAIAuditEvent({
       requestId,
-      userId: (await request.json()).userId,
+      userId: requestBody?.userId || 'unknown',
       functionName: 'saveUserSignal',
       route: '/api/user-signal',
       phase: 'error',

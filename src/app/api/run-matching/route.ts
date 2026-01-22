@@ -16,8 +16,19 @@ export async function POST(request: Request) {
   const requestId = createAuditRequestId();
   const startTime = Date.now();
   
+  // Parse request body once and store it
+  let requestBody: any;
   try {
-    const { userId, trigger = 'RERUN_BUTTON', forceRun = false } = await request.json();
+    requestBody = await request.json();
+  } catch (err) {
+    return NextResponse.json(
+      { error: 'Invalid JSON in request body' },
+      { status: 400 }
+    );
+  }
+  
+  try {
+    const { userId, trigger = 'RERUN_BUTTON', forceRun = false } = requestBody;
     
     if (!userId) {
       return NextResponse.json(
@@ -228,7 +239,7 @@ export async function POST(request: Request) {
     // Log error
     await logAIAuditEvent({
       requestId,
-      userId: (await request.json()).userId,
+      userId: requestBody?.userId || 'unknown',
       functionName: 'runMatching',
       route: '/api/run-matching',
       phase: 'error',
