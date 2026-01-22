@@ -20,6 +20,8 @@ import {
 } from '@/lib/analytics';
 
 export default function DocumentsPage() {
+  console.log('🎬 [Documents Page] Component rendering/mounting');
+  
   const { user, userProfile } = useAuth();
   const router = useRouter();
   
@@ -29,6 +31,8 @@ export default function DocumentsPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMessage, setProcessingMessage] = useState('');
   const [redirecting, setRedirecting] = useState(false);
+  const [hasCheckedInitialState, setHasCheckedInitialState] = useState(false);
+  const [initialCompletedDocs, setInitialCompletedDocs] = useState<Set<string>>(new Set());
   
   // Redirect if not authenticated
   useEffect(() => {
@@ -134,21 +138,54 @@ export default function DocumentsPage() {
           setProcessingMessage('Processing documents with AI...');
         }
       } else if (hasCompleted && allCompleted && !redirecting) {
-        // All documents are processed, redirect to profile
-        console.log('🚨 [Documents Page] useEffect #1: TRIGGERING REDIRECT', {
+        // Check if documents were just completed (new completion) vs already completed
+        const completedDocIds = new Set(
+          docs.filter(d => d.processingStatus === 'completed').map(d => d.id)
+        );
+        const isNewCompletion = hasCheckedInitialState && 
+          completedDocIds.size > initialCompletedDocs.size;
+        const wasAlreadyCompleted = hasCheckedInitialState && 
+          completedDocIds.size === initialCompletedDocs.size &&
+          Array.from(completedDocIds).every(id => initialCompletedDocs.has(id));
+        
+        console.log('🔍 [Documents Page] useEffect #1: Checking redirect conditions', {
           hasCompleted,
           allCompleted,
           redirecting,
-          reason: 'All documents completed and not already redirecting',
+          hasCheckedInitialState,
+          completedDocIds: Array.from(completedDocIds),
+          initialCompletedDocs: Array.from(initialCompletedDocs),
+          isNewCompletion,
+          wasAlreadyCompleted,
         });
-        setIsProcessing(false);
-        setRedirecting(true);
-        setProcessingMessage('Documents processed! Redirecting to approve keywords...');
         
-        setTimeout(() => {
-          console.log('➡️ [Documents Page] useEffect #1: Executing redirect to /profile');
-          router.push('/profile?message=Approve keywords');
-        }, 2000);
+        // Only redirect if documents were JUST completed (not already completed)
+        if (isNewCompletion) {
+          console.log('🚨 [Documents Page] useEffect #1: TRIGGERING REDIRECT (new completion)', {
+            reason: 'Documents were just completed in this session',
+          });
+          setIsProcessing(false);
+          setRedirecting(true);
+          setProcessingMessage('Documents processed! Redirecting to approve keywords...');
+          
+          setTimeout(() => {
+            console.log('➡️ [Documents Page] useEffect #1: Executing redirect to /profile');
+            router.push('/profile?message=Approve keywords');
+          }, 2000);
+        } else if (!hasCheckedInitialState) {
+          // First time checking - store initial state and don't redirect
+          console.log('📝 [Documents Page] useEffect #1: Storing initial document state (no redirect)', {
+            completedDocIds: Array.from(completedDocIds),
+          });
+          setInitialCompletedDocs(completedDocIds);
+          setHasCheckedInitialState(true);
+          setIsProcessing(false);
+        } else if (wasAlreadyCompleted) {
+          console.log('✅ [Documents Page] useEffect #1: Documents already completed on page load (no redirect)', {
+            reason: 'User is revisiting page with already-completed documents',
+          });
+          setIsProcessing(false);
+        }
       } else {
         console.log('✅ [Documents Page] useEffect #1: No redirect needed, setting processing to false');
         setIsProcessing(false);
@@ -159,7 +196,7 @@ export default function DocumentsPage() {
       console.log('🧹 [Documents Page] useEffect #1: Cleaning up onSnapshot listener');
       unsubscribe();
     };
-  }, [user, db, uploadingFiles, redirecting, router]);
+  }, [user, db, uploadingFiles, redirecting, router, hasCheckedInitialState, initialCompletedDocs]);
 
   // Monitor document processing status and redirect when complete (DUPLICATE - REMOVE THIS)
   useEffect(() => {
@@ -233,21 +270,45 @@ export default function DocumentsPage() {
           setProcessingMessage('Processing documents with AI...');
         }
       } else if (hasCompleted && allCompleted && !redirecting) {
-        // All documents are processed, redirect to profile
-        console.log('🚨 [Documents Page] useEffect #2: TRIGGERING REDIRECT (DUPLICATE)', {
+        // Check if documents were just completed (new completion) vs already completed
+        const completedDocIds = new Set(
+          docs.filter(d => d.processingStatus === 'completed').map(d => d.id)
+        );
+        const isNewCompletion = hasCheckedInitialState && 
+          completedDocIds.size > initialCompletedDocs.size;
+        const wasAlreadyCompleted = hasCheckedInitialState && 
+          completedDocIds.size === initialCompletedDocs.size &&
+          Array.from(completedDocIds).every(id => initialCompletedDocs.has(id));
+        
+        console.log('🔍 [Documents Page] useEffect #2: Checking redirect conditions (DUPLICATE)', {
           hasCompleted,
           allCompleted,
           redirecting,
-          reason: 'All documents completed and not already redirecting',
+          hasCheckedInitialState,
+          isNewCompletion,
+          wasAlreadyCompleted,
         });
-        setIsProcessing(false);
-        setRedirecting(true);
-        setProcessingMessage('Documents processed! Redirecting to approve keywords...');
         
-        setTimeout(() => {
-          console.log('➡️ [Documents Page] useEffect #2: Executing redirect to /profile (DUPLICATE)');
-          router.push('/profile?message=Approve keywords');
-        }, 2000);
+        // Only redirect if documents were JUST completed (not already completed)
+        if (isNewCompletion) {
+          console.log('🚨 [Documents Page] useEffect #2: TRIGGERING REDIRECT (DUPLICATE - new completion)');
+          setIsProcessing(false);
+          setRedirecting(true);
+          setProcessingMessage('Documents processed! Redirecting to approve keywords...');
+          
+          setTimeout(() => {
+            console.log('➡️ [Documents Page] useEffect #2: Executing redirect to /profile (DUPLICATE)');
+            router.push('/profile?message=Approve keywords');
+          }, 2000);
+        } else if (!hasCheckedInitialState) {
+          console.log('📝 [Documents Page] useEffect #2: Storing initial state (DUPLICATE)');
+          setInitialCompletedDocs(completedDocIds);
+          setHasCheckedInitialState(true);
+          setIsProcessing(false);
+        } else if (wasAlreadyCompleted) {
+          console.log('✅ [Documents Page] useEffect #2: Already completed (DUPLICATE - no redirect)');
+          setIsProcessing(false);
+        }
       } else {
         console.log('✅ [Documents Page] useEffect #2: No redirect needed (DUPLICATE)');
         setIsProcessing(false);
@@ -258,7 +319,7 @@ export default function DocumentsPage() {
       console.log('🧹 [Documents Page] useEffect #2: Cleaning up onSnapshot listener (DUPLICATE)');
       unsubscribe();
     };
-  }, [user, db, uploadingFiles, redirecting, router]);
+  }, [user, db, uploadingFiles, redirecting, router, hasCheckedInitialState, initialCompletedDocs]);
 
   const loadDocuments = async () => {
     console.log('📥 [Documents Page] loadDocuments called', {
