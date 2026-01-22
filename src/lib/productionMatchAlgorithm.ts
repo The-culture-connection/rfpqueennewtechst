@@ -115,7 +115,7 @@ export function checkEligibilityGates(
   let eligibilityScore = 1.0;
   
   // Gate 1: Funding Type
-  const oppType = opportunity.type?.toLowerCase() || '';
+  const oppType = opportunity.type ? String(opportunity.type).toLowerCase() : '';
   const userFundingTypes = profile.fundingType || [];
   const fundingTypeMatch = 
     (oppType === 'grant' && userFundingTypes.includes('grants')) ||
@@ -131,8 +131,12 @@ export function checkEligibilityGates(
   
   // Gate 2: Entity Type / Applicant Type Compatibility
   const userEntityTypes = normalizeEntityType(profile.entityType);
-  const oppApplicantTypes = (opportunity.applicantTypes || []).map(t => t.toLowerCase());
-  const oppEligibleEntities = (opportunity.eligibleEntities || []).map(t => t.toLowerCase());
+  const oppApplicantTypes = (opportunity.applicantTypes || [])
+    .filter(t => t != null)
+    .map(t => String(t).toLowerCase());
+  const oppEligibleEntities = (opportunity.eligibleEntities || [])
+    .filter(t => t != null)
+    .map(t => String(t).toLowerCase());
   const allOppTypes = [...oppApplicantTypes, ...oppEligibleEntities];
   
   let entityMatch = false;
@@ -145,7 +149,9 @@ export function checkEligibilityGates(
   
   // Check description/title for entity type mentions
   if (!entityMatch) {
-    const oppText = normalizeText(`${opportunity.title} ${opportunity.description || ''}`);
+    const titleStr = opportunity.title ? String(opportunity.title) : '';
+    const descStr = opportunity.description ? String(opportunity.description) : '';
+    const oppText = normalizeText(`${titleStr} ${descStr}`);
     for (const userType of userEntityTypes) {
       if (oppText.includes(userType)) {
         entityMatch = true;
@@ -200,7 +206,9 @@ export function checkEligibilityGates(
   
   // Gate 4: Program Mechanism Heuristics
   // Downrank research-heavy mechanisms unless profile indicates research capacity
-  const oppText = normalizeText(`${opportunity.title} ${opportunity.description || ''}`);
+  const titleStr = opportunity.title ? String(opportunity.title) : '';
+  const descStr = opportunity.description ? String(opportunity.description) : '';
+  const oppText = normalizeText(`${titleStr} ${descStr}`);
   const isResearchHeavy = 
     oppText.includes('research') && 
     (oppText.includes('principal investigator') || 
@@ -254,9 +262,10 @@ export function computeFitScore(
   opportunity: Opportunity,
   searchProfile: UserSearchProfile
 ): number {
-  const oppText = normalizeText(
-    `${opportunity.title} ${opportunity.description || ''} ${opportunity.normalizedText || ''}`
-  );
+  const titleStr = opportunity.title ? String(opportunity.title) : '';
+  const descStr = opportunity.description ? String(opportunity.description) : '';
+  const normText = opportunity.normalizedText ? String(opportunity.normalizedText) : '';
+  const oppText = normalizeText(`${titleStr} ${descStr} ${normText}`);
   
   let score = 0;
   let maxScore = 0;
@@ -325,9 +334,10 @@ export function computeEffortScore(
 ): number {
   let score = 1.0; // Start with full score
   
-  const oppText = normalizeText(
-    `${opportunity.title} ${opportunity.description || ''} ${opportunity.details?.requirementsText || ''}`
-  );
+  const titleStr = opportunity.title ? String(opportunity.title) : '';
+  const descStr = opportunity.description ? String(opportunity.description) : '';
+  const reqText = opportunity.details?.requirementsText ? String(opportunity.details.requirementsText) : '';
+  const oppText = normalizeText(`${titleStr} ${descStr} ${reqText}`);
   
   // High burden signals
   const highBurdenSignals = [
@@ -413,7 +423,9 @@ export function computeScores(
   // Collect matched keywords for debug
   const matchedKeywords: string[] = [];
   const allKeywords = [...searchProfile.priorityKeywords, ...searchProfile.keywords];
-  const oppText = normalizeText(`${opportunity.title} ${opportunity.description || ''}`);
+  const titleStr = opportunity.title ? String(opportunity.title) : '';
+  const descStr = opportunity.description ? String(opportunity.description) : '';
+  const oppText = normalizeText(`${titleStr} ${descStr}`);
   allKeywords.forEach(kw => {
     if (oppText.includes(normalizeText(kw))) {
       matchedKeywords.push(kw);

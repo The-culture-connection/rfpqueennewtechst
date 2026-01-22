@@ -111,13 +111,19 @@ export async function POST(request: Request) {
     console.log(`[run-matching] Excluding ${excludeIds.length} passed/saved opportunities`);
     
     // Run production matching algorithm
-    const topMatches = await matchOpportunitiesProduction(
-      allOpportunities,
-      profile,
-      excludeIds
-    );
-    
-    console.log(`[run-matching] Production matching complete: ${topMatches.length} matches`);
+    let topMatches;
+    try {
+      topMatches = await matchOpportunitiesProduction(
+        allOpportunities,
+        profile,
+        excludeIds
+      );
+      console.log(`[run-matching] Production matching complete: ${topMatches.length} matches`);
+    } catch (matchError: any) {
+      console.error('[run-matching] Error in production matching algorithm:', matchError);
+      console.error('[run-matching] Error stack:', matchError.stack);
+      throw new Error(`Matching algorithm failed: ${matchError.message}`);
+    }
     
     // Optionally refine top matches with AI (if enabled and OpenAI key available)
     let finalMatches = topMatches;
@@ -235,24 +241,31 @@ export async function POST(request: Request) {
   } catch (error: any) {
     const latency = Date.now() - startTime;
     console.error('[run-matching] Error:', error);
+    console.error('[run-matching] Error stack:', error.stack);
+    console.error('[run-matching] Error name:', error.name);
     
-    // Log error
-    await logAIAuditEvent({
-      requestId,
-      userId: requestBody?.userId || 'unknown',
-      functionName: 'runMatching',
-      route: '/api/run-matching',
-      phase: 'error',
-      error: error.message,
-      errorMessage: error.toString(),
-      latency_ms: latency,
-      algorithmVersion: ALGORITHM_VERSION,
-    });
+    // Log error (with try-catch to prevent error logging from failing)
+    try {
+      await logAIAuditEvent({
+        requestId,
+        userId: requestBody?.userId || 'unknown',
+        functionName: 'runMatching',
+        route: '/api/run-matching',
+        phase: 'error',
+        error: error.message,
+        errorMessage: error.toString(),
+        latency_ms: latency,
+        algorithmVersion: ALGORITHM_VERSION,
+      });
+    } catch (auditError) {
+      console.error('[run-matching] Failed to log audit event:', auditError);
+    }
     
     return NextResponse.json(
       { 
         success: false,
         error: error.message || 'Failed to run matching',
+        errorDetails: process.env.NODE_ENV === 'development' ? error.stack : undefined,
       },
       { status: 500 }
     );
