@@ -21,6 +21,7 @@ const CACHE_PROFILE_KEY = 'cached_opportunities_profile';
 export function useOpportunities(profile: UserProfile | null, forceReload: boolean = false) {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [matchedOpportunities, setMatchedOpportunities] = useState<Opportunity[]>([]);
+  const [unknownEligibilityOpportunities, setUnknownEligibilityOpportunities] = useState<Opportunity[]>([]); // NEW: Unknown eligibility bucket
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -123,6 +124,7 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
                 
                 setOpportunities(allOpps);
                 setMatchedOpportunities(matched);
+                setUnknownEligibilityOpportunities([]); // No unknown matches when loading from cache
                 setLoading(false);
                 setLastProfileHash(profileHash);
                 console.log(`✅ [useOpportunities] Loaded ${matched.length} AI-refined matches from new system`);
@@ -151,7 +153,8 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
           const cached = await getCachedOpportunities(profile.uid, profile);
           if (cached) {
             setOpportunities(cached.allOpportunities);
-            setMatchedOpportunities(cached.matchedOpportunities);
+                setMatchedOpportunities(cached.matchedOpportunities);
+                setUnknownEligibilityOpportunities([]); // Cache doesn't have unknown matches yet
             setLoading(false);
             setLastProfileHash(profileHash);
             console.log('✅ Using Firestore cached opportunities (old system)');
@@ -183,6 +186,7 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
                 const parsed = JSON.parse(cached);
                 setOpportunities(parsed.allOpps || []);
                 setMatchedOpportunities(parsed.matched || []);
+                setUnknownEligibilityOpportunities([]); // localStorage doesn't have unknown matches
                 setLoading(false);
                 setLastProfileHash(profileHash);
                 console.log('✅ Using localStorage cached opportunities');
@@ -394,6 +398,7 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
               const matchedResults = await intelligentMatchOpportunities(allOpps, enrichedProfile, profile.uid, true);
               matched = matchedResults.filter(opp => (opp.matchScore || opp.winRate || 0) >= 35);
               setMatchedOpportunities(matched);
+              setUnknownEligibilityOpportunities([]); // No unknown matches in fallback
             }
           } else {
             // Fallback to old system on error
@@ -401,6 +406,7 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
             const matchedResults = await intelligentMatchOpportunities(allOpps, enrichedProfile, profile.uid, true);
             matched = matchedResults.filter(opp => (opp.matchScore || opp.winRate || 0) >= 35);
             setMatchedOpportunities(matched);
+            setUnknownEligibilityOpportunities([]); // No unknown matches in fallback
           }
         } else {
           // Use old intelligent matching system (backward compatibility)
@@ -409,6 +415,7 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
           matched = matchedResults.filter(opp => (opp.matchScore || opp.winRate || 0) >= 35);
           console.log(`✅ Matched ${matched.length} opportunities (35%+ score) with intelligent analysis and AI refinement`);
           setMatchedOpportunities(matched);
+          setUnknownEligibilityOpportunities([]); // No unknown matches in old system
         }
 
         // Cache the results in Firestore (primary cache)
