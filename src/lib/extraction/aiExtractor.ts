@@ -3,6 +3,7 @@
 
 import OpenAI from 'openai';
 import { DocumentType } from '@/types/documents';
+import { logAIAuditEvent, createAuditRequestId } from '@/lib/aiAudit';
 
 // Lazy-load OpenAI client to avoid build-time initialization
 let openaiClient: OpenAI | null = null;
@@ -41,36 +42,84 @@ export interface AIExtractedFields {
  */
 export async function extractFieldsWithAI(
   rawText: string,
-  documentType: DocumentType
+  documentType: DocumentType,
+  userId?: string
 ): Promise<AIExtractedFields> {
+  const requestId = createAuditRequestId();
+  const startTime = Date.now();
+  
   console.log(`🤖 Starting AI extraction for document type: ${documentType}`);
   
-  // Build prompt based on document type
+  // Phase 1: Build prompt
   const prompt = buildPromptForDocumentType(documentType);
+  const systemMessage = "You are an expert RFP, grant, and government contracting assistant. Your job is to extract structured information from business documents with perfect accuracy. Do NOT invent or hallucinate data. If a field is not clearly present in the document, return null for it.";
+  const documentText = rawText.slice(0, 50000); // Limit to ~50k chars
+  
+  const messages = [
+    {
+      role: "system" as const,
+      content: systemMessage
+    },
+    {
+      role: "user" as const,
+      content: prompt
+    },
+    {
+      role: "user" as const,
+      content: `Document text:\n\n${documentText}`
+    }
+  ];
+  
+  // Log prompt build phase
+  await logAIAuditEvent({
+    requestId,
+    userId,
+    functionName: 'extractFieldsWithAI',
+    route: '/api/extract-document',
+    phase: 'prompt_build',
+    model: 'gpt-4o-mini',
+    messages,
+    input: documentText,
+    parameters: {
+      temperature: 0.1,
+      response_format: { type: "json_object" },
+    },
+  });
   
   try {
     const openaiClient = getOpenAIClient();
+    const requestStartTime = Date.now();
+    
+    // Phase 2: Make OpenAI request
     const response = await openaiClient.chat.completions.create({
       model: "gpt-4o-mini", // Cost-effective model
-      messages: [
-        {
-          role: "system",
-          content: "You are an expert RFP, grant, and government contracting assistant. Your job is to extract structured information from business documents with perfect accuracy. Do NOT invent or hallucinate data. If a field is not clearly present in the document, return null for it."
-        },
-        {
-          role: "user",
-          content: prompt
-        },
-        {
-          role: "user",
-          content: `Document text:\n\n${rawText.slice(0, 50000)}` // Limit to ~50k chars to stay under token limits
-        }
-      ],
+      messages,
       response_format: { type: "json_object" },
       temperature: 0.1, // Low temperature for consistency
     });
+    
+    const requestLatency = Date.now() - requestStartTime;
+    const rawResponse = response.choices[0].message.content || '{}';
+    
+    // Log OpenAI response phase
+    await logAIAuditEvent({
+      requestId,
+      userId,
+      functionName: 'extractFieldsWithAI',
+      route: '/api/extract-document',
+      phase: 'openai_response',
+      model: 'gpt-4o-mini',
+      raw_response: rawResponse,
+      latency_ms: requestLatency,
+      token_usage: response.usage ? {
+        prompt_tokens: response.usage.prompt_tokens,
+        completion_tokens: response.usage.completion_tokens,
+        total_tokens: response.usage.total_tokens,
+      } : undefined,
+    });
 
-    const extracted = JSON.parse(response.choices[0].message.content || '{}');
+    // Phase 3: Post-process response
+    const extracted = JSON.parse(rawResponse);
     console.log(`✅ AI extraction complete. Extracted ${Object.keys(extracted).filter(k => extracted[k] !== null).length} fields`);
     
     // Ensure keyword suggestions are arrays, not null
@@ -88,9 +137,45 @@ export async function extractFieldsWithAI(
       console.log('⚠️ AI did not suggest any negative keywords - this may indicate the document content was too generic or unclear');
     }
     
+    // Log post-process phase
+    await logAIAuditEvent({
+      requestId,
+      userId,
+      functionName: 'extractFieldsWithAI',
+      route: '/api/extract-document',
+      phase: 'post_process',
+      parsed_result: extracted,
+    });
+    
+    // Log final response phase
+    const totalLatency = Date.now() - startTime;
+    await logAIAuditEvent({
+      requestId,
+      userId,
+      functionName: 'extractFieldsWithAI',
+      route: '/api/extract-document',
+      phase: 'final_response',
+      parsed_result: extracted,
+      latency_ms: totalLatency,
+    });
+    
     return extracted;
   } catch (error: any) {
+    const totalLatency = Date.now() - startTime;
     console.error('❌ AI extraction error:', error.message);
+    
+    // Log error phase
+    await logAIAuditEvent({
+      requestId,
+      userId,
+      functionName: 'extractFieldsWithAI',
+      route: '/api/extract-document',
+      phase: 'error',
+      error: error.message,
+      errorMessage: error.toString(),
+      latency_ms: totalLatency,
+    });
+    
     throw new Error(`AI extraction failed: ${error.message}`);
   }
 }
@@ -265,8 +350,12 @@ This is a minority/small business certification. Extract:
  * Hybrid approach: Use rule-based extraction first, then refine with AI
  */
 export async function refineExtractedFieldsWithAI(
-  ruleBasedExtraction: any
+  ruleBasedExtraction: any,
+  userId?: string
 ): Promise<AIExtractedFields> {
+  const requestId = createAuditRequestId();
+  const startTime = Date.now();
+  
   console.log(`🤖 Refining rule-based extraction with AI...`);
   
   const prompt = `You are cleaning up structured fields extracted from a company's documents using rule-based parsing.
@@ -282,30 +371,99 @@ If a field looks empty, incomplete, or nonsensical, set it to null.
 
 Return JSON in the same format as input, but cleaned up.`;
 
+  const systemMessage = "You are a data cleaning and normalization assistant.";
+  const userContent = prompt + "\n\nExtracted Fields:\n" + JSON.stringify(ruleBasedExtraction, null, 2);
+  
+  const messages = [
+    {
+      role: "system" as const,
+      content: systemMessage
+    },
+    {
+      role: "user" as const,
+      content: userContent
+    }
+  ];
+  
+  // Log prompt build phase
+  await logAIAuditEvent({
+    requestId,
+    userId,
+    functionName: 'refineExtractedFieldsWithAI',
+    route: '/api/extract-document',
+    phase: 'prompt_build',
+    model: 'gpt-4o-mini',
+    messages,
+    input: userContent,
+    parameters: {
+      temperature: 0.1,
+      response_format: { type: "json_object" },
+    },
+  });
+
   try {
     const openaiClient = getOpenAIClient();
+    const requestStartTime = Date.now();
+    
     const response = await openaiClient.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are a data cleaning and normalization assistant."
-        },
-        {
-          role: "user",
-          content: prompt + "\n\nExtracted Fields:\n" + JSON.stringify(ruleBasedExtraction, null, 2)
-        }
-      ],
+      messages,
       response_format: { type: "json_object" },
       temperature: 0.1,
     });
+    
+    const requestLatency = Date.now() - requestStartTime;
+    const rawResponse = response.choices[0].message.content || '{}';
+    
+    // Log OpenAI response phase
+    await logAIAuditEvent({
+      requestId,
+      userId,
+      functionName: 'refineExtractedFieldsWithAI',
+      route: '/api/extract-document',
+      phase: 'openai_response',
+      model: 'gpt-4o-mini',
+      raw_response: rawResponse,
+      latency_ms: requestLatency,
+      token_usage: response.usage ? {
+        prompt_tokens: response.usage.prompt_tokens,
+        completion_tokens: response.usage.completion_tokens,
+        total_tokens: response.usage.total_tokens,
+      } : undefined,
+    });
 
-    const refined = JSON.parse(response.choices[0].message.content || '{}');
+    const refined = JSON.parse(rawResponse);
     console.log(`✅ AI refinement complete`);
+    
+    // Log final response phase
+    const totalLatency = Date.now() - startTime;
+    await logAIAuditEvent({
+      requestId,
+      userId,
+      functionName: 'refineExtractedFieldsWithAI',
+      route: '/api/extract-document',
+      phase: 'final_response',
+      parsed_result: refined,
+      latency_ms: totalLatency,
+    });
     
     return refined;
   } catch (error: any) {
+    const totalLatency = Date.now() - startTime;
     console.error('❌ AI refinement error:', error.message);
+    
+    // Log error phase
+    await logAIAuditEvent({
+      requestId,
+      userId,
+      functionName: 'refineExtractedFieldsWithAI',
+      route: '/api/extract-document',
+      phase: 'error',
+      error: error.message,
+      errorMessage: error.toString(),
+      latency_ms: totalLatency,
+    });
+    
     // Fall back to rule-based extraction if AI fails
     return ruleBasedExtraction;
   }

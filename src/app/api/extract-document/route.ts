@@ -185,7 +185,7 @@ async function processDocument(
 
     // Step 3: Extract fields using AI
     console.log(`🤖 Extracting fields with AI...`);
-    const extractedFields = await extractFieldsWithAI(rawText, documentType);
+    const extractedFields = await extractFieldsWithAI(rawText, documentType, userId);
     console.log(`✅ AI extraction complete. Extracted ${Object.keys(extractedFields).filter(k => extractedFields[k as keyof typeof extractedFields] !== null).length} fields`);
 
     // Step 4: Store profile fragment in Firestore (Admin SDK)
