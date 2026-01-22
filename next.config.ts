@@ -1,6 +1,19 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  webpack: (config, { isServer }) => {
+    // Exclude server-only modules from client bundle
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        net: false,
+        tls: false,
+        fs: false,
+        'firebase-admin': false,
+      };
+    }
+    return config;
+  },
   eslint: {
     // Ignore ESLint errors during builds for now (can be re-enabled later)
     ignoreDuringBuilds: true,
@@ -17,6 +30,17 @@ const nextConfig: NextConfig = {
       
       // Mark pdf-parse and its dependencies as external for server-side
       config.resolve.alias.canvas = false;
+    } else {
+      // Client-side: Exclude Node.js modules that can't run in browser
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        net: false,
+        tls: false,
+        fs: false,
+        dns: false,
+        child_process: false,
+        'firebase-admin': false,
+      };
     }
     return config;
   },

@@ -1,22 +1,51 @@
 // AI-powered final refinement layer for opportunity matching
 // Uses OpenAI to re-rank opportunities and provide detailed eligibility notes
+// NOTE: This module is server-side only (requires OpenAI API and Firestore Admin)
 
-import OpenAI from 'openai';
 import { Opportunity, UserProfile, MatchReasoning } from '@/types';
-import { logAIAuditEvent, createAuditRequestId } from '@/lib/aiAudit';
 
-// Lazy-load OpenAI client
-let openaiClient: OpenAI | null = null;
-function getOpenAIClient(): OpenAI {
+// Dynamic imports for server-side only modules (to avoid bundling in client)
+let OpenAIModule: any = null;
+let auditModule: any = null;
+
+// Lazy-load OpenAI client and audit functions (server-side only)
+let openaiClient: any = null;
+async function getOpenAIClient() {
+  if (typeof window !== 'undefined') {
+    throw new Error('getOpenAIClient can only be called server-side');
+  }
+  
   if (!openaiClient) {
+    if (!OpenAIModule) {
+      OpenAIModule = await import('openai');
+    }
     if (!process.env.OPENAI_API_KEY) {
       throw new Error('OPENAI_API_KEY environment variable is not set');
     }
+    const OpenAI = OpenAIModule.default;
     openaiClient = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
   }
   return openaiClient;
+}
+
+async function loadAuditFunctions() {
+  if (typeof window !== 'undefined') {
+    // Return no-op functions on client-side
+    return {
+      logAIAuditEvent: async () => {},
+      createAuditRequestId: () => 'client-side-id',
+    };
+  }
+  
+  if (!auditModule) {
+    auditModule = await import('@/lib/aiAudit');
+  }
+  return {
+    logAIAuditEvent: auditModule.logAIAuditEvent,
+    createAuditRequestId: auditModule.createAuditRequestId,
+  };
 }
 
 interface AIRefinedMatch {
@@ -44,7 +73,15 @@ export async function refineMatchesWithAI(
   userId?: string,
   maxOpportunities: number = 50 // Limit to top 50 to control costs
 ): Promise<Opportunity[]> {
-  const requestId = createAuditRequestId();
+  // Skip on client-side (this should never be called client-side, but safety check)
+  if (typeof window !== 'undefined') {
+    console.warn('⚠️ [AI Match Refinement] Skipping - client-side execution not supported');
+    return opportunities;
+  }
+  
+  // Load audit functions dynamically
+  const { createAuditRequestId: createId, logAIAuditEvent: logEvent } = await loadAuditFunctions();
+  const requestId = createId();
   const startTime = Date.now();
   
   // Only refine top opportunities to control API costs
@@ -149,7 +186,8 @@ IMPORTANT:
     ];
     
     // Log prompt build phase
-    await logAIAuditEvent({
+    const { logAIAuditEvent: logEvent } = await loadAuditFunctions();
+    await logEvent({
       requestId,
       userId,
       functionName: 'refineMatchesWithAI',
@@ -164,7 +202,7 @@ IMPORTANT:
       },
     });
     
-    const openaiClient = getOpenAIClient();
+    const openaiClient = await getOpenAIClient();
     const requestStartTime = Date.now();
     
     // Phase 2: Make OpenAI request
@@ -179,7 +217,7 @@ IMPORTANT:
     const rawResponse = response.choices[0].message.content || '{}';
     
     // Log OpenAI response phase
-    await logAIAuditEvent({
+    await logEvent({
       requestId,
       userId,
       functionName: 'refineMatchesWithAI',
@@ -256,7 +294,7 @@ IMPORTANT:
     });
     
     // Log post-process phase
-    await logAIAuditEvent({
+    await logEvent({
       requestId,
       userId,
       functionName: 'refineMatchesWithAI',
@@ -276,7 +314,7 @@ IMPORTANT:
     
     // Log final response phase
     const totalLatency = Date.now() - startTime;
-    await logAIAuditEvent({
+    await logEvent({
       requestId,
       userId,
       functionName: 'refineMatchesWithAI',
@@ -297,7 +335,8 @@ IMPORTANT:
     console.error('❌ [AI Match Refinement] Error:', error.message);
     
     // Log error phase
-    await logAIAuditEvent({
+    const { logAIAuditEvent: logEvent } = await loadAuditFunctions();
+    await logEvent({
       requestId,
       userId,
       functionName: 'refineMatchesWithAI',

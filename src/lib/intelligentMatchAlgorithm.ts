@@ -77,7 +77,9 @@ export async function intelligentMatchOpportunities(
   }).sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
   
   // Final step: AI Refinement Layer (if enabled and OpenAI key is available)
-  if (useAIRefinement && scored.length > 0 && process.env.OPENAI_API_KEY) {
+  // NOTE: AI refinement requires server-side execution (OpenAI API + Firestore Admin)
+  // Skip on client-side to avoid build errors
+  if (useAIRefinement && scored.length > 0 && typeof window === 'undefined' && process.env.OPENAI_API_KEY) {
     try {
       console.log('🤖 [intelligentMatchOpportunities] Applying AI refinement layer...');
       const { refineMatchesWithAI } = await import('@/lib/aiMatchRefinement');
@@ -91,7 +93,9 @@ export async function intelligentMatchOpportunities(
       return scored;
     }
   } else {
-    if (!useAIRefinement) {
+    if (typeof window !== 'undefined') {
+      console.log('[intelligentMatchOpportunities] Client-side execution - skipping AI refinement (server-side only)');
+    } else if (!useAIRefinement) {
       console.log('[intelligentMatchOpportunities] AI refinement disabled');
     } else if (!process.env.OPENAI_API_KEY) {
       console.log('[intelligentMatchOpportunities] OpenAI API key not set, skipping AI refinement');

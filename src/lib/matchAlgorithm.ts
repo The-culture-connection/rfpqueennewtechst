@@ -806,7 +806,9 @@ export async function matchOpportunities(
   console.log('[matchOpportunities] Top 5 results (before AI refinement):', top5);
   
   // STEP 5: AI Refinement Layer (Final step)
-  if (useAIRefinement && filtered.length > 0 && process.env.OPENAI_API_KEY) {
+  // NOTE: AI refinement requires server-side execution (OpenAI API + Firestore Admin)
+  // Skip on client-side to avoid build errors
+  if (useAIRefinement && filtered.length > 0 && typeof window === 'undefined' && process.env.OPENAI_API_KEY) {
     try {
       console.log('[matchOpportunities] Applying AI refinement layer...');
       const { refineMatchesWithAI } = await import('@/lib/aiMatchRefinement');
@@ -829,7 +831,9 @@ export async function matchOpportunities(
       return filtered;
     }
   } else {
-    if (!useAIRefinement) {
+    if (typeof window !== 'undefined') {
+      console.log('[matchOpportunities] Client-side execution - skipping AI refinement (server-side only)');
+    } else if (!useAIRefinement) {
       console.log('[matchOpportunities] AI refinement disabled');
     } else if (!process.env.OPENAI_API_KEY) {
       console.log('[matchOpportunities] OpenAI API key not set, skipping AI refinement');

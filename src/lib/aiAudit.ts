@@ -1,7 +1,7 @@
 // AI API Audit Logger
 // Logs all OpenAI API calls to Firestore for auditing
+// NOTE: This only works server-side (Firebase Admin SDK is Node.js only)
 
-import { getAdminFirestore } from '@/lib/firebaseAdmin';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface AIAuditEvent {
@@ -100,9 +100,16 @@ function removeUndefinedValues(obj: any): any {
 
 /**
  * Log AI API audit event to Firestore
+ * NOTE: Only works server-side. Client-side calls will be silently skipped.
  */
 export async function logAIAuditEvent(event: Partial<AIAuditEvent>): Promise<void> {
   try {
+    // Only run on server-side (Node.js environment)
+    if (typeof window !== 'undefined') {
+      // Client-side: skip audit logging (Firebase Admin SDK is server-only)
+      return;
+    }
+    
     // Check if audit is enabled (default: true in dev, can be controlled via env var)
     const auditEnabled = process.env.AI_AUDIT !== 'false';
     const sampleRate = parseFloat(process.env.AI_AUDIT_SAMPLE_RATE || '1.0');
@@ -116,7 +123,10 @@ export async function logAIAuditEvent(event: Partial<AIAuditEvent>): Promise<voi
       return;
     }
     
+    // Dynamically import Firebase Admin only on server-side
+    const { getAdminFirestore } = await import('@/lib/firebaseAdmin');
     const db = getAdminFirestore();
+    
     const requestId = event.requestId || uuidv4();
     const timestamp = event.timestamp || new Date().toISOString();
     
