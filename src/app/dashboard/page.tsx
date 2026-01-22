@@ -268,22 +268,20 @@ export default function DashboardPage() {
     if (!user) return;
     
     // Set loading state FIRST - this triggers LoadingMeter immediately
-    // React will re-render synchronously, showing LoadingMeter before async operations start
     setRerunLoading(true);
     
     try {
-      // PRESERVE USER PROGRESS before clearing cache
+      // PRESERVE USER PROGRESS before rerunning
       const savedProgress = {
         passedIds: [...passedIds],
         currentIndex: currentIndex,
         currentOpportunityId: opportunities[currentIndex]?.id,
       };
-      console.log('💾 Preserving progress before cache clear:', savedProgress);
+      console.log('💾 Preserving progress before rerun:', savedProgress);
       
-      // Save progress to Firestore before clearing cache
+      // Save progress to Firestore before rerunning
       if (db && user) {
         const progressRef = doc(db, 'profiles', user.uid, 'dashboard', 'progress');
-        // Ensure currentOpportunityId is never undefined
         const progressData: any = {
           passedIds: savedProgress.passedIds,
           lastUpdated: new Date().toISOString(),
@@ -292,7 +290,7 @@ export default function DashboardPage() {
           progressData.currentOpportunityId = savedProgress.currentOpportunityId;
         }
         await setDoc(progressRef, progressData);
-        console.log('✅ Progress saved to Firestore before cache clear');
+        console.log('✅ Progress saved to Firestore before rerun');
       }
       
       // Check if user has keywords - if not, redirect to profile
@@ -308,44 +306,28 @@ export default function DashboardPage() {
         }
       }
       
-      // Clear Firestore cache before rerunning
-      const { clearOpportunityCache } = await import('@/lib/opportunityCache');
-      await clearOpportunityCache(user.uid);
+      // Call new matching API
+      console.log('🔄 Calling new matching API...');
+      const response = await fetch('/api/run-matching', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.uid,
+          trigger: 'RERUN_BUTTON',
+          forceRun: true,
+        }),
+      });
       
-      // Clear localStorage cache as well
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.removeItem('cached_opportunities');
-          localStorage.removeItem('cached_opportunities_timestamp');
-          localStorage.removeItem('cached_opportunities_profile');
-          console.log('Cleared opportunity cache');
-        } catch (err) {
-          console.warn('Error clearing localStorage cache:', err);
-        }
-      }
-
-      const functions = getFirebaseFunctions();
-      const matchOpportunities = httpsCallable<{ pageSize?: number }, { results: any[], meta: any }>(functions, 'matchOpportunities');
-      
-      const result = await matchOpportunities({ pageSize: 500 });
-      console.log('Match opportunities result:', result.data);
-      
-      // Force reload opportunities after matching (clears cache)
-      setForceReload(true);
-      if (refetch) {
-        refetch();
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to run matching');
       }
       
-      // Restore progress after opportunities reload
-      // Reset progressLoaded so the useEffect will reload progress from Firestore
-      setProgressLoaded(false);
-      setPassedIds(savedProgress.passedIds);
-      console.log('✅ Progress preserved - will be restored when opportunities load');
+      const data = await response.json();
+      console.log(`✅ Matching complete: ${data.matchesCount} matches`);
       
-      // Reset force reload after a moment to allow the refetch to complete
-      setTimeout(() => {
-        setForceReload(false);
-      }, 2000);
+      // Reload the page to show new matches
+      window.location.reload();
     } catch (err: any) {
       console.error('Error rerunning matching:', err);
       
@@ -393,7 +375,28 @@ export default function DashboardPage() {
       console.log('📊 Tracked pass for preference learning');
     }
     
-    // Save passed opportunity to Firestore for AI refinement
+    // Save user signal to new system
+    if (user) {
+      try {
+        const response = await fetch('/api/user-signal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.uid,
+            opportunityId: id,
+            status: 'passed',
+          }),
+        });
+        
+        if (response.ok) {
+          console.log('✅ [Pass] Saved user signal to new system');
+        }
+      } catch (err) {
+        console.error('❌ [Pass] Error saving user signal:', err);
+      }
+    }
+    
+    // Save passed opportunity to Firestore for AI refinement (legacy)
     if (user && db && opportunity) {
       try {
         // Log authentication and path details
@@ -573,7 +576,7 @@ export default function DashboardPage() {
   };
 
   const handleSave = async (id: string) => {
-    if (!user || !db) return;
+    if (!user) return;
     
     // Check if already saved - prevent duplicate saves
     if (savedIds.includes(id)) {
@@ -587,31 +590,49 @@ export default function DashboardPage() {
       const opportunity = opportunities.find(opp => opp.id === id);
       if (!opportunity) return;
 
-      const trackerRef = doc(db, 'profiles', user.uid, 'tracker', 'saved');
-      const trackerDoc = await getDoc(trackerRef);
+      // Save user signal to new system
+      const signalResponse = await fetch('/api/user-signal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.uid,
+          opportunityId: id,
+          status: 'saved',
+        }),
+      });
+      
+      if (!signalResponse.ok) {
+        throw new Error('Failed to save user signal');
+      }
+      
+      // Also save to legacy tracker for backward compatibility
+      if (db) {
+        const trackerRef = doc(db, 'profiles', user.uid, 'tracker', 'saved');
+        const trackerDoc = await getDoc(trackerRef);
 
-      const savedOpportunity = {
-        ...opportunity,
-        savedAt: new Date().toISOString(),
-        status: 'saved'
-      };
+        const savedOpportunity = {
+          ...opportunity,
+          savedAt: new Date().toISOString(),
+          status: 'saved'
+        };
 
-      if (trackerDoc.exists()) {
-        const existing = trackerDoc.data().opportunities || [];
-        // Check if already exists
-        if (existing.some((opp: any) => opp.id === id)) {
-          console.warn('⚠️ [Save] Opportunity already in tracker, skipping:', id);
-          alert('This opportunity is already saved!');
-          setActionLoading(false);
-          return;
+        if (trackerDoc.exists()) {
+          const existing = trackerDoc.data().opportunities || [];
+          // Check if already exists
+          if (existing.some((opp: any) => opp.id === id)) {
+            console.warn('⚠️ [Save] Opportunity already in tracker, skipping:', id);
+            alert('This opportunity is already saved!');
+            setActionLoading(false);
+            return;
+          }
+          await setDoc(trackerRef, {
+            opportunities: [...existing, savedOpportunity]
+          }, { merge: true });
+        } else {
+          await setDoc(trackerRef, {
+            opportunities: [savedOpportunity]
+          });
         }
-        await setDoc(trackerRef, {
-          opportunities: [...existing, savedOpportunity]
-        }, { merge: true });
-      } else {
-        await setDoc(trackerRef, {
-          opportunities: [savedOpportunity]
-        });
       }
       
       // Add to savedIds to exclude from dashboard immediately
@@ -626,7 +647,9 @@ export default function DashboardPage() {
       );
       
       // Track save for preference learning
-      await trackUserAction(user.uid, opportunity, 'save', db);
+      if (db) {
+        await trackUserAction(user.uid, opportunity, 'save', db);
+      }
 
       // Show success and move to next
       alert('Opportunity saved!');
@@ -652,29 +675,45 @@ export default function DashboardPage() {
       window.open(opportunity.url, '_blank', 'noopener,noreferrer');
     }
     
-    if (!db) return;
-    
     setActionLoading(true);
     try {
-      const trackerRef = doc(db, 'profiles', user.uid, 'tracker', 'applied');
-      const trackerDoc = await getDoc(trackerRef);
+      // Save user signal to new system
+      const signalResponse = await fetch('/api/user-signal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.uid,
+          opportunityId: id,
+          status: 'applied',
+        }),
+      });
+      
+      if (!signalResponse.ok) {
+        throw new Error('Failed to save user signal');
+      }
+      
+      // Also save to legacy tracker for backward compatibility
+      if (db) {
+        const trackerRef = doc(db, 'profiles', user.uid, 'tracker', 'applied');
+        const trackerDoc = await getDoc(trackerRef);
 
-      if (trackerDoc.exists()) {
-        await setDoc(trackerRef, {
-          opportunities: arrayUnion({
-            ...opportunity,
-            appliedAt: new Date().toISOString(),
-            status: 'applied'
-          })
-        }, { merge: true });
-      } else {
-        await setDoc(trackerRef, {
-          opportunities: [{
-            ...opportunity,
-            appliedAt: new Date().toISOString(),
-            status: 'applied'
-          }]
-        });
+        if (trackerDoc.exists()) {
+          await setDoc(trackerRef, {
+            opportunities: arrayUnion({
+              ...opportunity,
+              appliedAt: new Date().toISOString(),
+              status: 'applied'
+            })
+          }, { merge: true });
+        } else {
+          await setDoc(trackerRef, {
+            opportunities: [{
+              ...opportunity,
+              appliedAt: new Date().toISOString(),
+              status: 'applied'
+            }]
+          });
+        }
       }
 
       // Track apply event
@@ -686,7 +725,9 @@ export default function DashboardPage() {
       );
       
       // Track apply for preference learning
-      await trackUserAction(user.uid, opportunity, 'apply', db);
+      if (db) {
+        await trackUserAction(user.uid, opportunity, 'apply', db);
+      }
 
       // Show success and move to next
       alert('Added to Applied tracker! Opening opportunity...');
