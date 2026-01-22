@@ -71,6 +71,34 @@ function sanitizeMessages(messages: Array<{ role: string; content: string }>): A
 }
 
 /**
+ * Remove undefined values from an object (Firestore doesn't allow undefined)
+ */
+function removeUndefinedValues(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return null;
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(item => removeUndefinedValues(item)).filter(item => item !== undefined);
+  }
+  
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key) && obj[key] !== undefined) {
+        const cleanedValue = removeUndefinedValues(obj[key]);
+        if (cleanedValue !== undefined) {
+          cleaned[key] = cleanedValue;
+        }
+      }
+    }
+    return cleaned;
+  }
+  
+  return obj;
+}
+
+/**
  * Log AI API audit event to Firestore
  */
 export async function logAIAuditEvent(event: Partial<AIAuditEvent>): Promise<void> {
@@ -93,28 +121,33 @@ export async function logAIAuditEvent(event: Partial<AIAuditEvent>): Promise<voi
     const timestamp = event.timestamp || new Date().toISOString();
     
     // Prepare audit document
-    const auditDoc: AIAuditEvent = {
+    const auditDoc: any = {
       requestId,
       timestamp,
-      userId: event.userId,
-      route: event.route,
       functionName: event.functionName,
       phase: event.phase || 'openai_request',
-      model: event.model,
-      messages: event.messages ? sanitizeMessages(event.messages) : undefined,
-      input: event.input ? sanitizeText(event.input) : undefined,
-      parameters: event.parameters,
-      tool_calls: event.tool_calls,
-      raw_response: event.raw_response ? sanitizeText(event.raw_response) : undefined,
-      parsed_result: event.parsed_result,
-      latency_ms: event.latency_ms,
-      token_usage: event.token_usage,
-      error: event.error,
-      errorMessage: event.errorMessage,
     };
     
+    // Only add fields that are defined
+    if (event.userId) auditDoc.userId = event.userId;
+    if (event.route) auditDoc.route = event.route;
+    if (event.model) auditDoc.model = event.model;
+    if (event.messages) auditDoc.messages = sanitizeMessages(event.messages);
+    if (event.input) auditDoc.input = sanitizeText(event.input);
+    if (event.parameters) auditDoc.parameters = event.parameters;
+    if (event.tool_calls) auditDoc.tool_calls = event.tool_calls;
+    if (event.raw_response) auditDoc.raw_response = sanitizeText(event.raw_response);
+    if (event.parsed_result) auditDoc.parsed_result = event.parsed_result;
+    if (event.latency_ms !== undefined) auditDoc.latency_ms = event.latency_ms;
+    if (event.token_usage) auditDoc.token_usage = event.token_usage;
+    if (event.error) auditDoc.error = event.error;
+    if (event.errorMessage) auditDoc.errorMessage = event.errorMessage;
+    
+    // Remove any remaining undefined values (safety check)
+    const cleanedDoc = removeUndefinedValues(auditDoc);
+    
     // Store in Firestore
-    await db.collection('Ai api audit').doc(requestId).set(auditDoc);
+    await db.collection('Ai api audit').doc(requestId).set(cleanedDoc);
     
     console.log(`📊 [AI Audit] Logged ${event.phase} event: ${requestId}`);
   } catch (error: any) {
