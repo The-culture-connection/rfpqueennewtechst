@@ -132,10 +132,10 @@ export default function ExecutiveSummaryStep({ onComplete, onSkip }: ExecutiveSu
   return (
     <div className="max-w-2xl mx-auto">
       <div className="text-center mb-8">
-        <h2 className="text-3xl font-primary text-[#ad3c94] mb-4">
+        <h2 className="text-3xl font-primary text-[#406da8] mb-4">
           Upload Your Executive Summary
         </h2>
-        <p className="text-lg font-secondary text-[#e7e8ef]/80">
+        <p className="text-lg font-secondary text-[#4a5568]/80">
           Help us understand your organization better by uploading your executive summary, 
           business plan, or company overview. We'll analyze it to provide more personalized 
           opportunity matches.
@@ -146,8 +146,8 @@ export default function ExecutiveSummaryStep({ onComplete, onSkip }: ExecutiveSu
         <div
           className={`border-2 border-dashed rounded-xl p-12 text-center transition-all ${
             dragActive
-              ? 'border-[#ad3c94] bg-[#ad3c94]/10'
-              : 'border-[#ad3c94]/50 hover:border-[#ad3c94]'
+              ? 'border-[#406da8] bg-[#406da8]/10'
+              : 'border-[#406da8]/50 hover:border-[#406da8]'
           }`}
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
@@ -155,7 +155,7 @@ export default function ExecutiveSummaryStep({ onComplete, onSkip }: ExecutiveSu
           onDrop={handleDrop}
         >
           <svg
-            className="w-16 h-16 mx-auto mb-4 text-[#ad3c94]"
+            className="w-16 h-16 mx-auto mb-4 text-[#406da8]"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -167,10 +167,10 @@ export default function ExecutiveSummaryStep({ onComplete, onSkip }: ExecutiveSu
               d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
             />
           </svg>
-          <p className="text-lg font-secondary text-[#e7e8ef] mb-2">
+          <p className="text-lg font-secondary text-[#4a5568] mb-2">
             Drag and drop your file here, or
           </p>
-          <label className="inline-block px-6 py-3 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary cursor-pointer">
+          <label className="inline-block px-6 py-3 bg-[#406da8] text-white rounded-lg hover:bg-[#406da8]/80 transition-all font-secondary cursor-pointer">
             Browse Files
             <input
               type="file"
@@ -179,16 +179,16 @@ export default function ExecutiveSummaryStep({ onComplete, onSkip }: ExecutiveSu
               onChange={handleFileChange}
             />
           </label>
-          <p className="text-sm font-secondary text-[#e7e8ef]/60 mt-4">
+          <p className="text-sm font-secondary text-[#4a5568]/60 mt-4">
             Accepted formats: PDF, Word, TXT (Max 10MB)
           </p>
         </div>
       ) : (
-        <div className="bg-[#1d1d1e] border border-[#ad3c94]/50 rounded-xl p-6">
+        <div className="bg-[#ffffff] border border-[#406da8]/50 rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <svg
-                className="w-10 h-10 text-[#ad3c94]"
+                className="w-10 h-10 text-[#406da8]"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -201,17 +201,17 @@ export default function ExecutiveSummaryStep({ onComplete, onSkip }: ExecutiveSu
                 />
               </svg>
               <div>
-                <p className="font-secondary text-[#e7e8ef] font-medium">
+                <p className="font-secondary text-[#4a5568] font-medium">
                   {file.name}
                 </p>
-                <p className="text-sm font-secondary text-[#e7e8ef]/60">
+                <p className="text-sm font-secondary text-[#4a5568]/60">
                   {(file.size / 1024 / 1024).toFixed(2)} MB
                 </p>
               </div>
             </div>
             <button
               onClick={() => setFile(null)}
-              className="text-[#e7e8ef]/60 hover:text-[#e7e8ef] transition-colors"
+              className="text-[#4a5568]/60 hover:text-[#4a5568] transition-colors"
               disabled={uploading}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -225,8 +225,8 @@ export default function ExecutiveSummaryStep({ onComplete, onSkip }: ExecutiveSu
             </button>
           </div>
 
-          <div className="bg-[#ad3c94]/10 border border-[#ad3c94]/30 rounded-lg p-4 mb-4">
-            <p className="text-sm font-secondary text-[#ad3c94]">
+          <div className="bg-[#406da8]/10 border border-[#406da8]/30 rounded-lg p-4 mb-4">
+            <p className="text-sm font-secondary text-[#406da8]">
               <span className="font-semibold">What we'll extract:</span> Your organization's 
               mission, services, capabilities, past performance, team experience, and key 
               keywords to improve opportunity matching.
@@ -236,7 +236,7 @@ export default function ExecutiveSummaryStep({ onComplete, onSkip }: ExecutiveSu
           <button
             onClick={handleUpload}
             disabled={uploading}
-            className="w-full px-6 py-3 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full px-6 py-3 bg-[#406da8] text-white rounded-lg hover:bg-[#406da8]/80 transition-all font-secondary disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {uploading ? (
               <span className="flex items-center justify-center gap-2">
@@ -279,37 +279,37 @@ export default function ExecutiveSummaryStep({ onComplete, onSkip }: ExecutiveSu
         <button
           onClick={onSkip}
           disabled={uploading}
-          className="text-[#e7e8ef]/80 hover:text-[#e7e8ef] font-secondary transition-colors disabled:opacity-50"
+          className="text-[#4a5568]/80 hover:text-[#4a5568] font-secondary transition-colors disabled:opacity-50"
         >
           Skip for now (you can upload later from your profile)
         </button>
       </div>
 
-      <div className="mt-8 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg p-6">
-        <h3 className="text-lg font-primary text-[#ad3c94] mb-3">
+      <div className="mt-8 bg-[#ffffff] border border-[#406da8]/30 rounded-lg p-6">
+        <h3 className="text-lg font-primary text-[#406da8] mb-3">
           Why Upload Your Executive Summary?
         </h3>
-        <ul className="space-y-2 font-secondary text-[#e7e8ef]/80">
+        <ul className="space-y-2 font-secondary text-[#4a5568]/80">
           <li className="flex items-start gap-2">
-            <svg className="w-5 h-5 text-[#ad3c94] mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-[#406da8] mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
             <span>Get more accurate opportunity matches based on your actual capabilities</span>
           </li>
           <li className="flex items-start gap-2">
-            <svg className="w-5 h-5 text-[#ad3c94] mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-[#406da8] mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
             <span>See personalized eligibility highlights for each opportunity</span>
           </li>
           <li className="flex items-start gap-2">
-            <svg className="w-5 h-5 text-[#ad3c94] mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-[#406da8] mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
             <span>Save time by focusing on opportunities you're truly qualified for</span>
           </li>
           <li className="flex items-start gap-2">
-            <svg className="w-5 h-5 text-[#ad3c94] mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-[#406da8] mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
             <span>Your document is securely stored and only used to improve your experience</span>

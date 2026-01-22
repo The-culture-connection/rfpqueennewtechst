@@ -28,22 +28,22 @@ const config: Config = {
           dark: "#2d4f7a",
         },
         dark: {
-          DEFAULT: "#000000", // Pure black
-          light: "#0a0a0a",
-          lighter: "#1a1a1a",
+          DEFAULT: "#f5f5f5", // Light gray for surface
+          light: "#fafafa",
+          lighter: "#ffffff",
         },
         surface: {
-          DEFAULT: "#0a0a0a",
-          light: "#1a1a1a",
-          lighter: "#2a2a2a",
+          DEFAULT: "#fafafa",
+          light: "#ffffff",
+          lighter: "#f5f5f5",
         },
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
         'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
-        'gradient-superlist': 'linear-gradient(135deg, #000000 0%, #0a0a0a 25%, #1a1a1a 50%, #0a0a0a 75%, #000000 100%)',
+        'gradient-superlist': 'linear-gradient(135deg, #ffffff 0%, #fafafa 25%, #f5f5f5 50%, #fafafa 75%, #ffffff 100%)',
         'gradient-pink-purple': 'linear-gradient(135deg, #406da8 0%, #5c8bc4 50%, #406da8 100%)',
-        'gradient-dark': 'linear-gradient(180deg, #000000 0%, #0a0a0a 100%)',
+        'gradient-dark': 'linear-gradient(180deg, #ffffff 0%, #fafafa 100%)',
       },
       fontFamily: {
         primary: ['var(--font-primary)', 'sans-serif'],

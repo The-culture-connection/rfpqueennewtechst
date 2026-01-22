@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --background: #000000;
-  --foreground: #ffffff;
+  --background: #ffffff;
+  --foreground: #000000;
   --primary: #406da8;
   --secondary: #406da8;
   --accent: #406da8;
@@ -12,8 +12,8 @@
 
 @layer base {
   body {
-    background: #000000;
-    color: #ffffff;
+    background: #ffffff;
+    color: #000000;
     font-family: var(--font-secondary), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

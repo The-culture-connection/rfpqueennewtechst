@@ -54,19 +54,19 @@ export function LoadingMeter({ loading }: { loading: boolean }) {
   const currentProgress = loadingStages[currentStage]?.progress || 90;
 
   return (
-    <div className="mb-6 p-6 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-xl">
+    <div className="mb-6 p-6 bg-white border border-[#406da8]/30 rounded-xl max-w-2xl mx-auto">
       <div className="mb-4">
         <div className="flex justify-between items-center mb-2">
-          <p className="font-primary text-[#ad3c94] text-sm font-semibold">
+          <p className="font-primary text-[#406da8] text-sm font-semibold">
             {currentMessage}
           </p>
-          <span className="font-secondary text-[#e7e8ef] text-xs">
+          <span className="font-secondary text-gray-700 text-xs">
             {currentProgress}%
           </span>
         </div>
-        <div className="w-full h-2 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-full overflow-hidden">
+        <div className="w-full h-2 bg-gray-100 border border-[#406da8]/30 rounded-full overflow-hidden">
           <div
-            className="h-full bg-[#ad3c94] transition-all duration-500 ease-out"
+            className="h-full bg-[#406da8] transition-all duration-500 ease-out"
             style={{ width: `${currentProgress}%` }}
           />
         </div>

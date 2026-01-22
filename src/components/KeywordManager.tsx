@@ -78,15 +78,15 @@ export default function KeywordManager({ user, userProfile, onUpdate }: KeywordM
   };
 
   return (
-    <div className="bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg p-4 mb-4">
-      <h3 className="text-lg font-primary text-[#ad3c94] mb-4">Keyword Preferences</h3>
+    <div className="bg-[#ffffff] border border-[#406da8]/30 rounded-lg p-4 mb-4">
+      <h3 className="text-lg font-primary text-[#406da8] mb-4">Keyword Preferences</h3>
       
       {/* Positive Keywords */}
       <div className="mb-4">
-        <label className="block text-sm font-secondary text-[#e7e8ef] mb-2">
+        <label className="block text-sm font-secondary text-[#1a202c] mb-2">
           Include More (Positive Keywords)
         </label>
-        <p className="text-xs text-[#e7e8ef]/60 mb-2">
+        <p className="text-xs text-[#1a202c]/60 mb-2">
           Add keywords to prioritize opportunities that include these terms
         </p>
         <div className="flex gap-2 mb-2">
@@ -96,12 +96,12 @@ export default function KeywordManager({ user, userProfile, onUpdate }: KeywordM
             onChange={(e) => setNewPositive(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && addPositiveKeyword()}
             placeholder="e.g., youth, STEM, community"
-            className="flex-1 px-3 py-2 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded text-[#e7e8ef] placeholder-[#e7e8ef]/40 focus:outline-none focus:border-[#ad3c94]"
+            className="flex-1 px-3 py-2 bg-[#ffffff] border border-[#406da8]/30 rounded text-[#1a202c] placeholder-[#1a202c]/40 focus:outline-none focus:border-[#406da8]"
           />
           <button
             onClick={addPositiveKeyword}
             disabled={!newPositive.trim() || saving}
-            className="px-4 py-2 bg-[#ad3c94] text-white rounded hover:bg-[#ad3c94]/80 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-[#406da8] text-white rounded hover:bg-[#406da8]/80 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Add
           </button>
@@ -110,12 +110,12 @@ export default function KeywordManager({ user, userProfile, onUpdate }: KeywordM
           {positiveKeywords.map((keyword) => (
             <span
               key={keyword}
-              className="inline-flex items-center gap-1 px-2 py-1 bg-[#ad3c94]/20 border border-[#ad3c94]/50 rounded text-sm text-[#ad3c94]"
+              className="inline-flex items-center gap-1 px-2 py-1 bg-[#406da8]/20 border border-[#406da8]/50 rounded text-sm text-[#406da8]"
             >
               {keyword}
               <button
                 onClick={() => removePositiveKeyword(keyword)}
-                className="hover:text-[#ad3c94]/80"
+                className="hover:text-[#406da8]/80"
                 title="Remove keyword"
               >
                 ×
@@ -127,10 +127,10 @@ export default function KeywordManager({ user, userProfile, onUpdate }: KeywordM
 
       {/* Negative Keywords */}
       <div>
-        <label className="block text-sm font-secondary text-[#e7e8ef] mb-2">
+        <label className="block text-sm font-secondary text-[#1a202c] mb-2">
           Exclude (Negative Keywords)
         </label>
-        <p className="text-xs text-[#e7e8ef]/60 mb-2">
+        <p className="text-xs text-[#1a202c]/60 mb-2">
           Add keywords to filter out opportunities that include these terms
         </p>
         <div className="flex gap-2 mb-2">
@@ -140,7 +140,7 @@ export default function KeywordManager({ user, userProfile, onUpdate }: KeywordM
             onChange={(e) => setNewNegative(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && addNegativeKeyword()}
             placeholder="e.g., postdoctoral, hardware, international"
-            className="flex-1 px-3 py-2 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded text-[#e7e8ef] placeholder-[#e7e8ef]/40 focus:outline-none focus:border-[#ad3c94]"
+            className="flex-1 px-3 py-2 bg-[#ffffff] border border-[#406da8]/30 rounded text-[#1a202c] placeholder-[#1a202c]/40 focus:outline-none focus:border-[#406da8]"
           />
           <button
             onClick={addNegativeKeyword}

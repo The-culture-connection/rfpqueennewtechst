@@ -217,7 +217,7 @@ export default function ExecutiveSummaryPage() {
             <div className="space-y-6">
               {businessProfile.companyOverview && (
                 <div>
-                  <h3 className="text-lg font-secondary font-bold text-[#ad3c94] mb-2">
+                  <h3 className="text-lg font-secondary font-bold text-[#406da8] mb-2">
                     Company Overview
                   </h3>
                   <p className="text-gray-300 font-secondary leading-relaxed">
@@ -228,7 +228,7 @@ export default function ExecutiveSummaryPage() {
 
               {businessProfile.mission && (
                 <div>
-                  <h3 className="text-lg font-secondary font-bold text-[#ad3c94] mb-2">
+                  <h3 className="text-lg font-secondary font-bold text-[#406da8] mb-2">
                     Mission
                   </h3>
                   <p className="text-gray-300 font-secondary leading-relaxed">
@@ -239,7 +239,7 @@ export default function ExecutiveSummaryPage() {
 
               {businessProfile.vision && (
                 <div>
-                  <h3 className="text-lg font-secondary font-bold text-[#ad3c94] mb-2">
+                  <h3 className="text-lg font-secondary font-bold text-[#406da8] mb-2">
                     Vision
                   </h3>
                   <p className="text-gray-300 font-secondary leading-relaxed">
@@ -250,7 +250,7 @@ export default function ExecutiveSummaryPage() {
 
               {businessProfile.servicesCapabilities && businessProfile.servicesCapabilities.length > 0 && (
                 <div>
-                  <h3 className="text-lg font-secondary font-bold text-[#ad3c94] mb-2">
+                  <h3 className="text-lg font-secondary font-bold text-[#406da8] mb-2">
                     Services & Capabilities
                   </h3>
                   <ul className="list-disc list-inside space-y-1">
@@ -265,14 +265,14 @@ export default function ExecutiveSummaryPage() {
 
               {businessProfile.certifications && businessProfile.certifications.length > 0 && (
                 <div>
-                  <h3 className="text-lg font-secondary font-bold text-[#ad3c94] mb-2">
+                  <h3 className="text-lg font-secondary font-bold text-[#406da8] mb-2">
                     Certifications
                   </h3>
                   <div className="flex flex-wrap gap-2">
                     {businessProfile.certifications.map((cert: string, idx: number) => (
                       <span
                         key={idx}
-                        className="px-3 py-1 bg-[#ad3c94]/20 text-[#d946e8] rounded-full text-sm font-secondary"
+                        className="px-3 py-1 bg-[#406da8]/20 text-[#5c8bc4] rounded-full text-sm font-secondary"
                       >
                         {cert}
                       </span>

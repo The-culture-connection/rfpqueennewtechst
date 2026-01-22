@@ -410,7 +410,7 @@ export default function ProfilePage() {
                           updated[index] = e.target.value;
                           setKeywords(updated);
                         }}
-                        className="flex-1 px-3 py-2 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg font-secondary text-[#e7e8ef] placeholder-[#e7e8ef]/50 focus:outline-none focus:ring-2 focus:ring-[#ad3c94] focus:border-transparent"
+                        className="flex-1 px-3 py-2 bg-[#ffffff] border border-[#406da8]/30 rounded-lg font-secondary text-[#1a202c] placeholder-[#1a202c]/50 focus:outline-none focus:ring-2 focus:ring-[#406da8] focus:border-transparent"
                         placeholder="Enter keyword..."
                       />
                       <button
@@ -424,13 +424,13 @@ export default function ProfilePage() {
                 </div>
                 <button
                   onClick={() => setKeywords([...keywords, ''])}
-                  className="w-full px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary"
+                  className="w-full px-4 py-2 bg-[#406da8] text-white rounded-lg hover:bg-[#406da8]/80 transition-all font-secondary"
                 >
                   + Add Keyword
                 </button>
                 {businessProfile.keywords && businessProfile.keywords.length > 0 && (
-                  <div className="mt-4 p-3 bg-[#1d1d1e] border border-[#ad3c94]/20 rounded-lg">
-                    <p className="text-sm font-secondary text-[#e7e8ef]/80 mb-2">
+                  <div className="mt-4 p-3 bg-[#ffffff] border border-[#406da8]/20 rounded-lg">
+                    <p className="text-sm font-secondary text-[#1a202c]/80 mb-2">
                       Keywords from documents (click to add):
                     </p>
                     <div className="flex flex-wrap gap-2">
@@ -444,7 +444,7 @@ export default function ProfilePage() {
                                 setKeywords([...keywords, keyword]);
                               }
                             }}
-                            className="px-3 py-1 bg-[#ad3c94]/20 text-[#ad3c94] rounded-full text-sm font-secondary hover:bg-[#ad3c94]/30 transition-all border border-[#ad3c94]/30"
+                            className="px-3 py-1 bg-[#406da8]/20 text-[#406da8] rounded-full text-sm font-secondary hover:bg-[#406da8]/30 transition-all border border-[#406da8]/30"
                           >
                             + {keyword}
                           </button>
@@ -457,12 +457,12 @@ export default function ProfilePage() {
               <div className="flex gap-2 flex-wrap">
                 {keywords.length > 0 ? (
                   keywords.map((keyword, index) => (
-                    <span key={index} className="px-3 py-1 bg-[#ad3c94]/20 text-[#ad3c94] rounded-full text-sm font-secondary border border-[#ad3c94]/30">
+                    <span key={index} className="px-3 py-1 bg-[#406da8]/20 text-[#406da8] rounded-full text-sm font-secondary border border-[#406da8]/30">
                       {keyword}
                     </span>
                   ))
                 ) : (
-                  <p className="font-secondary text-[#e7e8ef]/60 italic">No keywords added yet</p>
+                  <p className="font-secondary text-[#1a202c]/60 italic">No keywords added yet</p>
                 )}
               </div>
             )}
@@ -472,11 +472,11 @@ export default function ProfilePage() {
           {(keywordSuggestions.positive.length > 0 || keywordSuggestions.negative.length > 0) && (
             <div id="keyword-suggestions" className="card">
               {showKeywordMessage && (
-                <div className="mb-4 p-4 bg-[#ad3c94]/20 border-2 border-[#ad3c94] rounded-xl">
-                  <p className="text-lg font-primary text-[#ad3c94] font-bold mb-2">
+                <div className="mb-4 p-4 bg-[#406da8]/20 border-2 border-[#406da8] rounded-xl">
+                  <p className="text-lg font-primary text-[#406da8] font-bold mb-2">
                     ⚠️ Approve Keywords
                   </p>
-                  <p className="text-sm font-secondary text-[#e7e8ef]">
+                  <p className="text-sm font-secondary text-[#1a202c]">
                     Your documents have been processed. Please review and accept or decline the AI-suggested keywords below to improve your opportunity matching.
                   </p>
                 </div>
@@ -650,7 +650,7 @@ export default function ProfilePage() {
                           updated[index] = e.target.value;
                           setPositiveKeywords(updated);
                         }}
-                        className="flex-1 px-3 py-2 bg-[#1d1d1e] border border-green-500/30 rounded-lg font-secondary text-[#e7e8ef] focus:outline-none focus:ring-2 focus:ring-green-500/50"
+                        className="flex-1 px-3 py-2 bg-[#ffffff] border border-green-500/30 rounded-lg font-secondary text-[#1a202c] focus:outline-none focus:ring-2 focus:ring-green-500/50"
                         placeholder="Enter keyword..."
                       />
                       <button
@@ -719,7 +719,7 @@ export default function ProfilePage() {
                           updated[index] = e.target.value;
                           setNegativeKeywords(updated);
                         }}
-                        className="flex-1 px-3 py-2 bg-[#1d1d1e] border border-red-500/30 rounded-lg font-secondary text-[#e7e8ef] focus:outline-none focus:ring-2 focus:ring-red-500/50"
+                        className="flex-1 px-3 py-2 bg-[#ffffff] border border-red-500/30 rounded-lg font-secondary text-[#1a202c] focus:outline-none focus:ring-2 focus:ring-red-500/50"
                         placeholder="Enter keyword..."
                       />
                       <button
@@ -743,24 +743,24 @@ export default function ProfilePage() {
           </div>
 
           {/* AI-Extracted Business Profile Section */}
-          <div className="bg-[#1d1d1e] border border-white rounded-lg p-6">
+          <div className="bg-[#ffffff] border border-white rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-xl font-primary text-[#ad3c94] flex items-center gap-2">
+                <h2 className="text-xl font-primary text-[#406da8] flex items-center gap-2">
                   Application Generation
                 </h2>
-                <p className="text-sm font-secondary text-[#e7e8ef]/80 mt-1">
+                <p className="text-sm font-secondary text-[#1a202c]/80 mt-1">
                   Information automatically extracted from your uploaded documents. Edit as needed.
                 </p>
                 {businessProfile.lastUpdated && (
-                  <p className="text-xs font-secondary text-[#e7e8ef]/60 mt-1">
+                  <p className="text-xs font-secondary text-[#1a202c]/60 mt-1">
                     Last updated: {new Date(businessProfile.lastUpdated).toLocaleDateString()}
                   </p>
                 )}
               </div>
               <button
                 onClick={() => setActiveSection(activeSection === 'business' ? null : 'business')}
-                className="text-[#ad3c94] hover:text-[#ad3c94]/80 text-sm font-secondary"
+                className="text-[#406da8] hover:text-[#406da8]/80 text-sm font-secondary"
               >
                 {activeSection === 'business' ? 'Collapse' : 'Edit'}
               </button>
@@ -768,20 +768,20 @@ export default function ProfilePage() {
 
             {loadingBusiness ? (
               <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#ad3c94] mx-auto"></div>
-                <p className="font-secondary text-[#e7e8ef]/80 mt-2 text-sm">Loading business profile...</p>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#406da8] mx-auto"></div>
+                <p className="font-secondary text-[#1a202c]/80 mt-2 text-sm">Loading business profile...</p>
               </div>
             ) : activeSection === 'business' ? (
               <div className="space-y-6">
                 {/* Company Overview */}
                 <div>
-                  <label className="block text-sm font-medium font-secondary text-[#e7e8ef] mb-2">
+                  <label className="block text-sm font-medium font-secondary text-[#1a202c] mb-2">
                     Company Overview
                   </label>
                   <textarea
                     value={businessProfile.companyOverview}
                     onChange={(e) => updateTextField('companyOverview', e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg font-secondary text-[#e7e8ef] placeholder-[#e7e8ef]/50 focus:outline-none focus:ring-2 focus:ring-[#ad3c94] focus:border-transparent"
+                    className="w-full px-3 py-2 bg-[#ffffff] border border-[#406da8]/30 rounded-lg font-secondary text-[#1a202c] placeholder-[#1a202c]/50 focus:outline-none focus:ring-2 focus:ring-[#406da8] focus:border-transparent"
                     rows={3}
                     placeholder="Brief company description, what you do, who you serve..."
                   />
@@ -789,13 +789,13 @@ export default function ProfilePage() {
 
                 {/* Mission */}
                 <div>
-                  <label className="block text-sm font-medium font-secondary text-[#e7e8ef] mb-2">
+                  <label className="block text-sm font-medium font-secondary text-[#1a202c] mb-2">
                     Mission Statement
                   </label>
                   <textarea
                     value={businessProfile.mission}
                     onChange={(e) => updateTextField('mission', e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg font-secondary text-[#e7e8ef] placeholder-[#e7e8ef]/50 focus:outline-none focus:ring-2 focus:ring-[#ad3c94] focus:border-transparent"
+                    className="w-full px-3 py-2 bg-[#ffffff] border border-[#406da8]/30 rounded-lg font-secondary text-[#1a202c] placeholder-[#1a202c]/50 focus:outline-none focus:ring-2 focus:ring-[#406da8] focus:border-transparent"
                     rows={2}
                     placeholder="Your organization's mission..."
                   />
@@ -803,13 +803,13 @@ export default function ProfilePage() {
 
                 {/* Vision */}
                 <div>
-                  <label className="block text-sm font-medium font-secondary text-[#e7e8ef] mb-2">
+                  <label className="block text-sm font-medium font-secondary text-[#1a202c] mb-2">
                     Vision Statement
                   </label>
                   <textarea
                     value={businessProfile.vision}
                     onChange={(e) => updateTextField('vision', e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg font-secondary text-[#e7e8ef] placeholder-[#e7e8ef]/50 focus:outline-none focus:ring-2 focus:ring-[#ad3c94] focus:border-transparent"
+                    className="w-full px-3 py-2 bg-[#ffffff] border border-[#406da8]/30 rounded-lg font-secondary text-[#1a202c] placeholder-[#1a202c]/50 focus:outline-none focus:ring-2 focus:ring-[#406da8] focus:border-transparent"
                     rows={2}
                     placeholder="Your organization's vision..."
                   />
@@ -817,7 +817,7 @@ export default function ProfilePage() {
 
                 {/* Services & Capabilities */}
                 <div>
-                  <label className="block text-sm font-medium font-secondary text-[#e7e8ef] mb-2">
+                  <label className="block text-sm font-medium font-secondary text-[#1a202c] mb-2">
                     Services & Capabilities
                   </label>
                   {businessProfile.servicesCapabilities.map((service, index) => (
@@ -826,7 +826,7 @@ export default function ProfilePage() {
                         type="text"
                         value={service}
                         onChange={(e) => updateArrayItem('servicesCapabilities', index, e.target.value)}
-                        className="flex-1 px-3 py-2 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg font-secondary text-[#e7e8ef] placeholder-[#e7e8ef]/50 focus:outline-none focus:ring-2 focus:ring-[#ad3c94] focus:border-transparent"
+                        className="flex-1 px-3 py-2 bg-[#ffffff] border border-[#406da8]/30 rounded-lg font-secondary text-[#1a202c] placeholder-[#1a202c]/50 focus:outline-none focus:ring-2 focus:ring-[#406da8] focus:border-transparent"
                         placeholder="Service or capability..."
                       />
                       <button
@@ -839,7 +839,7 @@ export default function ProfilePage() {
                   ))}
                   <button
                     onClick={() => addArrayItem('servicesCapabilities')}
-                    className="mt-2 px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary text-sm"
+                    className="mt-2 px-4 py-2 bg-[#406da8] text-white rounded-lg hover:bg-[#406da8]/80 transition-all font-secondary text-sm"
                   >
                     + Add Service/Capability
                   </button>
@@ -847,7 +847,7 @@ export default function ProfilePage() {
 
                 {/* Past Performance */}
                 <div>
-                  <label className="block text-sm font-medium font-secondary text-[#e7e8ef] mb-2">
+                  <label className="block text-sm font-medium font-secondary text-[#1a202c] mb-2">
                     Past Performance & Projects
                   </label>
                   {businessProfile.pastPerformance.map((project, index) => (
@@ -855,7 +855,7 @@ export default function ProfilePage() {
                       <textarea
                         value={project}
                         onChange={(e) => updateArrayItem('pastPerformance', index, e.target.value)}
-                        className="flex-1 px-3 py-2 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg font-secondary text-[#e7e8ef] placeholder-[#e7e8ef]/50 focus:outline-none focus:ring-2 focus:ring-[#ad3c94] focus:border-transparent"
+                        className="flex-1 px-3 py-2 bg-[#ffffff] border border-[#406da8]/30 rounded-lg font-secondary text-[#1a202c] placeholder-[#1a202c]/50 focus:outline-none focus:ring-2 focus:ring-[#406da8] focus:border-transparent"
                         rows={2}
                         placeholder="Past project or performance example..."
                       />
@@ -869,7 +869,7 @@ export default function ProfilePage() {
                   ))}
                   <button
                     onClick={() => addArrayItem('pastPerformance')}
-                    className="mt-2 px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary text-sm"
+                    className="mt-2 px-4 py-2 bg-[#406da8] text-white rounded-lg hover:bg-[#406da8]/80 transition-all font-secondary text-sm"
                   >
                     + Add Past Performance
                   </button>
@@ -877,7 +877,7 @@ export default function ProfilePage() {
 
                 {/* Team Experience */}
                 <div>
-                  <label className="block text-sm font-medium font-secondary text-[#e7e8ef] mb-2">
+                  <label className="block text-sm font-medium font-secondary text-[#1a202c] mb-2">
                     Team Experience & Key Personnel
                   </label>
                   {businessProfile.teamExperience.map((member, index) => (
@@ -885,7 +885,7 @@ export default function ProfilePage() {
                       <textarea
                         value={member}
                         onChange={(e) => updateArrayItem('teamExperience', index, e.target.value)}
-                        className="flex-1 px-3 py-2 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg font-secondary text-[#e7e8ef] placeholder-[#e7e8ef]/50 focus:outline-none focus:ring-2 focus:ring-[#ad3c94] focus:border-transparent"
+                        className="flex-1 px-3 py-2 bg-[#ffffff] border border-[#406da8]/30 rounded-lg font-secondary text-[#1a202c] placeholder-[#1a202c]/50 focus:outline-none focus:ring-2 focus:ring-[#406da8] focus:border-transparent"
                         rows={2}
                         placeholder="Team member name, role, and relevant experience..."
                       />
@@ -899,7 +899,7 @@ export default function ProfilePage() {
                   ))}
                   <button
                     onClick={() => addArrayItem('teamExperience')}
-                    className="mt-2 px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary text-sm"
+                    className="mt-2 px-4 py-2 bg-[#406da8] text-white rounded-lg hover:bg-[#406da8]/80 transition-all font-secondary text-sm"
                   >
                     + Add Team Member
                   </button>
@@ -907,13 +907,13 @@ export default function ProfilePage() {
 
                 {/* Approach & Methodology */}
                 <div>
-                  <label className="block text-sm font-medium font-secondary text-[#e7e8ef] mb-2">
+                  <label className="block text-sm font-medium font-secondary text-[#1a202c] mb-2">
                     Approach & Methodology
                   </label>
                   <textarea
                     value={businessProfile.approachMethodology}
                     onChange={(e) => updateTextField('approachMethodology', e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg font-secondary text-[#e7e8ef] placeholder-[#e7e8ef]/50 focus:outline-none focus:ring-2 focus:ring-[#ad3c94] focus:border-transparent"
+                    className="w-full px-3 py-2 bg-[#ffffff] border border-[#406da8]/30 rounded-lg font-secondary text-[#1a202c] placeholder-[#1a202c]/50 focus:outline-none focus:ring-2 focus:ring-[#406da8] focus:border-transparent"
                     rows={3}
                     placeholder="How you approach projects and your methodology..."
                   />
@@ -921,13 +921,13 @@ export default function ProfilePage() {
 
                 {/* Pricing Model */}
                 <div>
-                  <label className="block text-sm font-medium font-secondary text-[#e7e8ef] mb-2">
+                  <label className="block text-sm font-medium font-secondary text-[#1a202c] mb-2">
                     Pricing Model
                   </label>
                   <textarea
                     value={businessProfile.pricingModel}
                     onChange={(e) => updateTextField('pricingModel', e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg font-secondary text-[#e7e8ef] placeholder-[#e7e8ef]/50 focus:outline-none focus:ring-2 focus:ring-[#ad3c94] focus:border-transparent"
+                    className="w-full px-3 py-2 bg-[#ffffff] border border-[#406da8]/30 rounded-lg font-secondary text-[#1a202c] placeholder-[#1a202c]/50 focus:outline-none focus:ring-2 focus:ring-[#406da8] focus:border-transparent"
                     rows={2}
                     placeholder="Your pricing strategy, rates, or fee structure..."
                   />
@@ -935,7 +935,7 @@ export default function ProfilePage() {
 
                 {/* Certifications */}
                 <div>
-                  <label className="block text-sm font-medium font-secondary text-[#e7e8ef] mb-2">
+                  <label className="block text-sm font-medium font-secondary text-[#1a202c] mb-2">
                     Certifications & Qualifications
                   </label>
                   {businessProfile.certifications.map((cert, index) => (
@@ -944,7 +944,7 @@ export default function ProfilePage() {
                         type="text"
                         value={cert}
                         onChange={(e) => updateArrayItem('certifications', index, e.target.value)}
-                        className="flex-1 px-3 py-2 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg font-secondary text-[#e7e8ef] placeholder-[#e7e8ef]/50 focus:outline-none focus:ring-2 focus:ring-[#ad3c94] focus:border-transparent"
+                        className="flex-1 px-3 py-2 bg-[#ffffff] border border-[#406da8]/30 rounded-lg font-secondary text-[#1a202c] placeholder-[#1a202c]/50 focus:outline-none focus:ring-2 focus:ring-[#406da8] focus:border-transparent"
                         placeholder="Certification (e.g., MBE, ISO 9001, etc.)..."
                       />
                       <button
@@ -957,7 +957,7 @@ export default function ProfilePage() {
                   ))}
                   <button
                     onClick={() => addArrayItem('certifications')}
-                    className="mt-2 px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary text-sm"
+                    className="mt-2 px-4 py-2 bg-[#406da8] text-white rounded-lg hover:bg-[#406da8]/80 transition-all font-secondary text-sm"
                   >
                     + Add Certification
                   </button>
@@ -965,7 +965,7 @@ export default function ProfilePage() {
 
                 {/* Problem Statement Examples */}
                 <div>
-                  <label className="block text-sm font-medium font-secondary text-[#e7e8ef] mb-2">
+                  <label className="block text-sm font-medium font-secondary text-[#1a202c] mb-2">
                     Problem Statement Examples (for grants/proposals)
                   </label>
                   {businessProfile.problemStatementExamples.map((problem, index) => (
@@ -973,7 +973,7 @@ export default function ProfilePage() {
                       <textarea
                         value={problem}
                         onChange={(e) => updateArrayItem('problemStatementExamples', index, e.target.value)}
-                        className="flex-1 px-3 py-2 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg font-secondary text-[#e7e8ef] placeholder-[#e7e8ef]/50 focus:outline-none focus:ring-2 focus:ring-[#ad3c94] focus:border-transparent"
+                        className="flex-1 px-3 py-2 bg-[#ffffff] border border-[#406da8]/30 rounded-lg font-secondary text-[#1a202c] placeholder-[#1a202c]/50 focus:outline-none focus:ring-2 focus:ring-[#406da8] focus:border-transparent"
                         rows={2}
                         placeholder="Problem statement example..."
                       />
@@ -987,7 +987,7 @@ export default function ProfilePage() {
                   ))}
                   <button
                     onClick={() => addArrayItem('problemStatementExamples')}
-                    className="mt-2 px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary text-sm"
+                    className="mt-2 px-4 py-2 bg-[#406da8] text-white rounded-lg hover:bg-[#406da8]/80 transition-all font-secondary text-sm"
                   >
                     + Add Problem Statement
                   </button>
@@ -995,7 +995,7 @@ export default function ProfilePage() {
 
                 {/* Proposed Solution Examples */}
                 <div>
-                  <label className="block text-sm font-medium font-secondary text-[#e7e8ef] mb-2">
+                  <label className="block text-sm font-medium font-secondary text-[#1a202c] mb-2">
                     Proposed Solution Examples (for grants/proposals)
                   </label>
                   {businessProfile.proposedSolutionExamples.map((solution, index) => (
@@ -1003,7 +1003,7 @@ export default function ProfilePage() {
                       <textarea
                         value={solution}
                         onChange={(e) => updateArrayItem('proposedSolutionExamples', index, e.target.value)}
-                        className="flex-1 px-3 py-2 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg font-secondary text-[#e7e8ef] placeholder-[#e7e8ef]/50 focus:outline-none focus:ring-2 focus:ring-[#ad3c94] focus:border-transparent"
+                        className="flex-1 px-3 py-2 bg-[#ffffff] border border-[#406da8]/30 rounded-lg font-secondary text-[#1a202c] placeholder-[#1a202c]/50 focus:outline-none focus:ring-2 focus:ring-[#406da8] focus:border-transparent"
                         rows={2}
                         placeholder="Solution example..."
                       />
@@ -1017,7 +1017,7 @@ export default function ProfilePage() {
                   ))}
                   <button
                     onClick={() => addArrayItem('proposedSolutionExamples')}
-                    className="mt-2 px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary text-sm"
+                    className="mt-2 px-4 py-2 bg-[#406da8] text-white rounded-lg hover:bg-[#406da8]/80 transition-all font-secondary text-sm"
                   >
                     + Add Solution Example
                   </button>
@@ -1025,7 +1025,7 @@ export default function ProfilePage() {
 
                 {/* Outcomes & Impact */}
                 <div>
-                  <label className="block text-sm font-medium font-secondary text-[#e7e8ef] mb-2">
+                  <label className="block text-sm font-medium font-secondary text-[#1a202c] mb-2">
                     Outcomes & Impact
                   </label>
                   {businessProfile.outcomesImpact.map((outcome, index) => (
@@ -1033,7 +1033,7 @@ export default function ProfilePage() {
                       <textarea
                         value={outcome}
                         onChange={(e) => updateArrayItem('outcomesImpact', index, e.target.value)}
-                        className="flex-1 px-3 py-2 bg-[#1d1d1e] border border-[#ad3c94]/30 rounded-lg font-secondary text-[#e7e8ef] placeholder-[#e7e8ef]/50 focus:outline-none focus:ring-2 focus:ring-[#ad3c94] focus:border-transparent"
+                        className="flex-1 px-3 py-2 bg-[#ffffff] border border-[#406da8]/30 rounded-lg font-secondary text-[#1a202c] placeholder-[#1a202c]/50 focus:outline-none focus:ring-2 focus:ring-[#406da8] focus:border-transparent"
                         rows={2}
                         placeholder="Outcome, impact metric, or success story..."
                       />
@@ -1047,7 +1047,7 @@ export default function ProfilePage() {
                   ))}
                   <button
                     onClick={() => addArrayItem('outcomesImpact')}
-                    className="mt-2 px-4 py-2 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 transition-all font-secondary text-sm"
+                    className="mt-2 px-4 py-2 bg-[#406da8] text-white rounded-lg hover:bg-[#406da8]/80 transition-all font-secondary text-sm"
                   >
                     + Add Outcome/Impact
                   </button>
@@ -1057,20 +1057,20 @@ export default function ProfilePage() {
               <div className="space-y-3 text-sm">
                 {businessProfile.companyOverview && (
                   <div>
-                    <p className="font-medium font-secondary text-[#e7e8ef]">Company Overview:</p>
-                    <p className="font-secondary text-[#e7e8ef]/80">{businessProfile.companyOverview}</p>
+                    <p className="font-medium font-secondary text-[#1a202c]">Company Overview:</p>
+                    <p className="font-secondary text-[#1a202c]/80">{businessProfile.companyOverview}</p>
                   </div>
                 )}
                 {businessProfile.mission && (
                   <div>
-                    <p className="font-medium font-secondary text-[#e7e8ef]">Mission:</p>
-                    <p className="font-secondary text-[#e7e8ef]/80">{businessProfile.mission}</p>
+                    <p className="font-medium font-secondary text-[#1a202c]">Mission:</p>
+                    <p className="font-secondary text-[#1a202c]/80">{businessProfile.mission}</p>
                   </div>
                 )}
                 {businessProfile.servicesCapabilities.length > 0 && (
                   <div>
-                    <p className="font-medium font-secondary text-[#e7e8ef]">Services & Capabilities:</p>
-                    <ul className="list-disc list-inside font-secondary text-[#e7e8ef]/80">
+                    <p className="font-medium font-secondary text-[#1a202c]">Services & Capabilities:</p>
+                    <ul className="list-disc list-inside font-secondary text-[#1a202c]/80">
                       {businessProfile.servicesCapabilities.slice(0, 3).map((service, i) => (
                         <li key={i}>{service}</li>
                       ))}
@@ -1082,10 +1082,10 @@ export default function ProfilePage() {
                 )}
                 {businessProfile.certifications.length > 0 && (
                   <div>
-                    <p className="font-medium font-secondary text-[#e7e8ef]">Certifications:</p>
+                    <p className="font-medium font-secondary text-[#1a202c]">Certifications:</p>
                     <div className="flex gap-2 flex-wrap">
                       {businessProfile.certifications.map((cert, i) => (
-                        <span key={i} className="px-2 py-1 bg-[#ad3c94]/20 text-[#ad3c94] rounded-full text-xs font-secondary border border-[#ad3c94]/30">
+                        <span key={i} className="px-2 py-1 bg-[#406da8]/20 text-[#406da8] rounded-full text-xs font-secondary border border-[#406da8]/30">
                           {cert}
                         </span>
                       ))}
@@ -1093,7 +1093,7 @@ export default function ProfilePage() {
                   </div>
                 )}
                 {!businessProfile.companyOverview && !businessProfile.mission && businessProfile.servicesCapabilities.length === 0 && (
-                  <p className="font-secondary text-[#e7e8ef]/60 italic">No business information extracted yet. Upload documents to automatically populate these fields.</p>
+                  <p className="font-secondary text-[#1a202c]/60 italic">No business information extracted yet. Upload documents to automatically populate these fields.</p>
                 )}
               </div>
             )}
@@ -1103,14 +1103,14 @@ export default function ProfilePage() {
           <div className="flex justify-end gap-3">
             <button
               onClick={() => router.push('/dashboard')}
-              className="px-6 py-3 bg-[#1d1d1e] text-[#e7e8ef] rounded-lg hover:bg-[#1d1d1e]/80 transition-all border border-[#ad3c94]/30 font-secondary"
+              className="px-6 py-3 bg-[#ffffff] text-[#1a202c] rounded-lg hover:bg-[#ffffff]/80 transition-all border border-[#406da8]/30 font-secondary"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
               disabled={loading}
-              className="px-6 py-3 bg-[#ad3c94] text-white rounded-lg hover:bg-[#ad3c94]/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-secondary"
+              className="px-6 py-3 bg-[#406da8] text-white rounded-lg hover:bg-[#406da8]/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-secondary"
             >
               {loading ? 'Saving...' : 'Save Changes'}
             </button>

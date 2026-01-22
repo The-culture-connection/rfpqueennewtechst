@@ -58,7 +58,7 @@ export function FeedbackForm({ questions, page, showInstructions = false }: Feed
 
   if (showInstructions && !showForm) {
     return (
-      <div className="mb-6 p-6 bg-[#0a0a0a] border border-[#406da8]/30 rounded-xl">
+      <div className="mb-6 p-6 bg-[#ffffff] border border-[#406da8]/30 rounded-xl">
         <div className="flex items-start justify-between mb-4">
           <h3 className="text-xl font-primary text-[#406da8] mb-2">Testing Instructions</h3>
           <button
@@ -68,7 +68,7 @@ export function FeedbackForm({ questions, page, showInstructions = false }: Feed
             Skip →
           </button>
         </div>
-        <div className="space-y-3 font-secondary text-[#e7e8ef]/90 text-sm">
+        <div className="space-y-3 font-secondary text-[#1a202c]/90 text-sm">
           <p className="font-semibold text-[#406da8]">Thanks for testing with us!</p>
           <p>Test the app as if it is in your regular workflow. Here are the features available:</p>
           <ul className="list-disc list-inside space-y-1 ml-2">
@@ -107,18 +107,18 @@ export function FeedbackForm({ questions, page, showInstructions = false }: Feed
   }
 
   return (
-    <div className="mb-6 p-6 bg-[#0a0a0a] border border-[#406da8]/30 rounded-xl">
+    <div className="mb-6 p-6 bg-[#ffffff] border border-[#406da8]/30 rounded-xl">
       <h3 className="text-lg font-primary text-[#406da8] mb-4">Feedback</h3>
       <form onSubmit={handleSubmit} className="space-y-4">
         {questions.length > 0 && questions.map((question, index) => (
           <div key={index}>
-            <label className="block text-sm font-medium font-secondary text-[#e7e8ef] mb-2">
+            <label className="block text-sm font-medium font-secondary text-[#1a202c] mb-2">
               {question}
             </label>
             <textarea
               value={answers[`q${index}`] || ''}
               onChange={(e) => setAnswers({ ...answers, [`q${index}`]: e.target.value })}
-              className="w-full px-4 py-2 bg-[#0a0a0a] border border-[#406da8]/30 rounded-lg font-secondary text-[#e7e8ef] placeholder-[#e7e8ef]/50 focus:outline-none focus:ring-2 focus:ring-[#406da8] focus:border-transparent"
+              className="w-full px-4 py-2 bg-[#ffffff] border border-[#406da8]/30 rounded-lg font-secondary text-[#1a202c] placeholder-[#1a202c]/50 focus:outline-none focus:ring-2 focus:ring-[#406da8] focus:border-transparent"
               placeholder="Your answer..."
               rows={3}
             />
@@ -126,13 +126,13 @@ export function FeedbackForm({ questions, page, showInstructions = false }: Feed
         ))}
         
         <div>
-          <label className="block text-sm font-medium font-secondary text-[#e7e8ef] mb-2">
+          <label className="block text-sm font-medium font-secondary text-[#1a202c] mb-2">
             Additional Feedback (Optional)
           </label>
           <textarea
             value={boardFeedback}
             onChange={(e) => setBoardFeedback(e.target.value)}
-            className="w-full px-4 py-2 bg-[#0a0a0a] border border-[#406da8]/30 rounded-lg font-secondary text-[#e7e8ef] placeholder-[#e7e8ef]/50 focus:outline-none focus:ring-2 focus:ring-[#406da8] focus:border-transparent"
+            className="w-full px-4 py-2 bg-[#ffffff] border border-[#406da8]/30 rounded-lg font-secondary text-[#1a202c] placeholder-[#1a202c]/50 focus:outline-none focus:ring-2 focus:ring-[#406da8] focus:border-transparent"
             placeholder="Any other thoughts or suggestions..."
             rows={3}
           />
@@ -141,7 +141,7 @@ export function FeedbackForm({ questions, page, showInstructions = false }: Feed
         <button
           type="submit"
           disabled={submitting}
-          className="w-full bg-[#406da8] text-white py-2 px-4 rounded-lg hover:bg-[#406da8]/80 focus:outline-none focus:ring-2 focus:ring-[#406da8] focus:ring-offset-2 focus:ring-offset-[#0a0a0a] disabled:opacity-50 disabled:cursor-not-allowed transition-all font-secondary"
+          className="w-full bg-[#406da8] text-white py-2 px-4 rounded-lg hover:bg-[#406da8]/80 focus:outline-none focus:ring-2 focus:ring-[#406da8] focus:ring-offset-2 focus:ring-offset-[#ffffff] disabled:opacity-50 disabled:cursor-not-allowed transition-all font-secondary"
         >
           {submitting ? 'Submitting...' : 'Submit Feedback'}
         </button>
