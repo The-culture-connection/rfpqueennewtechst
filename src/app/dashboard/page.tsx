@@ -210,7 +210,7 @@ export default function DashboardPage() {
 
   if (loading || !userProfile) {
     return (
-      <div className="min-h-screen gradient-bg flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#f6f6f6' }}>
         <div className="text-center max-w-md w-full px-4">
           <LoadingMeter loading={true} />
         </div>
@@ -220,7 +220,7 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen gradient-bg flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#f6f6f6' }}>
         <div className="text-center max-w-md">
           <p className="font-secondary text-red-400 mb-4">{error}</p>
           <button
@@ -702,7 +702,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen gradient-bg">
+    <div className="min-h-screen" style={{ backgroundColor: '#f6f6f6' }}>
       {/* Header */}
       <div className="bg-surface/50 backdrop-blur-sm border-b border-primary/20 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
