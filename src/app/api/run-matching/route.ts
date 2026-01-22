@@ -252,8 +252,8 @@ export async function POST(request: Request) {
         functionName: 'runMatching',
         route: '/api/run-matching',
         phase: 'error',
-        error: error.message,
-        errorMessage: error.toString(),
+        error: error?.message || 'Unknown error',
+        errorMessage: error?.toString() || String(error),
         latency_ms: latency,
         algorithmVersion: ALGORITHM_VERSION,
       });

@@ -78,8 +78,8 @@ export async function POST(request: Request) {
       functionName: 'saveUserSignal',
       route: '/api/user-signal',
       phase: 'error',
-      error: error.message,
-      errorMessage: error.toString(),
+      error: error?.message || 'Unknown error',
+      errorMessage: error?.toString() || String(error),
       latency_ms: latency,
     });
     

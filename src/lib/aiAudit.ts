@@ -30,6 +30,7 @@ export interface AIAuditEvent {
   };
   error?: string;
   errorMessage?: string;
+  algorithmVersion?: string;
 }
 
 /**
@@ -138,20 +139,21 @@ export async function logAIAuditEvent(event: Partial<AIAuditEvent>): Promise<voi
       phase: event.phase || 'openai_request',
     };
     
-    // Only add fields that are defined
-    if (event.userId) auditDoc.userId = event.userId;
-    if (event.route) auditDoc.route = event.route;
-    if (event.model) auditDoc.model = event.model;
-    if (event.messages) auditDoc.messages = sanitizeMessages(event.messages);
-    if (event.input) auditDoc.input = sanitizeText(event.input);
-    if (event.parameters) auditDoc.parameters = event.parameters;
-    if (event.tool_calls) auditDoc.tool_calls = event.tool_calls;
-    if (event.raw_response) auditDoc.raw_response = sanitizeText(event.raw_response);
-    if (event.parsed_result) auditDoc.parsed_result = event.parsed_result;
-    if (event.latency_ms !== undefined) auditDoc.latency_ms = event.latency_ms;
-    if (event.token_usage) auditDoc.token_usage = event.token_usage;
-    if (event.error) auditDoc.error = event.error;
-    if (event.errorMessage) auditDoc.errorMessage = event.errorMessage;
+    // Only add fields that are defined and not undefined
+    if (event.userId !== undefined && event.userId !== null) auditDoc.userId = event.userId;
+    if (event.route !== undefined && event.route !== null) auditDoc.route = event.route;
+    if (event.model !== undefined && event.model !== null) auditDoc.model = event.model;
+    if (event.messages !== undefined && event.messages !== null) auditDoc.messages = sanitizeMessages(event.messages);
+    if (event.input !== undefined && event.input !== null) auditDoc.input = sanitizeText(event.input);
+    if (event.parameters !== undefined && event.parameters !== null) auditDoc.parameters = event.parameters;
+    if (event.tool_calls !== undefined && event.tool_calls !== null) auditDoc.tool_calls = event.tool_calls;
+    if (event.raw_response !== undefined && event.raw_response !== null) auditDoc.raw_response = sanitizeText(event.raw_response);
+    if (event.parsed_result !== undefined && event.parsed_result !== null) auditDoc.parsed_result = event.parsed_result;
+    if (event.latency_ms !== undefined && event.latency_ms !== null) auditDoc.latency_ms = event.latency_ms;
+    if (event.token_usage !== undefined && event.token_usage !== null) auditDoc.token_usage = event.token_usage;
+    if (event.error !== undefined && event.error !== null && event.error !== '') auditDoc.error = String(event.error);
+    if (event.errorMessage !== undefined && event.errorMessage !== null && event.errorMessage !== '') auditDoc.errorMessage = String(event.errorMessage);
+    if (event.algorithmVersion !== undefined && event.algorithmVersion !== null) auditDoc.algorithmVersion = event.algorithmVersion;
     
     // Remove any remaining undefined values (safety check)
     const cleanedDoc = removeUndefinedValues(auditDoc);
