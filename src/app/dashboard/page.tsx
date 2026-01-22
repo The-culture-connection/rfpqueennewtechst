@@ -868,7 +868,7 @@ export default function DashboardPage() {
                           : 'border-primary/50 group-hover:border-primary'
                       }`}>
                         {hasExecutiveSummary ? (
-                          <svg className="w-3 h-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-3 h-3 text-green-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                           </svg>
                         ) : (
@@ -879,7 +879,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex-1">
                         <p className={`text-sm font-secondary font-medium ${
-                          hasExecutiveSummary ? 'text-green-400' : 'text-foreground'
+                          hasExecutiveSummary ? 'text-green-800' : 'text-foreground'
                         }`}>
                           Upload Executive Summary
                         </p>

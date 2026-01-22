@@ -194,10 +194,10 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
         {/* Strengths */}
         {strengths.length > 0 && (
           <div className="mb-3 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-            <p className="text-xs font-bold text-green-400 mb-2">Your Competitive Advantages</p>
+            <p className="text-xs font-bold text-green-800 mb-2">Your Competitive Advantages</p>
             <div className="space-y-1">
               {strengths.map((strength, idx) => (
-                <p key={idx} className="text-xs font-secondary text-green-300">
+                <p key={idx} className="text-xs font-secondary text-green-700">
                   ✓ {strength}
                 </p>
               ))}
