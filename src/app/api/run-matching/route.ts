@@ -194,11 +194,32 @@ export async function POST(request: Request) {
     
     console.log(`[run-matching] Match run ${runId} completed in ${latency}ms`);
     
+    // Convert TopMatch back to Opportunity format for frontend
+    const matchedOpportunities = finalMatches.slice(0, 50).map(match => {
+      const opp = allOpportunities.find(o => o.id === match.opportunityId);
+      if (!opp) return null;
+      
+      return {
+        ...opp,
+        winRate: match.scores.rankingScore,
+        matchScore: match.scores.rankingScore,
+        eligibilityNotes: match.notes.eligibilityNotes,
+        matchReasoning: {
+          summary: match.notes.matchSummary,
+          strengths: [],
+          concerns: [],
+          specificReasons: match.eligibilityGate.reasons,
+          eligibilityHighlights: match.notes.eligibilityNotes,
+          confidenceScore: match.confidenceScore,
+        },
+      };
+    }).filter(Boolean) as Opportunity[];
+    
     return NextResponse.json({
       success: true,
       runId,
       matchesCount: finalMatches.length,
-      topMatches: finalMatches.slice(0, 50), // Return top 50
+      opportunities: matchedOpportunities, // Return as opportunities for frontend compatibility
     });
   } catch (error: any) {
     const latency = Date.now() - startTime;
