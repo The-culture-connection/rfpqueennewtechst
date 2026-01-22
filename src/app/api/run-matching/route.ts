@@ -253,16 +253,6 @@ export async function POST(request: Request) {
       algorithmVersion: ALGORITHM_VERSION,
     });
     
-    // Log run statistics to console for debugging
-    console.log(`[run-matching] Run Statistics:`, {
-      totalConsidered: runStats?.totalConsidered || 0,
-      eligible: runStats?.eligibleCount || 0,
-      unknown: runStats?.unknownCount || 0,
-      ineligible: runStats?.ineligibleCount || 0,
-      missingFields: runStats?.missingFieldCounts,
-      topBlockers: runStats?.topBlockers?.slice(0, 5),
-    });
-    
     console.log(`\n✅ [COMPLETE] Run ${runId} completed in ${latency}ms`);
     console.log(`📊 [STATS] Eligible: ${runStats?.eligibleCount || 0}, Unknown: ${runStats?.unknownCount || 0}, Ineligible: ${runStats?.ineligibleCount || 0}`);
     if (runStats?.missingFieldCounts) {
@@ -274,7 +264,20 @@ export async function POST(request: Request) {
     if (runStats?.topBlockers && runStats.topBlockers.length > 0) {
       console.log(`   🔴 Top blockers: ${runStats.topBlockers.slice(0, 3).map(b => `${b.blocker}(${b.count})`).join(', ')}`);
     }
-    console.log(``);
+    
+    // Log structured results summary
+    console.log(`\n📋 [RESULTS SUMMARY]`);
+    console.log(`   Eligible matches (Top ${finalMatches.length}):`);
+    finalMatches.slice(0, 5).forEach((match, idx) => {
+      console.log(`     ${idx + 1}. ${match.opportunityId.substring(0, 30)}... | Score: ${match.scores.rankingScore.toFixed(1)} | Status: ${match.eligibility.status} | Blockers: ${match.eligibility.blockers.length}`);
+    });
+    if (unknownMatches && unknownMatches.length > 0) {
+      console.log(`   Unknown eligibility matches (Top ${Math.min(5, unknownMatches.length)}):`);
+      unknownMatches.slice(0, 5).forEach((match, idx) => {
+        console.log(`     ${idx + 1}. ${match.opportunityId.substring(0, 30)}... | Score: ${match.scores.rankingScore.toFixed(1)} | Blockers: ${match.eligibility.blockers.join(', ')}`);
+      });
+    }
+    console.log(`\n💡 View full results: GET /api/debug-matches?userId=${userId}\n`);
     
     // Convert TopMatch back to Opportunity format for frontend (eligible only)
     const matchedOpportunities = finalMatches.slice(0, 50).map(match => {

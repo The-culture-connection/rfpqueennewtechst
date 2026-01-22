@@ -117,7 +117,8 @@ export async function saveMatchRun(
     ...(unknownMatches || []),
   ];
   
-  const run: MatchRun = {
+  // Build run object, only including error if it exists
+  const run: any = {
     runId,
     createdAt: new Date().toISOString(),
     trigger,
@@ -126,9 +127,13 @@ export async function saveMatchRun(
     algorithmVersion: '2.0.0',
     topMatches: allMatches, // All matches for audit
     status,
-    error,
     runStats, // Include run statistics
   };
+  
+  // Only include error field if it's actually set
+  if (error !== undefined && error !== null && error !== '') {
+    run.error = error;
+  }
   
   // Save to runs collection
   await db

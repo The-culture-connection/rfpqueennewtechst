@@ -324,10 +324,7 @@ export async function fetchGoogleCustomSearchOpportunities(params: {
     });
 
     const url = `https://www.googleapis.com/customsearch/v1?${queryParams}`;
-    console.log('[Google Search] Request URL:', url.replace(googleCredentials, 'API_KEY_HIDDEN'));
-    console.log('[Google Search] API Key:', googleCredentials ? 'SET' : 'MISSING');
-    console.log('[Google Search] Search Engine ID:', searchEngineId ? 'SET' : 'MISSING');
-    console.log('[Google Search] Search query:', searchQuery);
+    // Silenced verbose Google Search logs
 
     const response = await fetch(url, {
       method: 'GET',
@@ -336,18 +333,13 @@ export async function fetchGoogleCustomSearchOpportunities(params: {
       },
     });
 
-    console.log('[Google Search] Response status:', response.status, response.statusText);
-
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[Google Search] Error response:', errorText);
+      console.error('[Google Search] Error:', response.status, errorText);
       throw new Error(`Google Custom Search API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const data = await response.json();
-    console.log('[Google Search] Response data keys:', Object.keys(data));
-    console.log('[Google Search] Has items:', !!data.items);
-    console.log('[Google Search] Items count:', data.items?.length || 0);
     
     const opportunities: Opportunity[] = [];
 
@@ -417,24 +409,20 @@ export async function fetchAllOpportunities(params: {
 
   try {
     // Fetch from Grants.gov
-    console.log('Fetching from Grants.gov...');
     const grantsGovOpps = await fetchGrantsGovOpportunities({
       keyword: params.keyword || '',
       rows: Math.min(limit, 100),
     });
     allOpportunities.push(...grantsGovOpps);
     sourceCounts.grantsGov = grantsGovOpps.length;
-    console.log(`Fetched ${grantsGovOpps.length} opportunities from Grants.gov`);
 
     // Fetch from Simpler.Grants.gov
-    console.log('Fetching from Simpler.Grants.gov...');
     const simplerGrantsOpps = await fetchSimplerGrantsOpportunities({
       query: params.keyword || '',
       page_size: Math.min(limit, 100),
     });
     allOpportunities.push(...simplerGrantsOpps);
     sourceCounts.simplerGrants = simplerGrantsOpps.length;
-    console.log(`Fetched ${simplerGrantsOpps.length} opportunities from Simpler.Grants.gov`);
 
     // SAM.gov is now loaded from Firebase Storage CSV file
     // Skip API call - will be loaded separately in the route handler
@@ -448,7 +436,6 @@ export async function fetchAllOpportunities(params: {
     ];
 
     for (const googleQuery of googleQueries) {
-      console.log(`Fetching from Google Custom Search (${googleQuery.searchType})...`);
       const googleOpps = await fetchGoogleCustomSearchOpportunities({
         query: googleQuery.query,
         searchType: googleQuery.searchType,
@@ -456,7 +443,6 @@ export async function fetchAllOpportunities(params: {
       });
       allOpportunities.push(...googleOpps);
       sourceCounts.googleSearch += googleOpps.length;
-      console.log(`Fetched ${googleOpps.length} opportunities from Google Custom Search (${googleQuery.searchType})`);
     }
   } catch (error) {
     console.error('Error fetching opportunities:', error);
@@ -509,19 +495,7 @@ export async function fetchAllOpportunities(params: {
   const uniqueOpportunities = Array.from(opportunityMap.values());
   const duplicatesRemoved = allOpportunities.length - uniqueOpportunities.length;
   
-  if (duplicatesRemoved > 0) {
-    console.log(`[Deduplication] Removed ${duplicatesRemoved} duplicate opportunities`);
-    console.log(`[Deduplication] Before: ${allOpportunities.length}, After: ${uniqueOpportunities.length}`);
-    
-    // Log source distribution after deduplication
-    const afterDedupCounts = {
-      grantsGov: uniqueOpportunities.filter(o => o.source === 'Grants.gov').length,
-      simplerGrants: uniqueOpportunities.filter(o => o.source === 'Simpler.Grants.gov').length,
-      samGov: uniqueOpportunities.filter(o => o.source === 'SAM.gov').length,
-      googleSearch: uniqueOpportunities.filter(o => o.source?.includes('Google Search')).length,
-    };
-    console.log(`[Deduplication] Source counts after dedup:`, afterDedupCounts);
-  }
+  // Deduplication complete (silenced verbose logs)
 
   return {
     opportunities: uniqueOpportunities.slice(0, limit),
