@@ -128,7 +128,7 @@ export default function ExecutiveSummaryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white py-12 px-4">
+    <div className="min-h-screen py-12 px-4" style={{ backgroundColor: '#f6f6f6' }}>
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-10">
