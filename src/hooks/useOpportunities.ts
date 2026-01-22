@@ -51,11 +51,9 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
           const shouldRunData = await shouldRunResponse.json();
           
           if (shouldRunData.shouldRun) {
-            console.log(`[useOpportunities] Matching should run (reason: ${shouldRunData.reason})`);
             // Will run matching below
           } else {
             // Try to load current matches from new system
-            console.log('[useOpportunities] Matching not needed, loading current matches...');
             try {
               // Try to load from profiles collection first (primary location)
               let currentMatches: any = null;
@@ -64,14 +62,12 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
               
               if (profileDoc.exists() && profileDoc.data()?.currentMatches) {
                 currentMatches = profileDoc.data()?.currentMatches;
-                console.log(`[useOpportunities] Found ${currentMatches?.topMatches?.length || 0} current matches in profiles collection`);
               } else {
                 // Fallback to userMatches collection
                 const currentMatchesRef = doc(db, 'userMatches', profile.uid, 'current', 'latest');
                 const currentMatchesDoc = await getDoc(currentMatchesRef);
                 if (currentMatchesDoc.exists()) {
                   currentMatches = currentMatchesDoc.data();
-                  console.log(`[useOpportunities] Found ${currentMatches?.topMatches?.length || 0} current matches in userMatches collection`);
                 }
               }
               
@@ -127,15 +123,14 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
                 setUnknownEligibilityOpportunities([]); // No unknown matches when loading from cache
                 setLoading(false);
                 setLastProfileHash(profileHash);
-                console.log(`✅ [useOpportunities] Loaded ${matched.length} AI-refined matches from new system`);
                 return;
               }
             } catch (err) {
-              console.warn('[useOpportunities] Error loading current matches, falling back to old system:', err);
+              // Silently fail and continue
             }
           }
         } catch (err) {
-          console.warn('[useOpportunities] Error checking shouldRunMatching, using old system:', err);
+          // Silently fail and continue
         }
       }
 
@@ -143,7 +138,6 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
       // This prevents rerunning when navigating back to the dashboard
       if (profileHash === lastProfileHash && !forceReload && refreshTrigger === 0 && opportunities.length > 0) {
         setLoading(false);
-        console.log('✅ Skipping reload - using existing opportunities (profile unchanged)');
         return;
       }
 
@@ -157,11 +151,10 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
                 setUnknownEligibilityOpportunities([]); // Cache doesn't have unknown matches yet
             setLoading(false);
             setLastProfileHash(profileHash);
-            console.log('✅ Using Firestore cached opportunities (old system)');
             return;
           }
         } catch (err) {
-          console.warn('[Cache] Error reading Firestore cache:', err);
+          // Silently fail cache reads
         }
 
         // Fallback to localStorage cache
@@ -189,12 +182,11 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
                 setUnknownEligibilityOpportunities([]); // localStorage doesn't have unknown matches
                 setLoading(false);
                 setLastProfileHash(profileHash);
-                console.log('✅ Using localStorage cached opportunities');
                 return;
               }
             }
           } catch (err) {
-            console.warn('[Cache] Error reading localStorage cache:', err);
+            // Silently fail cache reads
           }
         }
       }
@@ -203,9 +195,6 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
       setError(null);
 
       try {
-        console.log('Starting to load opportunities...');
-        console.log('User funding types:', profile.fundingType);
-        
         // Build query params - only load CSVs matching user's funding types
         // Safety check: if fundingType is undefined or empty, default to all types
         const fundingTypes = profile.fundingType && profile.fundingType.length > 0 
@@ -214,21 +203,10 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
         const fundingTypesParam = fundingTypes.join(',');
         const url = `/api/opportunities?limit=1000&hasDeadline=false&fundingTypes=${fundingTypesParam}`;
         
-        console.log('Fetching from:', url);
-        
         // Load opportunities from API - filtered by funding type
         const response = await fetch(url);
         
-        console.log('Response status:', response.status);
-        console.log('Response URL:', response.url);
-        console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-        
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Response not OK:', errorText);
-          console.error('Response status:', response.status);
-          console.error('Response statusText:', response.statusText);
-          
           // Provide more detailed error messages for 404s
           if (response.status === 404) {
             throw new Error(`API route not found (404). The route /api/opportunities may not be deployed. Check Vercel logs.`);
@@ -237,12 +215,9 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
           throw new Error(`Failed to fetch opportunities: ${response.status} ${response.statusText}`);
         }
         
-        console.log('Parsing JSON response...');
         const data = await response.json();
-        console.log('JSON parsed successfully', data);
         
         const allOpps = data.opportunities || [];
-        console.log(`Received ${allOpps.length} opportunities from API`);
         
         setOpportunities(allOpps);
 
