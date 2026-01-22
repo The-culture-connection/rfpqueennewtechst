@@ -28,22 +28,22 @@ const config: Config = {
           dark: "#2d4f7a",
         },
         dark: {
-          DEFAULT: "#f5f5f5", // Light gray for surface
-          light: "#fafafa",
-          lighter: "#ffffff",
+          DEFAULT: "#b2b1b1", // Light gray background
+          light: "#c5c4c4",
+          lighter: "#d8d7d7",
         },
         surface: {
-          DEFAULT: "#fafafa",
-          light: "#ffffff",
-          lighter: "#f5f5f5",
+          DEFAULT: "#c5c4c4",
+          light: "#d8d7d7",
+          lighter: "#e8e7e7",
         },
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
         'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
-        'gradient-superlist': 'linear-gradient(135deg, #ffffff 0%, #fafafa 25%, #f5f5f5 50%, #fafafa 75%, #ffffff 100%)',
+        'gradient-superlist': 'linear-gradient(135deg, #b2b1b1 0%, #c5c4c4 25%, #d8d7d7 50%, #c5c4c4 75%, #b2b1b1 100%)',
         'gradient-pink-purple': 'linear-gradient(135deg, #406da8 0%, #5c8bc4 50%, #406da8 100%)',
-        'gradient-dark': 'linear-gradient(180deg, #ffffff 0%, #fafafa 100%)',
+        'gradient-dark': 'linear-gradient(180deg, #b2b1b1 0%, #c5c4c4 100%)',
       },
       fontFamily: {
         primary: ['var(--font-primary)', 'sans-serif'],
