@@ -118,7 +118,7 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
                 setMatchedOpportunities(matched);
                 setLoading(false);
                 setLastProfileHash(profileHash);
-                console.log(`✅ Loaded ${matched.length} matches from new system`);
+                console.log(`✅ [useOpportunities] Loaded ${matched.length} AI-refined matches from new system`);
                 return;
               }
             } catch (err) {
