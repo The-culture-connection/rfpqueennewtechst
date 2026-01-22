@@ -128,37 +128,37 @@ export default function ExecutiveSummaryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black py-12 px-4">
+    <div className="min-h-screen bg-white py-12 px-4">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <button
             onClick={() => router.push('/profile')}
-            className="text-gray-400 hover:text-white mb-4 flex items-center gap-2"
+            className="text-gray-600 hover:text-[#406da8] mb-4 flex items-center gap-2"
           >
             ← Edit Profile
           </button>
-          <h1 className="text-4xl font-primary font-bold text-white mb-2">
+          <h1 className="text-4xl font-primary font-bold text-[#1a202c] mb-2">
             Executive Summary
           </h1>
-          <p className="text-gray-400 font-secondary">
+          <p className="text-gray-600 font-secondary">
             Upload your executive summary to enhance opportunity matching with AI-powered analysis
           </p>
         </div>
 
         {/* Upload Section */}
-        <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10 mb-8">
-          <h2 className="text-2xl font-primary font-bold text-white mb-4">
+        <div className="bg-gray-50 rounded-2xl p-8 border border-gray-200 mb-8">
+          <h2 className="text-2xl font-primary font-bold text-[#1a202c] mb-4">
             Upload Your Executive Summary
           </h2>
-          <p className="text-gray-400 font-secondary mb-6">
+          <p className="text-gray-600 font-secondary mb-6">
             Upload your business executive summary, pitch deck, or company overview document. 
             Our AI will analyze it to better match you with relevant opportunities.
           </p>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-white font-secondary mb-2">
+              <label className="block text-[#1a202c] font-secondary mb-2">
                 Choose File (PDF, DOCX, or TXT)
               </label>
               <input
@@ -166,30 +166,30 @@ export default function ExecutiveSummaryPage() {
                 accept=".pdf,.docx,.txt"
                 onChange={handleFileChange}
                 disabled={uploading || processing}
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white font-secondary focus:outline-none focus:ring-2 focus:ring-[#406da8]"
+                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-[#1a202c] font-secondary focus:outline-none focus:ring-2 focus:ring-[#406da8]"
               />
             </div>
 
             {file && (
               <div className="bg-[#406da8]/10 border border-[#406da8]/30 rounded-lg p-4">
-                <p className="text-white font-secondary">
+                <p className="text-[#1a202c] font-secondary">
                   <span className="font-bold">Selected:</span> {file.name}
                 </p>
-                <p className="text-gray-400 text-sm">
+                <p className="text-gray-600 text-sm">
                   {(file.size / 1024 / 1024).toFixed(2)} MB
                 </p>
               </div>
             )}
 
             {error && (
-              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
-                <p className="text-red-400 font-secondary">{error}</p>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-red-600 font-secondary">{error}</p>
               </div>
             )}
 
             {success && (
-              <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
-                <p className="text-green-400 font-secondary">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <p className="text-green-600 font-secondary">
                   ✅ Executive summary uploaded and analyzed successfully!
                 </p>
               </div>
@@ -209,8 +209,8 @@ export default function ExecutiveSummaryPage() {
 
         {/* Business Profile Preview */}
         {!loadingProfile && businessProfile && (
-          <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10">
-            <h2 className="text-2xl font-primary font-bold text-white mb-6">
+          <div className="bg-gray-50 rounded-2xl p-8 border border-gray-200">
+            <h2 className="text-2xl font-primary font-bold text-[#1a202c] mb-6">
               Your Business Profile
             </h2>
 
@@ -220,7 +220,7 @@ export default function ExecutiveSummaryPage() {
                   <h3 className="text-lg font-secondary font-bold text-[#406da8] mb-2">
                     Company Overview
                   </h3>
-                  <p className="text-gray-300 font-secondary leading-relaxed">
+                  <p className="text-gray-700 font-secondary leading-relaxed">
                     {businessProfile.companyOverview}
                   </p>
                 </div>
@@ -231,7 +231,7 @@ export default function ExecutiveSummaryPage() {
                   <h3 className="text-lg font-secondary font-bold text-[#406da8] mb-2">
                     Mission
                   </h3>
-                  <p className="text-gray-300 font-secondary leading-relaxed">
+                  <p className="text-gray-700 font-secondary leading-relaxed">
                     {businessProfile.mission}
                   </p>
                 </div>
@@ -242,7 +242,7 @@ export default function ExecutiveSummaryPage() {
                   <h3 className="text-lg font-secondary font-bold text-[#406da8] mb-2">
                     Vision
                   </h3>
-                  <p className="text-gray-300 font-secondary leading-relaxed">
+                  <p className="text-gray-700 font-secondary leading-relaxed">
                     {businessProfile.vision}
                   </p>
                 </div>
@@ -255,7 +255,7 @@ export default function ExecutiveSummaryPage() {
                   </h3>
                   <ul className="list-disc list-inside space-y-1">
                     {businessProfile.servicesCapabilities.map((service: string, idx: number) => (
-                      <li key={idx} className="text-gray-300 font-secondary">
+                      <li key={idx} className="text-gray-700 font-secondary">
                         {service}
                       </li>
                     ))}
@@ -272,7 +272,7 @@ export default function ExecutiveSummaryPage() {
                     {businessProfile.certifications.map((cert: string, idx: number) => (
                       <span
                         key={idx}
-                        className="px-3 py-1 bg-[#406da8]/20 text-[#5c8bc4] rounded-full text-sm font-secondary"
+                        className="px-3 py-1 bg-[#406da8]/20 text-[#406da8] rounded-full text-sm font-secondary"
                       >
                         {cert}
                       </span>
@@ -281,7 +281,7 @@ export default function ExecutiveSummaryPage() {
                 </div>
               )}
 
-              <div className="pt-4 border-t border-white/10">
+              <div className="pt-4 border-t border-gray-200">
                 <p className="text-sm text-gray-500 font-secondary">
                   Last updated: {new Date(businessProfile.lastUpdated).toLocaleDateString()}
                 </p>
@@ -291,8 +291,8 @@ export default function ExecutiveSummaryPage() {
         )}
 
         {!loadingProfile && !businessProfile && (
-          <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10 text-center">
-            <p className="text-gray-400 font-secondary">
+          <div className="bg-gray-50 rounded-2xl p-8 border border-gray-200 text-center">
+            <p className="text-gray-600 font-secondary">
               No business profile found. Upload your executive summary to get started!
             </p>
           </div>
