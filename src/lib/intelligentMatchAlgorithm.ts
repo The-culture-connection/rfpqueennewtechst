@@ -76,29 +76,58 @@ export async function intelligentMatchOpportunities(
     };
   }).sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
   
-  // Final step: AI Refinement Layer (if enabled and OpenAI key is available)
-  // NOTE: AI refinement requires server-side execution (OpenAI API + Firestore Admin)
-  // Skip on client-side to avoid build errors
-  if (useAIRefinement && scored.length > 0 && typeof window === 'undefined' && process.env.OPENAI_API_KEY) {
-    try {
-      console.log('🤖 [intelligentMatchOpportunities] Applying AI refinement layer...');
-      const { refineMatchesWithAI } = await import('@/lib/aiMatchRefinement');
-      const aiRefined = await refineMatchesWithAI(scored, profile, userId, 50);
-      
-      console.log(`✅ [intelligentMatchOpportunities] AI refinement complete. Refined ${aiRefined.length} opportunities.`);
-      return aiRefined;
-    } catch (error: any) {
-      console.error('❌ [intelligentMatchOpportunities] AI refinement failed, using code-based results:', error.message);
-      // Fall back to code-based results if AI fails
-      return scored;
+  // Final step: AI Refinement Layer
+  // On client-side: Call API route for AI refinement
+  // On server-side: Call directly
+  if (useAIRefinement && scored.length > 0) {
+    if (typeof window !== 'undefined') {
+      // Client-side: Call API route for AI refinement
+      try {
+        console.log('🤖 [intelligentMatchOpportunities] Calling AI refinement API...');
+        const response = await fetch('/api/refine-matches', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            opportunities: scored,
+            profile,
+            userId,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.opportunities) {
+            console.log(`✅ [intelligentMatchOpportunities] AI refinement complete via API. Refined ${data.opportunities.length} opportunities.`);
+            return data.opportunities;
+          }
+        } else {
+          console.warn('⚠️ [intelligentMatchOpportunities] AI refinement API returned error, using code-based results');
+        }
+      } catch (error: any) {
+        console.error('❌ [intelligentMatchOpportunities] AI refinement API call failed, using code-based results:', error.message);
+        // Fall back to code-based results if API fails
+      }
+    } else {
+      // Server-side: Call directly
+      if (process.env.OPENAI_API_KEY) {
+        try {
+          console.log('🤖 [intelligentMatchOpportunities] Applying AI refinement layer (server-side)...');
+          const { refineMatchesWithAI } = await import('@/lib/aiMatchRefinement');
+          const aiRefined = await refineMatchesWithAI(scored, profile, userId, 50);
+          
+          console.log(`✅ [intelligentMatchOpportunities] AI refinement complete. Refined ${aiRefined.length} opportunities.`);
+          return aiRefined;
+        } catch (error: any) {
+          console.error('❌ [intelligentMatchOpportunities] AI refinement failed, using code-based results:', error.message);
+          // Fall back to code-based results if AI fails
+        }
+      } else {
+        console.log('[intelligentMatchOpportunities] OpenAI API key not set, skipping AI refinement');
+      }
     }
   } else {
-    if (typeof window !== 'undefined') {
-      console.log('[intelligentMatchOpportunities] Client-side execution - skipping AI refinement (server-side only)');
-    } else if (!useAIRefinement) {
+    if (!useAIRefinement) {
       console.log('[intelligentMatchOpportunities] AI refinement disabled');
-    } else if (!process.env.OPENAI_API_KEY) {
-      console.log('[intelligentMatchOpportunities] OpenAI API key not set, skipping AI refinement');
     }
   }
   
