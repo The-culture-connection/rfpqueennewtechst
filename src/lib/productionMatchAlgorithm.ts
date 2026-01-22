@@ -192,6 +192,10 @@ export function evaluateEligibility(
     blockers.push('funding_type_mismatch');
     reasons.push(`Funding type mismatch: opportunity is ${oppType}, user interested in ${userFundingTypes.join(', ')}`);
     eligibilityScore = 0;
+    // Log key gate failures for top opportunities only (to reduce noise)
+    if (opportunity.winRate && opportunity.winRate > 50) {
+      console.log(`   ❌ [GATE] ${opportunity.id.substring(0, 20)}...: Funding type mismatch (${oppType} vs ${userFundingTypes.join(',')})`);
+    }
     return {
       status: 'ineligible',
       eligible: false,
@@ -229,6 +233,10 @@ export function evaluateEligibility(
     blockers.push('missing_applicant_types', 'missing_eligible_entities');
     reasons.push('Missing eligibility data: applicantTypes and eligibleEntities are both empty');
     eligibilityScore = 0.5; // Neutral score for unknown
+    // Log missing data for top opportunities
+    if (opportunity.winRate && opportunity.winRate > 50) {
+      console.log(`   ⚠️  [GATE] ${opportunity.id.substring(0, 20)}...: Missing entity type data → UNKNOWN`);
+    }
     return {
       status: 'unknown',
       eligible: false,
@@ -270,6 +278,10 @@ export function evaluateEligibility(
     blockers.push('entity_type_mismatch');
     reasons.push(`Entity type mismatch: user is ${profile.entityType}, opportunity requires ${allOppTypes.join(' or ')}`);
     eligibilityScore = 0;
+    // Log key gate failures for top opportunities
+    if (opportunity.winRate && opportunity.winRate > 50) {
+      console.log(`   ❌ [GATE] ${opportunity.id.substring(0, 20)}...: Entity type mismatch (user: ${profile.entityType}, opp requires: ${allOppTypes.join(',')})`);
+    }
     return {
       status: 'ineligible',
       eligible: false,
@@ -301,6 +313,10 @@ export function evaluateEligibility(
         blockers.push('deadline_passed');
         reasons.push('Deadline has passed');
         eligibilityScore = 0;
+        // Log deadline issues
+        if (opportunity.winRate && opportunity.winRate > 50) {
+          console.log(`   ❌ [GATE] ${opportunity.id.substring(0, 20)}...: Deadline passed (${daysUntil} days ago)`);
+        }
         return {
           status: 'ineligible',
           eligible: false,
@@ -315,6 +331,9 @@ export function evaluateEligibility(
           blockers.push('deadline_too_far');
           reasons.push(`Deadline is ${daysUntil} days away, beyond acceptable range (${timelinePreferenceDays * 3} days)`);
           eligibilityScore = 0;
+          if (opportunity.winRate && opportunity.winRate > 50) {
+            console.log(`   ❌ [GATE] ${opportunity.id.substring(0, 20)}...: Deadline too far (${daysUntil} days, max: ${timelinePreferenceDays * 3})`);
+          }
           return {
             status: 'ineligible',
             eligible: false,
@@ -346,6 +365,10 @@ export function evaluateEligibility(
       blockers.push('missing_close_date');
       reasons.push('No deadline specified and not marked as rolling deadline');
       eligibilityScore = 0.5;
+      // Log missing deadline for top opportunities
+      if (opportunity.winRate && opportunity.winRate > 50) {
+        console.log(`   ⚠️  [GATE] ${opportunity.id.substring(0, 20)}...: Missing deadline → UNKNOWN`);
+      }
       return {
         status: 'unknown',
         eligible: false,
@@ -389,6 +412,10 @@ export function evaluateEligibility(
       blockers.push('research_institution_required_likely');
       reasons.push('Research-heavy mechanism (likely requires research institution) not suitable for non-research organization');
       eligibilityScore = 0;
+      // Log research gate failures
+      if (opportunity.winRate && opportunity.winRate > 50) {
+        console.log(`   ❌ [GATE] ${opportunity.id.substring(0, 20)}...: Research-heavy without capacity → INELIGIBLE`);
+      }
       return {
         status: 'ineligible',
         eligible: false,
@@ -825,11 +852,11 @@ export async function matchOpportunitiesProduction(
     topBlockers: Array<{ blocker: string; count: number }>;
   };
 }> {
-  console.log(`[Production Matching] Starting match for ${opportunities.length} opportunities`);
+  console.log(`\n🔍 [MATCHING] Starting for ${opportunities.length} opportunities, user: ${profile.entityType}, funding: ${profile.fundingType?.join(',')}`);
   
   // Build user search profile
   const searchProfile = buildUserSearchProfile(profile);
-  console.log(`[Production Matching] Built search profile with ${searchProfile.priorityKeywords.length} priority keywords, ${searchProfile.keywords.length} regular keywords`);
+  console.log(`📋 [MATCHING] Search profile: ${searchProfile.priorityKeywords.length} priority keywords, ${searchProfile.keywords.length} regular keywords`);
   
   // Stage 1: Hard eligibility gates + scoring with fail-closed evaluation
   const scored: Array<{ 
@@ -897,8 +924,6 @@ export async function matchOpportunitiesProduction(
     });
   }
   
-  console.log(`[Production Matching] Scored ${scored.length} opportunities`);
-  
   // Compute run statistics (before filtering)
   const runStats = computeRunStats(scored.map(item => ({
     opportunity: item.opportunity,
@@ -910,7 +935,13 @@ export async function matchOpportunitiesProduction(
   const unknownMatches = scored.filter(item => item.eligibility.status === 'unknown');
   const ineligibleMatches = scored.filter(item => item.eligibility.status === 'ineligible');
   
-  console.log(`[Production Matching] Eligibility breakdown: ${eligibleMatches.length} eligible, ${unknownMatches.length} unknown, ${ineligibleMatches.length} ineligible`);
+  console.log(`\n🎯 [ELIGIBILITY] Breakdown: ${eligibleMatches.length} eligible, ${unknownMatches.length} unknown, ${ineligibleMatches.length} ineligible`);
+  if (runStats.missingFieldCounts.applicantTypes > 0 || runStats.missingFieldCounts.eligibleEntities > 0) {
+    console.log(`   ⚠️  Missing data: ${runStats.missingFieldCounts.applicantTypes} missing applicantTypes, ${runStats.missingFieldCounts.eligibleEntities} missing eligibleEntities`);
+  }
+  if (runStats.topBlockers.length > 0) {
+    console.log(`   🔴 Top blockers: ${runStats.topBlockers.slice(0, 3).map(b => `${b.blocker}(${b.count})`).join(', ')}`);
+  }
   
   // Filter eligible matches by minimum ranking score
   const eligibleFiltered = eligibleMatches
@@ -922,7 +953,7 @@ export async function matchOpportunitiesProduction(
     .filter(item => item.scores.rankingScore >= MIN_RANKING_SCORE)
     .sort((a, b) => b.scores.rankingScore - a.scores.rankingScore);
   
-  console.log(`[Production Matching] After filtering: ${eligibleFiltered.length} eligible, ${unknownFiltered.length} unknown (score >= ${MIN_RANKING_SCORE})`);
+  console.log(`✅ [FILTERING] After score threshold (>=${MIN_RANKING_SCORE}): ${eligibleFiltered.length} eligible, ${unknownFiltered.length} unknown`);
   
   // Convert to TopMatch format - ONLY eligible matches in main results
   const topMatches: TopMatch[] = eligibleFiltered.slice(0, 50).map(item => ({
@@ -960,7 +991,7 @@ export async function matchOpportunitiesProduction(
     debug: item.debug,
   }));
   
-  console.log(`[Production Matching] Returning ${topMatches.length} eligible matches, ${unknownTopMatches.length} unknown eligibility matches`);
+  console.log(`\n✅ [RESULTS] Returning ${topMatches.length} eligible (Top Matches), ${unknownTopMatches.length} unknown (separate bucket), ${ineligibleMatches.length} ineligible (excluded)\n`);
   
   return {
     eligible: topMatches,

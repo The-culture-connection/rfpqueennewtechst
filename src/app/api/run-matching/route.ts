@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       );
     }
     
-    console.log(`[run-matching] Starting match run for user ${userId}, trigger: ${trigger}`);
+    console.log(`\n🚀 [RUN-MATCHING] Starting for user ${userId}, trigger: ${trigger}`);
     
     // Migrate user if needed
     await migrateUserIfNeeded(userId);
@@ -66,12 +66,12 @@ export async function POST(request: Request) {
       docsVersion: docsVersion,
     };
     
+    console.log(`👤 [PROFILE] ${profile.entityType}, funding: ${profile.fundingType?.join(',')}, timeline: ${profile.timeline} (${profile.timelinePreferenceDays} days)`);
+    
     // Load all opportunities directly (server-side)
     const fundingTypes = profile.fundingType && profile.fundingType.length > 0
       ? profile.fundingType
       : ['grants', 'rfps', 'contracts'];
-    
-    console.log(`[run-matching] Fetching opportunities for funding types: ${fundingTypes.join(', ')}`);
     
     // Fetch from APIs
     const { opportunities: apiOpportunities } = await fetchAllOpportunities({
@@ -100,15 +100,13 @@ export async function POST(request: Request) {
     
     const allOpportunities = Array.from(allOpportunitiesMap.values());
     
-    console.log(`[run-matching] Loaded ${allOpportunities.length} opportunities`);
-    
     // Get excluded opportunity IDs (passed/saved)
     const userSignals = await getUserOpportunitySignals(userId);
     const excludeIds = Array.from(userSignals.values())
       .filter(signal => signal.status === 'passed' || signal.status === 'saved')
       .map(signal => signal.opportunityId);
     
-    console.log(`[run-matching] Excluding ${excludeIds.length} passed/saved opportunities`);
+    console.log(`📊 [INPUT] ${allOpportunities.length} opportunities, excluding ${excludeIds.length} passed/saved`);
     
     // Run production matching algorithm (returns eligible, unknown, ineligible buckets)
     let matchResults;
@@ -118,7 +116,7 @@ export async function POST(request: Request) {
         profile,
         excludeIds
       );
-      console.log(`[run-matching] Production matching complete: ${matchResults.eligible.length} eligible, ${matchResults.unknown.length} unknown, ${matchResults.ineligible} ineligible`);
+      console.log(`✅ [MATCHING] Complete: ${matchResults.eligible.length} eligible, ${matchResults.unknown.length} unknown, ${matchResults.ineligible} ineligible`);
     } catch (matchError: any) {
       console.error('[run-matching] Error in production matching algorithm:', matchError);
       console.error('[run-matching] Error stack:', matchError.stack);
@@ -134,7 +132,7 @@ export async function POST(request: Request) {
     let finalMatches = topMatches;
     if (process.env.OPENAI_API_KEY && topMatches.length > 0) {
       try {
-        console.log(`[run-matching] Applying AI refinement to top ${Math.min(20, topMatches.length)} matches...`);
+        console.log(`🤖 [AI-REFINEMENT] Refining top ${Math.min(20, topMatches.length)} eligible matches...`);
         
         // Convert TopMatch back to Opportunity format for AI refinement
         const topOpportunities = topMatches.slice(0, 20).map(match => {
@@ -210,7 +208,7 @@ export async function POST(request: Request) {
         // This is a safety check in case AI merge somehow corrupted eligibility
         finalMatches = finalMatches.filter(m => m.eligibility.status === 'eligible');
         
-        console.log(`[run-matching] AI refinement complete`);
+        console.log(`✅ [AI-REFINEMENT] Complete`);
       } catch (aiError: any) {
         console.error('[run-matching] AI refinement failed, using production matches:', aiError.message);
         // Continue with production matches if AI fails
@@ -265,8 +263,18 @@ export async function POST(request: Request) {
       topBlockers: runStats?.topBlockers?.slice(0, 5),
     });
     
-    console.log(`[run-matching] Match run ${runId} completed in ${latency}ms`);
-    console.log(`[run-matching] Run stats:`, runStats);
+    console.log(`\n✅ [COMPLETE] Run ${runId} completed in ${latency}ms`);
+    console.log(`📊 [STATS] Eligible: ${runStats?.eligibleCount || 0}, Unknown: ${runStats?.unknownCount || 0}, Ineligible: ${runStats?.ineligibleCount || 0}`);
+    if (runStats?.missingFieldCounts) {
+      const missing = runStats.missingFieldCounts;
+      if (missing.applicantTypes > 0 || missing.eligibleEntities > 0) {
+        console.log(`   ⚠️  Missing fields: ${missing.applicantTypes} applicantTypes, ${missing.eligibleEntities} eligibleEntities`);
+      }
+    }
+    if (runStats?.topBlockers && runStats.topBlockers.length > 0) {
+      console.log(`   🔴 Top blockers: ${runStats.topBlockers.slice(0, 3).map(b => `${b.blocker}(${b.count})`).join(', ')}`);
+    }
+    console.log(``);
     
     // Convert TopMatch back to Opportunity format for frontend (eligible only)
     const matchedOpportunities = finalMatches.slice(0, 50).map(match => {

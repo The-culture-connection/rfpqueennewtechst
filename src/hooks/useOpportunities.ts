@@ -255,17 +255,15 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
             
             if (businessProfileDoc.exists()) {
               enrichedProfile.businessProfile = businessProfileDoc.data() as any;
-              console.log('✅ Loaded business profile for enhanced matching');
             }
 
             // Load user preferences for behavioral learning
             const preferences = await loadUserPreferences(profile.uid, db);
             if (preferences) {
               enrichedProfile.preferences = preferences;
-              console.log('✅ Loaded user preferences for enhanced matching');
             }
           } catch (err) {
-            console.warn('Could not load business profile or preferences:', err);
+            // Silently fail - these are optional enhancements
           }
         }
 
@@ -278,7 +276,7 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
         
         if (shouldRunData.shouldRun || forceReload) {
           // Use new production matching system
-          console.log('🚀 [useOpportunities] Using NEW production matching system...');
+          console.log(`🚀 [MATCHING] Triggering run (reason: ${shouldRunData.reason || 'FIRST_DASHBOARD'})`);
           setLoading(true);
           
           const runResponse = await fetch('/api/run-matching', {
@@ -293,7 +291,7 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
           
           if (runResponse.ok) {
             const runData = await runResponse.json();
-            console.log(`✅ [useOpportunities] New matching complete: ${runData.matchesCount} eligible matches, ${runData.unknownOpportunities?.length || 0} unknown eligibility`);
+            console.log(`✅ [MATCHING] Complete: ${runData.matchesCount} eligible, ${runData.unknownOpportunities?.length || 0} unknown`);
             
             // Try to load from profiles collection first (primary location)
             let currentMatches: any = null;
@@ -302,14 +300,12 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
             
             if (profileDoc.exists() && profileDoc.data()?.currentMatches) {
               currentMatches = profileDoc.data()?.currentMatches;
-              console.log('✅ [useOpportunities] Loaded matches from profiles collection');
             } else {
               // Fallback to userMatches collection
               const currentMatchesRef = doc(db, 'userMatches', profile.uid, 'current', 'latest');
               const currentMatchesDoc = await getDoc(currentMatchesRef);
               if (currentMatchesDoc.exists()) {
                 currentMatches = currentMatchesDoc.data();
-                console.log('✅ [useOpportunities] Loaded matches from userMatches collection');
               }
             }
             
@@ -353,7 +349,6 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
               matched.sort((a, b) => (b.matchScore || b.winRate || 0) - (a.matchScore || a.winRate || 0));
               
               setMatchedOpportunities(matched);
-              console.log(`✅ [useOpportunities] Loaded ${matched.length} eligible matches from new system`);
               
               // Load unknown eligibility matches if available
               if (currentMatches.unknownEligibilityMatches && currentMatches.unknownEligibilityMatches.length > 0) {
@@ -390,32 +385,30 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
                 
                 unknownMatched.sort((a, b) => (b.matchScore || b.winRate || 0) - (a.matchScore || a.winRate || 0));
                 setUnknownEligibilityOpportunities(unknownMatched);
-                console.log(`✅ [useOpportunities] Loaded ${unknownMatched.length} unknown eligibility matches`);
               }
             } else {
               // Fallback to old system if new system didn't save matches
-              console.warn('[useOpportunities] New system completed but no matches found, using old system');
+              console.warn('⚠️  [FALLBACK] New system completed but no matches found, using old system');
               const matchedResults = await intelligentMatchOpportunities(allOpps, enrichedProfile, profile.uid, true);
               matched = matchedResults.filter(opp => (opp.matchScore || opp.winRate || 0) >= 35);
               setMatchedOpportunities(matched);
-              setUnknownEligibilityOpportunities([]); // No unknown matches in fallback
+              setUnknownEligibilityOpportunities([]);
             }
           } else {
             // Fallback to old system on error
-            console.warn('[useOpportunities] New matching system failed, using old system');
+            console.warn('⚠️  [FALLBACK] New matching system failed, using old system');
             const matchedResults = await intelligentMatchOpportunities(allOpps, enrichedProfile, profile.uid, true);
             matched = matchedResults.filter(opp => (opp.matchScore || opp.winRate || 0) >= 35);
             setMatchedOpportunities(matched);
-            setUnknownEligibilityOpportunities([]); // No unknown matches in fallback
+            setUnknownEligibilityOpportunities([]);
           }
         } else {
           // Use old intelligent matching system (backward compatibility)
-          console.log('🧠 [useOpportunities] Using OLD intelligent matching system...');
+          console.log('🧠 [FALLBACK] Using old intelligent matching system');
           const matchedResults = await intelligentMatchOpportunities(allOpps, enrichedProfile, profile.uid, true);
           matched = matchedResults.filter(opp => (opp.matchScore || opp.winRate || 0) >= 35);
-          console.log(`✅ Matched ${matched.length} opportunities (35%+ score) with intelligent analysis and AI refinement`);
           setMatchedOpportunities(matched);
-          setUnknownEligibilityOpportunities([]); // No unknown matches in old system
+          setUnknownEligibilityOpportunities([]);
         }
 
         // Cache the results in Firestore (primary cache)
@@ -423,7 +416,7 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
           try {
             await saveCachedOpportunities(profile.uid, enrichedProfile, allOpps, matched);
           } catch (err) {
-            console.warn('[Cache] Error saving to Firestore, using localStorage fallback:', err);
+            // Silently fail cache writes
           }
         }
 
@@ -443,18 +436,16 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
             }));
             localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
             localStorage.setItem(CACHE_PROFILE_KEY, profileHash);
-            console.log('✅ Cached opportunities in localStorage (fallback)');
           } catch (err) {
-            console.warn('[Cache] Error caching in localStorage:', err);
+            // Silently fail cache writes
           }
         }
 
-        console.log(`✅ Successfully loaded ${allOpps.length} total opportunities`);
-        console.log(`✅ Enhanced matched ${matched.length} opportunities with personalized insights`);
+        // Log final results
+        console.log(`✅ [COMPLETE] ${allOpps.length} opportunities, ${matched.length} eligible matches, ${unknownEligibilityOpportunities.length} unknown eligibility`);
         setLastProfileHash(profileHash);
-      } catch (err: any) {
-        console.error('❌ Error loading opportunities:', err);
-        console.error('Error details:', err.message, err.stack);
+        } catch (err: any) {
+        console.error(`❌ [ERROR] Failed to load opportunities: ${err.message}`);
         setError(`Failed to load opportunities: ${err.message}`);
       } finally {
         setLoading(false);
