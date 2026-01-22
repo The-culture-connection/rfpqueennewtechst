@@ -172,10 +172,10 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
         }
 
         console.log('🧠 Starting intelligent AI-powered opportunity matching...');
-        // Use intelligent matching algorithm with personalized descriptions
-        const matched = intelligentMatchOpportunities(allOpps, enrichedProfile)
-          .filter(opp => (opp.matchScore || 0) >= 35); // 35% minimum score
-        console.log(`✅ Matched ${matched.length} opportunities (35%+ score) with intelligent analysis`);
+        // Use intelligent matching algorithm with personalized descriptions and AI refinement
+        const matched = await intelligentMatchOpportunities(allOpps, enrichedProfile, profile.uid, true)
+          .filter(opp => (opp.matchScore || opp.winRate || 0) >= 35); // 35% minimum score
+        console.log(`✅ Matched ${matched.length} opportunities (35%+ score) with intelligent analysis and AI refinement`);
         
         setMatchedOpportunities(matched);
 

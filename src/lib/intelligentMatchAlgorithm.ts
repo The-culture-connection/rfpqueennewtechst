@@ -11,10 +11,12 @@ interface KeywordMatch {
   relevance: 'high' | 'medium' | 'low';
 }
 
-export function intelligentMatchOpportunities(
+export async function intelligentMatchOpportunities(
   opportunities: Opportunity[],
-  profile: UserProfile
-): Opportunity[] {
+  profile: UserProfile,
+  userId?: string,
+  useAIRefinement: boolean = true
+): Promise<Opportunity[]> {
   console.log('🧠 Intelligent Matching Algorithm Starting...');
   console.log('📊 Profile Keywords:', {
     regular: profile.keywords?.length || 0,
@@ -59,7 +61,7 @@ export function intelligentMatchOpportunities(
   
   console.log(`[intelligentMatchOpportunities] Filtered by negative keywords: ${notPassedOrSaved.length} → ${filteredByNegatives.length} opportunities`);
   
-  return filteredByNegatives.map(opp => {
+  const scored = filteredByNegatives.map(opp => {
     const fitComponents = calculateDetailedFit(opp, profile);
     const matchScore = calculateWeightedMatchScore(fitComponents, profile);
     const matchReasoning = generateMatchReasoning(opp, profile, fitComponents);
@@ -73,6 +75,30 @@ export function intelligentMatchOpportunities(
       personalizedDescription,
     };
   }).sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
+  
+  // Final step: AI Refinement Layer (if enabled and OpenAI key is available)
+  if (useAIRefinement && scored.length > 0 && process.env.OPENAI_API_KEY) {
+    try {
+      console.log('🤖 [intelligentMatchOpportunities] Applying AI refinement layer...');
+      const { refineMatchesWithAI } = await import('@/lib/aiMatchRefinement');
+      const aiRefined = await refineMatchesWithAI(scored, profile, userId, 50);
+      
+      console.log(`✅ [intelligentMatchOpportunities] AI refinement complete. Refined ${aiRefined.length} opportunities.`);
+      return aiRefined;
+    } catch (error: any) {
+      console.error('❌ [intelligentMatchOpportunities] AI refinement failed, using code-based results:', error.message);
+      // Fall back to code-based results if AI fails
+      return scored;
+    }
+  } else {
+    if (!useAIRefinement) {
+      console.log('[intelligentMatchOpportunities] AI refinement disabled');
+    } else if (!process.env.OPENAI_API_KEY) {
+      console.log('[intelligentMatchOpportunities] OpenAI API key not set, skipping AI refinement');
+    }
+  }
+  
+  return scored;
 }
 
 function calculateDetailedFit(

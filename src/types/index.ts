@@ -125,6 +125,7 @@ export interface Opportunity {
   fitComponents?: FitScoreComponents; // Detailed fit scores for match reasoning
   matchReasoning?: MatchReasoning;  // AI-generated personalized reasoning
   personalizedDescription?: string; // Tailored description highlighting eligibility
+  eligibilityNotes?: string[]; // Detailed eligibility notes from AI refinement
 }
 
 export interface SavedOpportunity {

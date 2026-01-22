@@ -164,7 +164,7 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
         </div>
 
         {/* Eligibility Highlights - Most Important */}
-        {eligibilityHighlights.length > 0 && (
+        {(eligibilityHighlights.length > 0 || (opportunity.eligibilityNotes && opportunity.eligibilityNotes.length > 0)) && (
           <div className="mb-3 p-4 bg-gradient-to-r from-primary/20 via-accent/20 to-secondary/20 border-2 border-primary/50 rounded-xl">
             <p className="text-sm font-bold gradient-text mb-2 flex items-center gap-2">
               <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -173,11 +173,20 @@ export default function OpportunityCard({ opportunity, userProfile, onPass, onSa
               Why You're Eligible
             </p>
             <div className="space-y-2">
-              {eligibilityHighlights.map((highlight, idx) => (
-                <p key={idx} className="text-sm font-secondary text-foreground leading-relaxed">
-                  • {highlight}
-                </p>
-              ))}
+              {/* Show AI-generated eligibility notes if available, otherwise use highlights */}
+              {(opportunity.eligibilityNotes && opportunity.eligibilityNotes.length > 0) ? (
+                opportunity.eligibilityNotes.map((note, idx) => (
+                  <p key={idx} className="text-sm font-secondary text-foreground leading-relaxed">
+                    • {note}
+                  </p>
+                ))
+              ) : (
+                eligibilityHighlights.map((highlight, idx) => (
+                  <p key={idx} className="text-sm font-secondary text-foreground leading-relaxed">
+                    • {highlight}
+                  </p>
+                ))
+              )}
             </div>
           </div>
         )}
