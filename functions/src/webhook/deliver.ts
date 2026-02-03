@@ -4,12 +4,11 @@
 
 import { WebhookEvent, WebhookIntegration } from './eventTypes';
 import { signPayload } from './sign';
-import * as logger from 'firebase-functions/logger';
 
 const MAX_ATTEMPTS = 5;
 const RETRY_DELAYS = [250, 500, 1000, 2000, 4000]; // ms
 
-interface DeliveryResult {
+export interface DeliveryResult {
   success: boolean;
   httpStatus?: number;
   error?: string;

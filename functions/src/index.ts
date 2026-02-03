@@ -3,7 +3,8 @@
  * Includes webhook triggers for Firestore changes
  */
 
-import * as functions from 'firebase-functions/v2';
+import { setGlobalOptions } from 'firebase-functions/v2';
+import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import * as logger from 'firebase-functions/logger';
 import { getAdminFirestore } from './webhook/firebaseAdmin';
 import {
@@ -17,7 +18,7 @@ import {
 import { COLLECTIONS, FIELDS, STATUS } from './webhook/mappings';
 
 // Set global options
-functions.setGlobalOptions({
+setGlobalOptions({
   region: 'us-central1',
   maxInstances: 10,
 });
@@ -32,99 +33,133 @@ const db = getAdminFirestore();
  * User created trigger
  * Fires when profile/{uid} is created
  */
-export const onUserCreated = functions.firestore
-  .document('profiles/{userId}')
-  .onCreate(async (snapshot, context) => {
-    const userId = context.params.userId;
-    const userData = snapshot.data();
+export const onUserCreated = onDocumentCreated('profiles/{userId}', async (event) => {
+  const userId = event.params.userId;
+  const snapshot = event.data;
+  if (!snapshot) {
+    return;
+  }
+  const userData = snapshot.data();
 
-    logger.info(`[Webhook] User created: ${userId}`);
-    await handleUserCreated(userId, userData);
-  });
+  logger.info(`[Webhook] User created: ${userId}`);
+  await handleUserCreated(userId, userData);
+});
 
 /**
- * Document uploaded trigger
- * Fires when profiles/{uid}/documents/{docId} is created or processingStatus changes to 'completed'
+ * Document uploaded trigger - onCreate
+ * Fires when document is first created with processingStatus 'completed'
  */
-export const onDocumentUploaded = functions.firestore
-  .document('profiles/{userId}/documents/{documentId}')
-  .onWrite(async (change, context) => {
-    const userId = context.params.userId;
-    const documentId = context.params.documentId;
+export const onDocumentUploadedCreate = onDocumentCreated('profiles/{userId}/documents/{documentId}', async (event) => {
+  const userId = event.params.userId;
+  const documentId = event.params.documentId;
+  const snapshot = event.data;
+  if (!snapshot) {
+    return;
+  }
+  const after = snapshot.data();
 
-    const before = change.before.data();
-    const after = change.after.data();
+  // Emit if created with 'completed' status
+  if (after[FIELDS.PROCESSING_STATUS] === STATUS.PROCESSING_COMPLETED) {
+    logger.info(
+      `[Webhook] Document uploaded (onCreate): ${userId}/${documentId}`
+    );
+    await handleDocumentUploaded(userId, documentId, after);
+  }
+});
 
-    // Only emit when processingStatus becomes 'completed'
-    const beforeStatus = before?.[FIELDS.PROCESSING_STATUS];
-    const afterStatus = after?.[FIELDS.PROCESSING_STATUS];
+/**
+ * Document uploaded trigger - onUpdate
+ * Fires when processingStatus changes to 'completed'
+ */
+export const onDocumentUploadedUpdate = onDocumentUpdated('profiles/{userId}/documents/{documentId}', async (event) => {
+  const userId = event.params.userId;
+  const documentId = event.params.documentId;
 
-    if (
-      afterStatus === STATUS.PROCESSING_COMPLETED &&
-      beforeStatus !== STATUS.PROCESSING_COMPLETED
-    ) {
-      logger.info(
-        `[Webhook] Document uploaded: ${userId}/${documentId}`
-      );
-      await handleDocumentUploaded(userId, documentId, after || {});
-    }
-  });
+  if (!event.data) {
+    return;
+  }
+
+  const before = event.data.before.data();
+  const after = event.data.after.data();
+
+  // Only emit when processingStatus becomes 'completed'
+  const beforeStatus = before[FIELDS.PROCESSING_STATUS];
+  const afterStatus = after[FIELDS.PROCESSING_STATUS];
+
+  if (
+    afterStatus === STATUS.PROCESSING_COMPLETED &&
+    beforeStatus !== STATUS.PROCESSING_COMPLETED
+  ) {
+    logger.info(
+      `[Webhook] Document uploaded (onUpdate): ${userId}/${documentId}`
+    );
+    await handleDocumentUploaded(userId, documentId, after);
+  }
+});
 
 /**
  * Opportunity saved trigger
  * Fires when profiles/{uid}/tracker/saved opportunities array is updated
  */
-export const onOpportunitySaved = functions.firestore
-  .document('profiles/{userId}/tracker/saved')
-  .onWrite(async (change, context) => {
-    const userId = context.params.userId;
-    const before = change.before.data();
-    const after = change.after.data();
+export const onOpportunitySaved = onDocumentUpdated('profiles/{userId}/tracker/saved', async (event) => {
+  const userId = event.params.userId;
+  
+  if (!event.data) {
+    return;
+  }
 
-    const beforeOpps = before?.[FIELDS.OPPORTUNITIES] || [];
-    const afterOpps = after?.[FIELDS.OPPORTUNITIES] || [];
+  const before = event.data.before.data();
+  const after = event.data.after.data();
 
-    // Find newly added opportunities
-    const beforeIds = new Set(beforeOpps.map((opp: any) => opp.id));
-    const newOpportunities = afterOpps.filter(
-      (opp: any) => !beforeIds.has(opp.id)
+  type OpportunityRef = { id: string; [k: string]: any };
+  const beforeOpps: OpportunityRef[] = (before[FIELDS.OPPORTUNITIES] ?? []) as OpportunityRef[];
+  const afterOpps: OpportunityRef[] = (after[FIELDS.OPPORTUNITIES] ?? []) as OpportunityRef[];
+
+  // Find newly added opportunities
+  const beforeIds = new Set<string>(beforeOpps.map((opp) => opp.id));
+  const newOpportunities = afterOpps.filter(
+    (opp) => !beforeIds.has(opp.id)
+  );
+
+  for (const opp of newOpportunities) {
+    logger.info(
+      `[Webhook] Opportunity saved: ${userId}/${opp.id}`
     );
-
-    for (const opp of newOpportunities) {
-      logger.info(
-        `[Webhook] Opportunity saved: ${userId}/${opp.id}`
-      );
-      await handleOpportunitySaved(userId, opp);
-    }
-  });
+    await handleOpportunitySaved(userId, opp);
+  }
+});
 
 /**
  * Opportunity applied trigger
  * Fires when profiles/{uid}/tracker/applied opportunities array is updated
  */
-export const onOpportunityApplied = functions.firestore
-  .document('profiles/{userId}/tracker/applied')
-  .onWrite(async (change, context) => {
-    const userId = context.params.userId;
-    const before = change.before.data();
-    const after = change.after.data();
+export const onOpportunityApplied = onDocumentUpdated('profiles/{userId}/tracker/applied', async (event) => {
+  const userId = event.params.userId;
+  
+  if (!event.data) {
+    return;
+  }
 
-    const beforeOpps = before?.[FIELDS.OPPORTUNITIES] || [];
-    const afterOpps = after?.[FIELDS.OPPORTUNITIES] || [];
+  const before = event.data.before.data();
+  const after = event.data.after.data();
 
-    // Find newly added opportunities
-    const beforeIds = new Set(beforeOpps.map((opp: any) => opp.id));
-    const newOpportunities = afterOpps.filter(
-      (opp: any) => !beforeIds.has(opp.id)
+  type OpportunityRef = { id: string; [k: string]: any };
+  const beforeOpps: OpportunityRef[] = (before[FIELDS.OPPORTUNITIES] ?? []) as OpportunityRef[];
+  const afterOpps: OpportunityRef[] = (after[FIELDS.OPPORTUNITIES] ?? []) as OpportunityRef[];
+
+  // Find newly added opportunities
+  const beforeIds = new Set<string>(beforeOpps.map((opp) => opp.id));
+  const newOpportunities = afterOpps.filter(
+    (opp) => !beforeIds.has(opp.id)
+  );
+
+  for (const opp of newOpportunities) {
+    logger.info(
+      `[Webhook] Opportunity applied: ${userId}/${opp.id}`
     );
-
-    for (const opp of newOpportunities) {
-      logger.info(
-        `[Webhook] Opportunity applied: ${userId}/${opp.id}`
-      );
-      await handleOpportunityApplied(userId, opp);
-    }
-  });
+    await handleOpportunityApplied(userId, opp);
+  }
+});
 
 /**
  * Opportunity outcome recorded trigger
@@ -162,61 +197,69 @@ export const onOpportunityApplied = functions.firestore
  * Fires when scores/analysis are updated in currentMatches
  * This is a lightweight trigger that fires on score changes
  */
-export const onOpportunityAnalyzed = functions.firestore
-  .document('userMatches/{userId}/current/latest')
-  .onUpdate(async (change, context) => {
-    const userId = context.params.userId;
-    const before = change.before.data();
-    const after = change.after.data();
+export const onOpportunityAnalyzed = onDocumentUpdated('userMatches/{userId}/current/latest', async (event) => {
+  const userId = event.params.userId;
+  
+  if (!event.data) {
+    return;
+  }
 
-    // Check if scores changed
-    const beforeScores = before?.[FIELDS.TOP_MATCHES]?.map((m: any) => m.scores?.rankingScore) || [];
-    const afterScores = after?.[FIELDS.TOP_MATCHES]?.map((m: any) => m.scores?.rankingScore) || [];
+  const before = event.data.before.data();
+  const after = event.data.after.data();
 
-    if (JSON.stringify(beforeScores) !== JSON.stringify(afterScores)) {
-      logger.info(
-        `[Webhook] Opportunity analyzed: ${userId} (scores updated)`
-      );
+  // Check if scores changed
+  type MatchItem = { scores?: { rankingScore?: number }; [k: string]: any };
+  const beforeMatches = (before[FIELDS.TOP_MATCHES] ?? []) as MatchItem[];
+  const afterMatches = (after[FIELDS.TOP_MATCHES] ?? []) as MatchItem[];
+  const beforeScores = beforeMatches.map((m) => m.scores?.rankingScore);
+  const afterScores = afterMatches.map((m) => m.scores?.rankingScore);
 
-      const payload = {
-        userId,
-        runId: after[FIELDS.RUN_ID],
-        updatedAt: after[FIELDS.UPDATED_AT] || new Date().toISOString(),
-        matchCount: after[FIELDS.TOP_MATCHES]?.length || 0,
-      };
+  if (JSON.stringify(beforeScores) !== JSON.stringify(afterScores)) {
+    logger.info(
+      `[Webhook] Opportunity analyzed: ${userId} (scores updated)`
+    );
 
-      await emitWebhook('opportunity.analyzed', payload, { userId });
-    }
-  });
+    const payload = {
+      userId,
+      runId: after[FIELDS.RUN_ID],
+      updatedAt: after[FIELDS.UPDATED_AT] || new Date().toISOString(),
+      matchCount: afterMatches.length,
+    };
+
+    await emitWebhook('opportunity.analyzed', payload, { userId });
+  }
+});
 
 /**
  * Opportunities recommended trigger
  * Fires when algorithm results are saved to userMatches/{uid}/current/latest
  * Only fires on creation (not updates) to avoid duplicate webhooks
  */
-export const onOpportunitiesRecommended = functions.firestore
-  .document('userMatches/{userId}/current/latest')
-  .onCreate(async (snapshot, context) => {
-    const userId = context.params.userId;
-    const data = snapshot.data();
+export const onOpportunitiesRecommended = onDocumentCreated('userMatches/{userId}/current/latest', async (event) => {
+  const userId = event.params.userId;
+  const snapshot = event.data;
+  if (!snapshot) {
+    return;
+  }
+  const data = snapshot.data();
 
-    const runId = data[FIELDS.RUN_ID];
-    const topMatches = data[FIELDS.TOP_MATCHES] || [];
-    const unknownMatches = data[FIELDS.UNKNOWN_ELIGIBILITY_MATCHES] || [];
-    const allMatches = [...topMatches, ...unknownMatches];
+  const runId = data[FIELDS.RUN_ID];
+  const topMatches = data[FIELDS.TOP_MATCHES] || [];
+  const unknownMatches = data[FIELDS.UNKNOWN_ELIGIBILITY_MATCHES] || [];
+  const allMatches = [...topMatches, ...unknownMatches];
 
-    if (!runId || allMatches.length === 0) {
-      return;
-    }
+  if (!runId || allMatches.length === 0) {
+    return;
+  }
 
-    logger.info(
-      `[Webhook] Opportunities recommended: ${userId}/${runId} (${allMatches.length} matches)`
-    );
+  logger.info(
+    `[Webhook] Opportunities recommended: ${userId}/${runId} (${allMatches.length} matches)`
+  );
 
-    // Emit webhook with match data
-    // The normalized persistence handler will store full opportunities
-    await handleOpportunitiesRecommended(userId, runId, allMatches);
-  });
+  // Emit webhook with match data
+  // The normalized persistence handler will store full opportunities
+  await handleOpportunitiesRecommended(userId, runId, allMatches);
+});
 
 // ============================================================================
 // NORMALIZED RECOMMENDATION PERSISTENCE
@@ -227,11 +270,13 @@ export const onOpportunitiesRecommended = functions.firestore
  * This runs as a side effect of the recommendation trigger
  * Stores full opportunity objects for webhook delivery
  */
-export const persistRecommendations = functions.firestore
-  .document('userMatches/{userId}/current/latest')
-  .onCreate(async (snapshot, context) => {
-    const userId = context.params.userId;
-    const data = snapshot.data();
+export const persistRecommendations = onDocumentCreated('userMatches/{userId}/current/latest', async (event) => {
+  const userId = event.params.userId;
+  const snapshot = event.data;
+  if (!snapshot) {
+    return;
+  }
+  const data = snapshot.data();
 
     const runId = data[FIELDS.RUN_ID];
     const topMatches = data[FIELDS.TOP_MATCHES] || [];

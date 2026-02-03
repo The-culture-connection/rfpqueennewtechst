@@ -3,7 +3,6 @@
  * These functions are called by Firestore triggers to emit webhook events
  */
 
-import { getAdminFirestore, getAdminStorage } from './firebaseAdmin';
 import { buildEvent } from './buildEvent';
 import { getActiveIntegrations } from './integrations';
 import { deliverWebhook } from './deliver';
@@ -11,7 +10,7 @@ import { logWebhookDelivery } from './logDelivery';
 import { generateSignedDownloadUrl, parseStorageUrl } from './storageLinks';
 import { chunkArray, calculateTotalPages } from './chunking';
 import * as logger from 'firebase-functions/logger';
-import { COLLECTIONS, FIELDS, STATUS } from './mappings';
+import { STATUS } from './mappings';
 
 // Re-export emitWebhook for use in index.ts
 export async function emitWebhook(
@@ -52,7 +51,6 @@ export async function emitWebhook(
   }
 }
 
-const db = getAdminFirestore();
 const DEFAULT_CHUNK_SIZE = 25;
 
 

@@ -3,7 +3,6 @@
  */
 
 import { getAdminStorage } from './firebaseAdmin';
-import * as admin from 'firebase-admin';
 
 const DEFAULT_EXPIRY_DAYS = 7;
 
