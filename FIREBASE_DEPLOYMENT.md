@@ -160,6 +160,50 @@ firebase use thermfpqueen-f11fd
 - Verify you have "Firebase Admin" or "Editor" role
 - Check Firebase Console → IAM & Admin
 
+**Eventarc Service Agent Permission Error:**
+This is a common issue when deploying 2nd gen Firebase Functions for the first time.
+
+**Error message:**
+```
+Permission denied while using the Eventarc Service Agent. 
+If you recently started to use Eventarc, it may take a few minutes 
+before all necessary permissions are propagated to the Service Agent.
+```
+
+**Quick fix (PowerShell):**
+```powershell
+.\fix-eventarc-permissions.ps1
+```
+
+**Manual fix:**
+1. Get your project number:
+   ```powershell
+   gcloud projects describe therfpqueen-f11fd --format="value(projectNumber)"
+   ```
+
+2. Grant Eventarc Service Agent role:
+   ```powershell
+   $projectNumber = "<your-project-number>"
+   $serviceAgent = "service-$projectNumber@gcp-sa-eventarc.iam.gserviceaccount.com"
+   gcloud projects add-iam-policy-binding therfpqueen-f11fd `
+       --member="serviceAccount:$serviceAgent" `
+       --role="roles/eventarc.serviceAgent"
+   ```
+
+3. Wait 2-5 minutes for permissions to propagate
+
+4. Retry deployment:
+   ```powershell
+   cd functions
+   firebase deploy --only functions
+   ```
+
+**Alternative: Use Google Cloud Console**
+1. Go to: https://console.cloud.google.com/iam-admin/iam?project=therfpqueen-f11fd
+2. Find or add the Eventarc Service Agent: `service-<project-number>@gcp-sa-eventarc.iam.gserviceaccount.com`
+3. Grant role: **Eventarc Service Agent**
+4. Wait 2-5 minutes and retry deployment
+
 **Function timeout:**
 - Check function timeout settings in `functions/src/index.ts`
 - Default is 60s, can be increased for large operations

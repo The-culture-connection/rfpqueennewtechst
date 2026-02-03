@@ -82,6 +82,24 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host ""
     Write-Host "ERROR: Deployment failed!" -ForegroundColor Red
     Write-Host "  Check the error messages above." -ForegroundColor Yellow
+    Write-Host ""
+    
+    # Check for Eventarc permission errors
+    $deployOutput = firebase deploy --only functions 2>&1 | Out-String
+    if ($deployOutput -match "Eventarc Service Agent" -or $deployOutput -match "Permission denied") {
+        Write-Host "========================================" -ForegroundColor Yellow
+        Write-Host "Eventarc Permission Issue Detected" -ForegroundColor Yellow
+        Write-Host "========================================" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "This is a common issue with 2nd gen Firebase Functions." -ForegroundColor Yellow
+        Write-Host "Run the fix script:" -ForegroundColor Cyan
+        Write-Host "  cd .." -ForegroundColor White
+        Write-Host "  .\fix-eventarc-permissions.ps1" -ForegroundColor White
+        Write-Host ""
+        Write-Host "Then wait 2-5 minutes and retry deployment." -ForegroundColor Yellow
+        Write-Host ""
+    }
+    
     exit 1
 }
 
