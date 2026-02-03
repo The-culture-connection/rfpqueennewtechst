@@ -1,0 +1,5 @@
+node_modules/
+dist/
+webhook-logs.jsonl
+.env
+*.log
