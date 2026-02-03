@@ -131,7 +131,7 @@ if (Test-Path $logFile) {
 Write-Host "`n[230] Checking Firebase Functions deployment..." -ForegroundColor Cyan
 try {
     $functions = firebase functions:list 2>&1
-    if ($functions -match "onUserCreated|onDocumentUploaded|onOpportunitySaved") {
+    if ($functions -match "onUserCreated|onDocumentUploadedCreate|onDocumentUploadedUpdate|onOpportunitySaved") {
         Write-Host "  ✓ Webhook functions are deployed" -ForegroundColor Green
         $functionCount = ($functions -split "`n" | Where-Object { $_ -match "onUser|onDocument|onOpportunity|persist" }).Count
         Write-Host "  Found $functionCount webhook-related functions" -ForegroundColor White

@@ -94,7 +94,8 @@ Write-Host ""
 # Show deployed functions
 Write-Host "Deployed webhook functions:" -ForegroundColor Cyan
 Write-Host "  - onUserCreated" -ForegroundColor White
-Write-Host "  - onDocumentUploaded" -ForegroundColor White
+Write-Host "  - onDocumentUploadedCreate" -ForegroundColor White
+Write-Host "  - onDocumentUploadedUpdate" -ForegroundColor White
 Write-Host "  - onOpportunitySaved" -ForegroundColor White
 Write-Host "  - onOpportunityApplied" -ForegroundColor White
 Write-Host "  - onOpportunitiesRecommended" -ForegroundColor White

@@ -72,7 +72,8 @@ if ($currentProject -match "therfpqueen-f11fd") {
 # 90. Show what will be deployed
 Write-Host "`nFunctions to deploy:" -ForegroundColor Cyan
 Write-Host "  - onUserCreated" -ForegroundColor White
-Write-Host "  - onDocumentUploaded" -ForegroundColor White
+Write-Host "  - onDocumentUploadedCreate" -ForegroundColor White
+Write-Host "  - onDocumentUploadedUpdate" -ForegroundColor White
 Write-Host "  - onOpportunitySaved" -ForegroundColor White
 Write-Host "  - onOpportunityApplied" -ForegroundColor White
 Write-Host "  - onOpportunitiesRecommended" -ForegroundColor White

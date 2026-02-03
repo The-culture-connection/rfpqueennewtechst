@@ -33,7 +33,7 @@ If you need to preserve existing functions immediately:
 ## Current Implementation
 
 The webhook system in `functions/src/index.ts` includes:
-- All webhook triggers (onUserCreated, onDocumentUploaded, etc.)
+- All webhook triggers (onUserCreated, onDocumentUploadedCreate, onDocumentUploadedUpdate, etc.)
 - Normalized recommendation persistence
 - No existing function exports (they need to be added)
 
@@ -57,7 +57,8 @@ The webhook system in `functions/src/index.ts` includes:
 ## Webhook Functions Added
 
 - `onUserCreated`
-- `onDocumentUploaded`
+- `onDocumentUploadedCreate`
+- `onDocumentUploadedUpdate`
 - `onOpportunitySaved`
 - `onOpportunityApplied`
 - `onOpportunitiesRecommended`

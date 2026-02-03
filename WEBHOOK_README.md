@@ -23,7 +23,8 @@ This system emits webhook events when key actions occur in the application:
 
 2. **Firestore Triggers** (`functions/src/index.ts`)
    - `onUserCreated`: Profile creation
-   - `onDocumentUploaded`: Document processing completion
+   - `onDocumentUploadedCreate`: Document created with 'completed' status
+   - `onDocumentUploadedUpdate`: Document status changed to 'completed'
    - `onOpportunitySaved`: Opportunity saved to tracker
    - `onOpportunityApplied`: Opportunity marked as applied
    - `onOpportunitiesRecommended`: Algorithm results

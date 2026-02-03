@@ -82,7 +82,7 @@ firebase deploy --only functions
 **Or deploy specific functions:**
 ```powershell
 # Deploy only webhook functions
-firebase deploy --only functions:onUserCreated,functions:onDocumentUploaded,functions:onOpportunitySaved,functions:onOpportunityApplied,functions:onOpportunitiesRecommended,functions:onOpportunityAnalyzed,functions:persistRecommendations
+firebase deploy --only functions:onUserCreated,functions:onDocumentUploadedCreate,functions:onDocumentUploadedUpdate,functions:onOpportunitySaved,functions:onOpportunityApplied,functions:onOpportunityAnalyzed,functions:onOpportunitiesRecommended,functions:persistRecommendations
 ```
 
 ## Post-Deployment
@@ -186,7 +186,8 @@ After successful deployment, you'll see:
 
 ```
 ✔  functions[onUserCreated(us-central1)] Successful create operation.
-✔  functions[onDocumentUploaded(us-central1)] Successful create operation.
+✔  functions[onDocumentUploadedCreate(us-central1)] Successful create operation.
+✔  functions[onDocumentUploadedUpdate(us-central1)] Successful create operation.
 ✔  functions[onOpportunitySaved(us-central1)] Successful create operation.
 ✔  functions[onOpportunityApplied(us-central1)] Successful create operation.
 ✔  functions[onOpportunitiesRecommended(us-central1)] Successful create operation.
