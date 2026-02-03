@@ -166,6 +166,9 @@ export const onOpportunityApplied = onDocumentUpdated('profiles/{userId}/tracker
  * TODO: Implement when outcome tracking is added to the app
  * Expected path: profiles/{uid}/tracker/outcomes/{opportunityId}
  * or profiles/{uid}/opportunities/{opportunityId} with outcome field
+ * 
+ * ⚠️ NOT EXPORTED - Do not include in deployment commands
+ * This function is commented out and not available for deployment
  */
 // export const onOpportunityOutcomeRecorded = functions.firestore
 //   .document('profiles/{userId}/tracker/outcomes/{opportunityId}')

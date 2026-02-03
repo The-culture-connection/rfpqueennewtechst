@@ -85,6 +85,12 @@ firebase deploy --only functions
 firebase deploy --only functions:onUserCreated,functions:onDocumentUploadedCreate,functions:onDocumentUploadedUpdate,functions:onOpportunitySaved,functions:onOpportunityApplied,functions:onOpportunitiesRecommended,functions:onOpportunityAnalyzed,functions:persistRecommendations
 ```
 
+**⚠️ Important:** Do NOT include these in deployment commands:
+- `onDocumentUploaded` - Use `onDocumentUploadedCreate` and `onDocumentUploadedUpdate` instead
+- `onOpportunityOutcomeRecorded` - Not implemented yet (commented out)
+
+See `DEPLOYMENT_COMMAND_REFERENCE.md` for complete function list.
+
 ## Post-Deployment
 
 ### Verify Deployment
