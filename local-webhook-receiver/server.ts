@@ -21,6 +21,20 @@ app.use(
   })
 );
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    service: 'Local Webhook Receiver',
+    status: 'running',
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      health: 'GET /health',
+      webhook: 'POST /webhook',
+      toggleFail: 'POST /toggle-fail'
+    }
+  });
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -111,6 +125,30 @@ app.post('/webhook', async (req: any, res) => {
     received: true,
     eventId,
     timestamp,
+  });
+});
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'Not Found',
+    message: `Route ${req.method} ${req.path} not found`,
+    availableEndpoints: {
+      root: 'GET /',
+      health: 'GET /health',
+      webhook: 'POST /webhook',
+      toggleFail: 'POST /toggle-fail'
+    }
+  });
+});
+
+// Error handler
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('Error:', err);
+  res.status(500).json({
+    error: 'Internal Server Error',
+    message: err.message,
+    timestamp: new Date().toISOString()
   });
 });
 
