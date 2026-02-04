@@ -121,7 +121,8 @@ By clicking "Accept & Continue", you acknowledge that you have read, understood,
         tokensMatch: user?.uid === currentUser?.uid,
       });
 
-      if (!currentUser || currentUser.uid !== user.uid) {
+      let finalCurrentUser = currentUser;
+      if (!finalCurrentUser || finalCurrentUser.uid !== user.uid) {
         console.error('Auth mismatch - waiting for auth state...');
         // Wait a moment for auth to sync
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -129,21 +130,24 @@ By clicking "Accept & Continue", you acknowledge that you have read, understood,
         if (!updatedUser || updatedUser.uid !== user.uid) {
           throw new Error('Authentication state mismatch. Please refresh the page and try again.');
         }
+        finalCurrentUser = updatedUser;
       }
 
       // Wait for auth token to be ready
-      try {
-        const token = await currentUser.getIdToken();
-        console.log('Auth token obtained:', token ? 'present' : 'missing');
-      } catch (tokenError: any) {
-        console.warn('Could not get auth token:', tokenError?.message);
-        // Don't fail - token might still work
+      if (finalCurrentUser) {
+        try {
+          const token = await finalCurrentUser.getIdToken();
+          console.log('Auth token obtained:', token ? 'present' : 'missing');
+        } catch (tokenError: any) {
+          console.warn('Could not get auth token:', tokenError?.message);
+          // Don't fail - token might still work
+        }
       }
 
       console.log('Starting terms acceptance...', {
         userId: user.uid,
         userEmail: user.email,
-        authToken: currentUser ? 'present' : 'missing',
+        authToken: finalCurrentUser ? 'present' : 'missing',
         projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
       });
 

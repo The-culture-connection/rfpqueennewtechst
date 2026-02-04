@@ -275,21 +275,13 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
             // CRITICAL FIX: Use the data directly from the API response first!
             // The API already returns the full opportunity objects with all match data
             if (runData.opportunities && runData.opportunities.length > 0) {
-<<<<<<< HEAD
               console.log(`✅ [MATCHING] Using opportunities directly from API response: ${runData.opportunities.length} eligible`);
-=======
-              console.log(`[MATCHING][CLIENT] Using opportunities directly from API response: ${runData.opportunities.length} eligible`);
->>>>>>> 4c7cd94d72177eb8a65e54639296abb8b213483f
               matched = runData.opportunities;
               setMatchedOpportunities(matched);
               
               // Set unknown opportunities if available
               if (runData.unknownOpportunities && runData.unknownOpportunities.length > 0) {
-<<<<<<< HEAD
                 console.log(`✅ [MATCHING] Using unknown opportunities from API response: ${runData.unknownOpportunities.length}`);
-=======
-                console.log(`[MATCHING][CLIENT] Using unknown opportunities from API response: ${runData.unknownOpportunities.length}`);
->>>>>>> 4c7cd94d72177eb8a65e54639296abb8b213483f
                 setUnknownEligibilityOpportunities(runData.unknownOpportunities);
               } else {
                 setUnknownEligibilityOpportunities([]);
@@ -298,7 +290,6 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
               // Data is already set, we can continue
             } else {
               // Fallback: Try to load from Firestore if API didn't return data
-<<<<<<< HEAD
               console.log(`⚠️ [MATCHING] API response had no opportunities, trying Firestore...`);
               
               // Wait a bit for Firestore to propagate the saved matches
@@ -343,47 +334,21 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
               
               if (currentMatches && currentMatches.topMatches) {
                 console.log(`📊 [MATCHING] Processing ${currentMatches.topMatches.length} top matches from Firestore`);
-=======
-              console.log(`[MATCHING][CLIENT] API response had no opportunities, trying Firestore...`);
-              
-              // Wait a bit for Firestore to propagate
-              await new Promise(resolve => setTimeout(resolve, 1500));
-              
-              let currentMatches: any = null;
-              const profileRef = doc(db, 'profiles', profile.uid);
-              const profileDoc = await getDoc(profileRef);
-              
-              if (profileDoc.exists() && profileDoc.data()?.currentMatches) {
-                currentMatches = profileDoc.data()?.currentMatches;
-                console.log(`[MATCHING][CLIENT] Firestore topMatches length: ${currentMatches.topMatches?.length || 0}`);
-              } else {
-                const currentMatchesRef = doc(db, 'userMatches', profile.uid, 'current', 'latest');
-                const currentMatchesDoc = await getDoc(currentMatchesRef);
-                if (currentMatchesDoc.exists()) {
-                  currentMatches = currentMatchesDoc.data();
-                  console.log(`[MATCHING][CLIENT] Firestore topMatches length: ${currentMatches.topMatches?.length || 0}`);
-                }
-              }
-              
-              if (currentMatches && currentMatches.topMatches) {
+                
                 // Track mapping failures
                 let mappingFailures = 0;
                 const missingIds: string[] = [];
->>>>>>> 4c7cd94d72177eb8a65e54639296abb8b213483f
                 
                 // Map eligible matches
                 matched = (currentMatches.topMatches || [])
                   .map((match: any) => {
                     const opp = allOpps.find((o: Opportunity) => o.id === match.opportunityId);
                     if (!opp) {
-<<<<<<< HEAD
-                      console.warn(`⚠️ [MATCHING] Opportunity not found in allOpps: ${match.opportunityId}`);
-=======
                       mappingFailures++;
                       if (missingIds.length < 5) {
                         missingIds.push(match.opportunityId);
                       }
->>>>>>> 4c7cd94d72177eb8a65e54639296abb8b213483f
+                      console.warn(`⚠️ [MATCHING] Opportunity not found in allOpps: ${match.opportunityId}`);
                       return null;
                     }
                     
@@ -413,11 +378,8 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
                   })
                   .filter(Boolean) as Opportunity[];
                 
-<<<<<<< HEAD
-=======
                 console.log(`[MATCHING][CLIENT] mapping failures ${mappingFailures}/${currentMatches.topMatches.length}, sample missing IDs:`, missingIds.slice(0, 3));
                 
->>>>>>> 4c7cd94d72177eb8a65e54639296abb8b213483f
                 matched.sort((a, b) => (b.matchScore || b.winRate || 0) - (a.matchScore || a.winRate || 0));
                 setMatchedOpportunities(matched);
                 

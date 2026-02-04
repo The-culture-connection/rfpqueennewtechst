@@ -12,7 +12,6 @@ import {
 import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { UserProfile } from '@/types';
 import { auth, db } from '@/lib/firebase';
-import { UserProfile } from '@/types';
 import { 
   setAnalyticsUserId, 
   setAnalyticsUserProperties, 

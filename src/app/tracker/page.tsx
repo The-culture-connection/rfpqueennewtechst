@@ -121,10 +121,14 @@ export default function TrackerPage() {
         return opp;
       });
 
-      // Update Firestore
+      // Update Firestore - use merge: false to replace entire array (triggers webhook)
       await setDoc(appliedRef, {
         opportunities: updatedOpportunities,
       }, { merge: false });
+      
+      console.log(`✅ [Outcome] Recorded ${outcome} for opportunity ${oppId}`);
+      console.log(`[Outcome] Updated opportunities array length: ${updatedOpportunities.length}`);
+      console.log(`[Outcome] Opportunity with outcome:`, updatedOpportunities.find(opp => opp.id === oppId));
 
       // Update local state
       setAppliedOpps(updatedOpportunities);

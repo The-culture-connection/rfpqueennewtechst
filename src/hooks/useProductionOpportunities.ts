@@ -84,7 +84,7 @@ export function useProductionOpportunities(profile: UserProfile | null) {
           // Map topMatches to full opportunities
           const matchedOpportunities = currentMatches.topMatches
             .map(match => {
-              const opp = allOpportunities.find(o => o.id === match.opportunityId);
+              const opp = allOpportunities.find((o: Opportunity) => o.id === match.opportunityId);
               if (!opp) return null;
               
               return {

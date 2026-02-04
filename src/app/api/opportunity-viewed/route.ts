@@ -9,23 +9,31 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
 // Initialize Firebase Admin if not already initialized
-if (!getApps().length) {
-  try {
-    const serviceAccount = JSON.parse(
-      process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}'
-    );
+function getFirestoreInstance() {
+  if (!getApps().length) {
+    try {
+      const serviceAccount = JSON.parse(
+        process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}'
+      );
 
-    if (serviceAccount.project_id) {
-      initializeApp({
-        credential: cert(serviceAccount),
-      });
+      if (serviceAccount.project_id) {
+        initializeApp({
+          credential: cert(serviceAccount),
+        });
+      }
+    } catch (error) {
+      console.error('Error initializing Firebase Admin:', error);
+      return null;
     }
+  }
+  
+  try {
+    return getFirestore();
   } catch (error) {
-    console.error('Error initializing Firebase Admin:', error);
+    console.error('Error getting Firestore instance:', error);
+    return null;
   }
 }
-
-const db = getFirestore();
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,6 +50,7 @@ export async function POST(request: NextRequest) {
     // Store viewed opportunity in Firestore for webhook trigger
     // We'll use a simple collection to track views
     // Only create if db is initialized
+    const db = getFirestoreInstance();
     if (db) {
       const viewedRef = db
         .collection('profiles')

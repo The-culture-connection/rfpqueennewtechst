@@ -249,27 +249,27 @@ export async function saveUserOpportunitySignal(
     .doc(opportunityId);
   
   const existingDoc = await signalRef.get();
-  const existingData = existingDoc.exists ? existingDoc.data() : {};
+  const existingData = existingDoc.exists ? existingDoc.data() : undefined;
   
   // Build signal object, only including fields that have values
   const signal: any = {
     opportunityId,
     status,
     timestamps: {
-      ...(existingData.timestamps || {}),
+      ...(existingData?.timestamps || {}),
       ...timestamps,
     },
     lastActionAt: now,
   };
   
   // Only include runIdContext if it has a value
-  const finalRunIdContext = runIdContext || existingData.runIdContext;
+  const finalRunIdContext = runIdContext || existingData?.runIdContext;
   if (finalRunIdContext) {
     signal.runIdContext = finalRunIdContext;
   }
   
   // Only include userNotes if it has a value
-  const finalUserNotes = userNotes || existingData.userNotes;
+  const finalUserNotes = userNotes || existingData?.userNotes;
   if (finalUserNotes) {
     signal.userNotes = finalUserNotes;
   }
@@ -356,7 +356,7 @@ export async function getUserProfileWithVersions(userId: string): Promise<{
     const userRef = db.collection('users').doc(userId);
     const userDoc = await userRef.get();
     
-    if (userDoc.exists()) {
+    if (userDoc.exists) {
       const userData = userDoc.data();
       return {
         profile: userData as UserProfile,

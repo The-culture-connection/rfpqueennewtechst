@@ -224,6 +224,26 @@ export default function DashboardPage() {
     loadSavedIds();
   }, [user, db]);
 
+  // Debug logging - MUST be before early returns to follow Rules of Hooks
+  useEffect(() => {
+    if (!loading) {
+      // Filter out passed AND saved opportunities
+      const allExcludedIds = new Set([...passedIds, ...savedIds]);
+      // Filter to show either eligible or unknown eligibility based on toggle
+      const displayedOpportunities = showUnknownEligibility 
+        ? unknownEligibilityOpportunities.filter(opp => !allExcludedIds.has(opp.id))
+        : matchedOpportunities.filter(opp => !allExcludedIds.has(opp.id));
+      
+      console.log(`[DASHBOARD][DEBUG] matchedOpportunities.length: ${matchedOpportunities.length}`);
+      console.log(`[DASHBOARD][DEBUG] passedIds.length: ${passedIds.length}, savedIds.length: ${savedIds.length}`);
+      console.log(`[DASHBOARD][DEBUG] displayedOpportunities.length: ${displayedOpportunities.length}`);
+      console.log(`[DASHBOARD][DEBUG] currentIndex: ${currentIndex}`);
+      if (matchedOpportunities.length > 0) {
+        console.log(`[DASHBOARD][DEBUG] Sample matched opportunity IDs:`, matchedOpportunities.slice(0, 3).map(o => o.id));
+      }
+    }
+  }, [loading, matchedOpportunities, passedIds, savedIds, showUnknownEligibility, unknownEligibilityOpportunities, currentIndex]);
+
   if (loading || !userProfile) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#f6f6f6' }}>
@@ -259,19 +279,6 @@ export default function DashboardPage() {
   
   const availableOpportunities = displayedOpportunities;
   const currentOpportunity = availableOpportunities[currentIndex];
-  
-  // Debug logging
-  useEffect(() => {
-    if (!loading) {
-      console.log(`[DASHBOARD][DEBUG] matchedOpportunities.length: ${matchedOpportunities.length}`);
-      console.log(`[DASHBOARD][DEBUG] passedIds.length: ${passedIds.length}, savedIds.length: ${savedIds.length}`);
-      console.log(`[DASHBOARD][DEBUG] displayedOpportunities.length: ${displayedOpportunities.length}`);
-      console.log(`[DASHBOARD][DEBUG] currentIndex: ${currentIndex}`);
-      if (matchedOpportunities.length > 0) {
-        console.log(`[DASHBOARD][DEBUG] Sample matched opportunity IDs:`, matchedOpportunities.slice(0, 3).map(o => o.id));
-      }
-    }
-  }, [loading, matchedOpportunities.length, passedIds.length, savedIds.length, displayedOpportunities.length, currentIndex]);
 
   // Reset progress and start over
   const handleStartOver = async () => {
@@ -409,7 +416,7 @@ export default function DashboardPage() {
       console.log('📊 Tracked pass for preference learning');
     }
     
-    // Save user signal to new system
+    // Save user signal to new system (includes legacy tracker write for webhooks)
     if (user) {
       try {
         const response = await fetch('/api/user-signal', {
@@ -419,6 +426,7 @@ export default function DashboardPage() {
             userId: user.uid,
             opportunityId: id,
             status: 'passed',
+            opportunity: opportunity, // Pass full opportunity for legacy tracker write
           }),
         });
         
@@ -624,7 +632,7 @@ export default function DashboardPage() {
       const opportunity = opportunities.find(opp => opp.id === id);
       if (!opportunity) return;
 
-      // Save user signal to new system
+      // Save user signal to new system (includes legacy tracker write for webhooks)
       const signalResponse = await fetch('/api/user-signal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -632,6 +640,7 @@ export default function DashboardPage() {
           userId: user.uid,
           opportunityId: id,
           status: 'saved',
+          opportunity: opportunity, // Pass full opportunity for legacy tracker write
         }),
       });
       
@@ -711,7 +720,7 @@ export default function DashboardPage() {
     
     setActionLoading(true);
     try {
-      // Save user signal to new system
+      // Save user signal to new system (includes legacy tracker write for webhooks)
       const signalResponse = await fetch('/api/user-signal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -719,6 +728,7 @@ export default function DashboardPage() {
           userId: user.uid,
           opportunityId: id,
           status: 'applied',
+          opportunity: opportunity, // Pass full opportunity for legacy tracker write
         }),
       });
       
@@ -726,27 +736,32 @@ export default function DashboardPage() {
         throw new Error('Failed to save user signal');
       }
       
-      // Also save to legacy tracker for backward compatibility
+      // Also save to legacy tracker for backward compatibility (webhook trigger)
+      // Note: API also writes here, but we keep this as backup
       if (db) {
         const trackerRef = doc(db, 'profiles', user.uid, 'tracker', 'applied');
         const trackerDoc = await getDoc(trackerRef);
 
+        const appliedOpportunity = {
+          ...opportunity,
+          appliedAt: new Date().toISOString(),
+          status: 'applied'
+        };
+
         if (trackerDoc.exists()) {
-          await setDoc(trackerRef, {
-            opportunities: arrayUnion({
-              ...opportunity,
-              appliedAt: new Date().toISOString(),
-              status: 'applied'
-            })
-          }, { merge: true });
+          const existing = trackerDoc.data().opportunities || [];
+          // Check if already exists
+          if (!existing.some((opp: any) => opp.id === id)) {
+            await setDoc(trackerRef, {
+              opportunities: [...existing, appliedOpportunity]
+            }, { merge: false }); // Use merge: false to ensure webhook triggers
+            console.log(`✅ [Apply] Saved to legacy tracker/applied for webhook`);
+          }
         } else {
           await setDoc(trackerRef, {
-            opportunities: [{
-              ...opportunity,
-              appliedAt: new Date().toISOString(),
-              status: 'applied'
-            }]
+            opportunities: [appliedOpportunity]
           });
+          console.log(`✅ [Apply] Created legacy tracker/applied for webhook`);
         }
       }
 

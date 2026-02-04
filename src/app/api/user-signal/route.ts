@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { saveUserOpportunitySignal } from '@/lib/matchDataAccess';
 import { logAIAuditEvent, createAuditRequestId } from '@/lib/aiAudit';
+import { getAdminFirestore } from '@/lib/firebaseAdmin';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
   }
   
   try {
-    const { userId, opportunityId, status, runIdContext, userNotes } = requestBody;
+    const { userId, opportunityId, status, runIdContext, userNotes, opportunity } = requestBody;
     
     if (!userId || !opportunityId || !status) {
       return NextResponse.json(
@@ -39,6 +40,7 @@ export async function POST(request: Request) {
     
     console.log(`[user-signal] Saving ${status} signal for opportunity ${opportunityId}`);
     
+    // Save to new system (userOpportunitySignals)
     await saveUserOpportunitySignal(
       userId,
       opportunityId,
@@ -46,6 +48,91 @@ export async function POST(request: Request) {
       runIdContext,
       userNotes
     );
+    
+    // ALSO save to legacy tracker paths for webhook triggers
+    const db = getAdminFirestore();
+    const now = new Date().toISOString();
+    
+    if (status === 'saved' && opportunity) {
+      // Save to profiles/{userId}/tracker/saved
+      const savedRef = db.collection('profiles').doc(userId).collection('tracker').doc('saved');
+      const savedDoc = await savedRef.get();
+      
+      const savedOpportunity = {
+        ...opportunity,
+        savedAt: now,
+        status: 'saved'
+      };
+      
+      if (savedDoc.exists) {
+        const existing = savedDoc.data()?.opportunities || [];
+        // Check if already exists
+        if (!existing.some((opp: any) => opp.id === opportunityId)) {
+          await savedRef.update({
+            opportunities: [...existing, savedOpportunity]
+          });
+          console.log(`[user-signal] Saved to legacy tracker/saved for webhook`);
+        }
+      } else {
+        await savedRef.set({
+          opportunities: [savedOpportunity]
+        });
+        console.log(`[user-signal] Created legacy tracker/saved for webhook`);
+      }
+    } else if (status === 'applied' && opportunity) {
+      // Save to profiles/{userId}/tracker/applied
+      const appliedRef = db.collection('profiles').doc(userId).collection('tracker').doc('applied');
+      const appliedDoc = await appliedRef.get();
+      
+      const appliedOpportunity = {
+        ...opportunity,
+        appliedAt: now,
+        status: 'applied'
+      };
+      
+      if (appliedDoc.exists) {
+        const existing = appliedDoc.data()?.opportunities || [];
+        // Check if already exists
+        if (!existing.some((opp: any) => opp.id === opportunityId)) {
+          await appliedRef.update({
+            opportunities: [...existing, appliedOpportunity]
+          });
+          console.log(`[user-signal] Saved to legacy tracker/applied for webhook`);
+        }
+      } else {
+        await appliedRef.set({
+          opportunities: [appliedOpportunity]
+        });
+        console.log(`[user-signal] Created legacy tracker/applied for webhook`);
+      }
+    } else if (status === 'passed' && opportunity) {
+      // Save to profiles/{userId}/dashboard/passed (as document keys)
+      const passedRef = db.collection('profiles').doc(userId).collection('dashboard').doc('passed');
+      const passedDoc = await passedRef.get();
+      
+      const passedData = {
+        [opportunityId]: {
+          id: opportunityId,
+          title: opportunity.title || '',
+          agency: opportunity.agency || '',
+          source: opportunity.source || '',
+          passedAt: now,
+          winRate: opportunity.winRate || 0
+        }
+      };
+      
+      if (passedDoc.exists) {
+        const existing = passedDoc.data() || {};
+        // Only add if not already passed
+        if (!existing[opportunityId]) {
+          await passedRef.update(passedData);
+          console.log(`[user-signal] Saved to legacy dashboard/passed for webhook`);
+        }
+      } else {
+        await passedRef.set(passedData);
+        console.log(`[user-signal] Created legacy dashboard/passed for webhook`);
+      }
+    }
     
     const latency = Date.now() - startTime;
     

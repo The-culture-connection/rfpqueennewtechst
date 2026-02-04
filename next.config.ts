@@ -2,28 +2,6 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   webpack: (config, { isServer }) => {
-    // Exclude server-only modules from client bundle
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        net: false,
-        tls: false,
-        fs: false,
-        'firebase-admin': false,
-      };
-    }
-    return config;
-  },
-  eslint: {
-    // Ignore ESLint errors during builds for now (can be re-enabled later)
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    // Ignore TypeScript errors during builds (we'll fix them properly)
-    ignoreBuildErrors: false,
-  },
-  /* config options here */
-  webpack: (config, { isServer }) => {
     if (isServer) {
       // Externalize canvas to avoid webpack bundling issues
       config.externals.push('canvas');
@@ -43,6 +21,14 @@ const nextConfig: NextConfig = {
       };
     }
     return config;
+  },
+  eslint: {
+    // Ignore ESLint errors during builds for now (can be re-enabled later)
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    // Ignore TypeScript errors during builds (we'll fix them properly)
+    ignoreBuildErrors: false,
   },
 };
 
