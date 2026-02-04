@@ -251,7 +251,7 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
         
         if (shouldRunData.shouldRun || forceReload) {
           // Use new production matching system
-          console.log(`🚀 [MATCHING] Triggering run (reason: ${shouldRunData.reason || 'FIRST_DASHBOARD'})`);
+          console.log(`[MATCHING][CLIENT] shouldRun=${shouldRunData.shouldRun}, reason=${shouldRunData.reason || 'FIRST_DASHBOARD'}, forceReload=${forceReload}`);
           setLoading(true);
           
           const runResponse = await fetch('/api/run-matching', {
@@ -266,71 +266,67 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
           
           if (runResponse.ok) {
             const runData = await runResponse.json();
+            console.log(`[MATCHING][CLIENT] runData keys:`, Object.keys(runData));
+            console.log(`[MATCHING][CLIENT] runData.opportunities length:`, runData.opportunities?.length || 0);
+            console.log(`[MATCHING][CLIENT] runData.unknownOpportunities length:`, runData.unknownOpportunities?.length || 0);
+            console.log(`[MATCHING][CLIENT] runData.matchesCount:`, runData.matchesCount);
             console.log(`✅ [MATCHING] Complete: ${runData.matchesCount} eligible, ${runData.unknownOpportunities?.length || 0} unknown`);
             
-            // Try to load from profiles collection first (primary location)
-            let currentMatches: any = null;
-            const profileRef = doc(db, 'profiles', profile.uid);
-            const profileDoc = await getDoc(profileRef);
-            
-            if (profileDoc.exists() && profileDoc.data()?.currentMatches) {
-              currentMatches = profileDoc.data()?.currentMatches;
-            } else {
-              // Fallback to userMatches collection
-              const currentMatchesRef = doc(db, 'userMatches', profile.uid, 'current', 'latest');
-              const currentMatchesDoc = await getDoc(currentMatchesRef);
-              if (currentMatchesDoc.exists()) {
-                currentMatches = currentMatchesDoc.data();
-              }
-            }
-            
-            if (currentMatches && currentMatches.topMatches) {
-              // Map eligible matches (ONLY these go to main display)
-              matched = (currentMatches.topMatches || [])
-                .map((match: any) => {
-                  const opp = allOpps.find((o: Opportunity) => o.id === match.opportunityId);
-                  if (!opp) return null;
-                  
-                  // Handle eligibilityNotes - can be array or string
-                  const eligibilityNotes = Array.isArray(match.notes?.eligibilityNotes)
-                    ? match.notes.eligibilityNotes
-                    : (match.notes?.eligibilityNotes ? [match.notes.eligibilityNotes] : []);
-                  
-                  // Use new eligibility structure if available
-                  const eligibility = match.eligibility || match.eligibilityGate;
-                  
-                  return {
-                    ...opp,
-                    winRate: match.scores?.rankingScore || match.scores?.fitScore * 100 || 0,
-                    matchScore: match.scores?.rankingScore || match.scores?.fitScore * 100 || 0,
-                    eligibilityNotes: eligibilityNotes.length > 0 ? eligibilityNotes : undefined,
-                    matchReasoning: {
-                      summary: match.notes?.matchSummary || '',
-                      strengths: [],
-                      concerns: [],
-                      specificReasons: eligibility?.reasons || match.eligibilityGate?.reasons || [],
-                      eligibilityHighlights: eligibilityNotes,
-                      confidenceScore: match.confidenceScore || 0,
-                    },
-                    // Add eligibility status fields
-                    eligibilityStatus: eligibility?.status || (match.eligibilityGate?.eligible ? 'eligible' : 'unknown'),
-                    eligibilityBlockers: eligibility?.blockers || [],
-                    eligibilityEvidence: eligibility?.evidence || [],
-                  };
-                })
-                .filter(Boolean) as Opportunity[];
-              
-              // Sort by ranking score (AI-refined scores should be highest)
-              matched.sort((a, b) => (b.matchScore || b.winRate || 0) - (a.matchScore || a.winRate || 0));
-              
+            // CRITICAL FIX: Use the data directly from the API response first!
+            // The API already returns the full opportunity objects with all match data
+            if (runData.opportunities && runData.opportunities.length > 0) {
+              console.log(`[MATCHING][CLIENT] Using opportunities directly from API response: ${runData.opportunities.length} eligible`);
+              matched = runData.opportunities;
               setMatchedOpportunities(matched);
               
-              // Load unknown eligibility matches if available
-              if (currentMatches.unknownEligibilityMatches && currentMatches.unknownEligibilityMatches.length > 0) {
-                const unknownMatched = currentMatches.unknownEligibilityMatches
+              // Set unknown opportunities if available
+              if (runData.unknownOpportunities && runData.unknownOpportunities.length > 0) {
+                console.log(`[MATCHING][CLIENT] Using unknown opportunities from API response: ${runData.unknownOpportunities.length}`);
+                setUnknownEligibilityOpportunities(runData.unknownOpportunities);
+              } else {
+                setUnknownEligibilityOpportunities([]);
+              }
+              
+              // Data is already set, we can continue
+            } else {
+              // Fallback: Try to load from Firestore if API didn't return data
+              console.log(`[MATCHING][CLIENT] API response had no opportunities, trying Firestore...`);
+              
+              // Wait a bit for Firestore to propagate
+              await new Promise(resolve => setTimeout(resolve, 1500));
+              
+              let currentMatches: any = null;
+              const profileRef = doc(db, 'profiles', profile.uid);
+              const profileDoc = await getDoc(profileRef);
+              
+              if (profileDoc.exists() && profileDoc.data()?.currentMatches) {
+                currentMatches = profileDoc.data()?.currentMatches;
+                console.log(`[MATCHING][CLIENT] Firestore topMatches length: ${currentMatches.topMatches?.length || 0}`);
+              } else {
+                const currentMatchesRef = doc(db, 'userMatches', profile.uid, 'current', 'latest');
+                const currentMatchesDoc = await getDoc(currentMatchesRef);
+                if (currentMatchesDoc.exists()) {
+                  currentMatches = currentMatchesDoc.data();
+                  console.log(`[MATCHING][CLIENT] Firestore topMatches length: ${currentMatches.topMatches?.length || 0}`);
+                }
+              }
+              
+              if (currentMatches && currentMatches.topMatches) {
+                // Track mapping failures
+                let mappingFailures = 0;
+                const missingIds: string[] = [];
+                
+                // Map eligible matches
+                matched = (currentMatches.topMatches || [])
                   .map((match: any) => {
                     const opp = allOpps.find((o: Opportunity) => o.id === match.opportunityId);
-                    if (!opp) return null;
+                    if (!opp) {
+                      mappingFailures++;
+                      if (missingIds.length < 5) {
+                        missingIds.push(match.opportunityId);
+                      }
+                      return null;
+                    }
                     
                     const eligibilityNotes = Array.isArray(match.notes?.eligibilityNotes)
                       ? match.notes.eligibilityNotes
@@ -340,34 +336,75 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
                     
                     return {
                       ...opp,
-                      winRate: match.scores?.rankingScore || 0,
-                      matchScore: match.scores?.rankingScore || 0,
+                      winRate: match.scores?.rankingScore || match.scores?.fitScore * 100 || 0,
+                      matchScore: match.scores?.rankingScore || match.scores?.fitScore * 100 || 0,
                       eligibilityNotes: eligibilityNotes.length > 0 ? eligibilityNotes : undefined,
                       matchReasoning: {
                         summary: match.notes?.matchSummary || '',
                         strengths: [],
                         concerns: [],
-                        specificReasons: eligibility?.reasons || [],
+                        specificReasons: eligibility?.reasons || match.eligibilityGate?.reasons || [],
                         eligibilityHighlights: eligibilityNotes,
                         confidenceScore: match.confidenceScore || 0,
                       },
-                      eligibilityStatus: eligibility?.status || 'unknown',
+                      eligibilityStatus: eligibility?.status || (match.eligibilityGate?.eligible ? 'eligible' : 'unknown'),
                       eligibilityBlockers: eligibility?.blockers || [],
                       eligibilityEvidence: eligibility?.evidence || [],
                     };
                   })
                   .filter(Boolean) as Opportunity[];
                 
-                unknownMatched.sort((a, b) => (b.matchScore || b.winRate || 0) - (a.matchScore || a.winRate || 0));
-                setUnknownEligibilityOpportunities(unknownMatched);
+                console.log(`[MATCHING][CLIENT] mapping failures ${mappingFailures}/${currentMatches.topMatches.length}, sample missing IDs:`, missingIds.slice(0, 3));
+                
+                matched.sort((a, b) => (b.matchScore || b.winRate || 0) - (a.matchScore || a.winRate || 0));
+                setMatchedOpportunities(matched);
+                
+                // Load unknown eligibility matches
+                if (currentMatches.unknownEligibilityMatches && currentMatches.unknownEligibilityMatches.length > 0) {
+                  const unknownMatched = currentMatches.unknownEligibilityMatches
+                    .map((match: any) => {
+                      const opp = allOpps.find((o: Opportunity) => o.id === match.opportunityId);
+                      if (!opp) return null;
+                      
+                      const eligibilityNotes = Array.isArray(match.notes?.eligibilityNotes)
+                        ? match.notes.eligibilityNotes
+                        : (match.notes?.eligibilityNotes ? [match.notes.eligibilityNotes] : []);
+                      
+                      const eligibility = match.eligibility || match.eligibilityGate;
+                      
+                      return {
+                        ...opp,
+                        winRate: match.scores?.rankingScore || 0,
+                        matchScore: match.scores?.rankingScore || 0,
+                        eligibilityNotes: eligibilityNotes.length > 0 ? eligibilityNotes : undefined,
+                        matchReasoning: {
+                          summary: match.notes?.matchSummary || '',
+                          strengths: [],
+                          concerns: [],
+                          specificReasons: eligibility?.reasons || [],
+                          eligibilityHighlights: eligibilityNotes,
+                          confidenceScore: match.confidenceScore || 0,
+                        },
+                        eligibilityStatus: eligibility?.status || 'unknown',
+                        eligibilityBlockers: eligibility?.blockers || [],
+                        eligibilityEvidence: eligibility?.evidence || [],
+                      };
+                    })
+                    .filter(Boolean) as Opportunity[];
+                  
+                  unknownMatched.sort((a, b) => (b.matchScore || b.winRate || 0) - (a.matchScore || a.winRate || 0));
+                  setUnknownEligibilityOpportunities(unknownMatched);
+                } else {
+                  setUnknownEligibilityOpportunities([]);
+                }
+              } else {
+                // Final fallback to old system
+                console.warn('⚠️  [FALLBACK] No matches found in API response or Firestore, using old system');
+                const matchedResults = await intelligentMatchOpportunities(allOpps, enrichedProfile, profile.uid, true);
+                matched = matchedResults.filter(opp => (opp.matchScore || opp.winRate || 0) >= 35);
+                setMatchedOpportunities(matched);
+                setUnknownEligibilityOpportunities([]);
               }
-            } else {
-              // Fallback to old system if new system didn't save matches
-              console.warn('⚠️  [FALLBACK] New system completed but no matches found, using old system');
-              const matchedResults = await intelligentMatchOpportunities(allOpps, enrichedProfile, profile.uid, true);
-              matched = matchedResults.filter(opp => (opp.matchScore || opp.winRate || 0) >= 35);
-              setMatchedOpportunities(matched);
-              setUnknownEligibilityOpportunities([]);
             }
           } else {
             // Fallback to old system on error

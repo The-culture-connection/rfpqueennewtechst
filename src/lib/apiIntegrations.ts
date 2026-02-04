@@ -1,4 +1,5 @@
 import { Opportunity } from '@/types';
+import { stableOpportunityId, stableOpportunityIdFromFields } from '@/lib/stableOpportunityId';
 
 // Grants.gov API Integration
 export async function fetchGrantsGovOpportunities(params: {
@@ -42,8 +43,15 @@ export async function fetchGrantsGovOpportunities(params: {
 
     if (data.data?.oppHits) {
       for (const hit of data.data.oppHits) {
+        // Use stable ID: grants.gov uses 'id' or 'number' as stable key
+        const stableKey = hit.id || hit.number;
+        if (!stableKey) {
+          console.warn('[Grants.gov] Skipping opportunity without id or number:', hit);
+          continue;
+        }
+        
         opportunities.push({
-          id: `grants-gov-${hit.id || hit.number || Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: stableOpportunityId('Grants.gov', stableKey),
           source: 'Grants.gov',
           title: hit.title || 'Untitled Opportunity',
           agency: hit.agencyName || hit.agencyCode || '',
@@ -147,8 +155,15 @@ export async function fetchSimplerGrantsOpportunities(params: {
         const summary = opp.summary || {};
         const dates = summary.dates || {};
         
+        // Use stable ID: simpler.grants.gov uses opportunity_id as stable key
+        const stableKey = opp.opportunity_id || opp.legacy_opportunity_id || opp.opportunity_number;
+        if (!stableKey) {
+          console.warn('[Simpler.Grants.gov] Skipping opportunity without opportunity_id:', opp);
+          continue;
+        }
+        
         opportunities.push({
-          id: `simpler-grants-${opp.opportunity_id || opp.legacy_opportunity_id || opp.opportunity_number || Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: stableOpportunityId('Simpler.Grants.gov', stableKey),
           source: 'Simpler.Grants.gov',
           title: opp.opportunity_title || opp.title || 'Untitled Opportunity',
           agency: opp.agency_name || opp.agency || '',
@@ -260,8 +275,15 @@ export async function fetchSAMGovOpportunities(params: {
     
     if (opps && opps.length > 0) {
       for (const opp of opps) {
+        // Use stable ID: SAM.gov uses noticeId as stable key
+        const stableKey = opp.noticeId || opp.id;
+        if (!stableKey) {
+          console.warn('[SAM.gov] Skipping opportunity without noticeId:', opp);
+          continue;
+        }
+        
         opportunities.push({
-          id: `sam-gov-${opp.noticeId || opp.id || Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: stableOpportunityId('SAM.gov', stableKey),
           source: 'SAM.gov',
           title: opp.title || opp.subject || 'Untitled Opportunity',
           agency: opp.organizationName || opp.agency || '',
@@ -363,8 +385,14 @@ export async function fetchGoogleCustomSearchOpportunities(params: {
           closeDate = item.pagemap.metatags[0]['article:expiration_time'];
         }
 
+        // Use stable ID from fields (title + url + agency) since Google Search has no stable key
         opportunities.push({
-          id: `google-search-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: stableOpportunityIdFromFields(
+            `Google Search (${params.searchType || 'general'})`,
+            title,
+            url,
+            agency
+          ),
           source: `Google Search (${params.searchType || 'general'})`,
           title: title.replace(/ - .*$/, ''), // Remove site name suffix
           agency: agency,
