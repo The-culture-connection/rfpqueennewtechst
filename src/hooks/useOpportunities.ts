@@ -268,115 +268,77 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
             const runData = await runResponse.json();
             console.log(`✅ [MATCHING] Complete: ${runData.matchesCount} eligible, ${runData.unknownOpportunities?.length || 0} unknown`);
             
-            // Wait a bit for Firestore to propagate the saved matches
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            
-            // Try to load from profiles collection first (primary location) with retry
-            let currentMatches: any = null;
-            let retries = 5; // Increased retries
-            
-            while (retries > 0 && !currentMatches) {
-              try {
-                const profileRef = doc(db, 'profiles', profile.uid);
-                const profileDoc = await getDoc(profileRef);
-                
-                if (profileDoc.exists()) {
-                  const profileData = profileDoc.data();
-                  if (profileData?.currentMatches) {
-                    currentMatches = profileData.currentMatches;
-                    console.log(`✅ [MATCHING] Loaded matches from profiles collection: ${currentMatches.topMatches?.length || 0} eligible, ${currentMatches.unknownEligibilityMatches?.length || 0} unknown`);
-                  } else {
-                    console.log(`⚠️ [MATCHING] Profile exists but no currentMatches field found`);
-                  }
-                }
-                
-                // Fallback to userMatches collection if not found in profiles
-                if (!currentMatches) {
-                  const currentMatchesRef = doc(db, 'userMatches', profile.uid, 'current', 'latest');
-                  const currentMatchesDoc = await getDoc(currentMatchesRef);
-                  if (currentMatchesDoc.exists()) {
-                    currentMatches = currentMatchesDoc.data();
-                    console.log(`✅ [MATCHING] Loaded matches from userMatches collection: ${currentMatches.topMatches?.length || 0} eligible, ${currentMatches.unknownEligibilityMatches?.length || 0} unknown`);
-                  } else {
-                    console.log(`⚠️ [MATCHING] userMatches document does not exist yet`);
-                  }
-                }
-              } catch (err: any) {
-                console.error(`❌ [MATCHING] Error loading matches (attempt ${6 - retries}):`, err.message);
-              }
-              
-              if (!currentMatches && retries > 1) {
-                console.log(`⏳ [MATCHING] Matches not found, retrying in 1s... (${retries - 1} attempts left)`);
-                await new Promise(resolve => setTimeout(resolve, 1000));
-              }
-              retries--;
-            }
-            
-            if (!currentMatches) {
-              console.error(`❌ [MATCHING] Failed to load matches after all retries. Run completed but data not found in Firestore.`);
-              // Don't throw error, just log and continue - will fall back to old system
-            }
-            
-            if (currentMatches && currentMatches.topMatches) {
-              console.log(`📊 [MATCHING] Processing ${currentMatches.topMatches.length} top matches, ${allOpps.length} total opportunities available`);
-              
-              // Debug: Log first few match IDs and opportunity IDs
-              if (currentMatches.topMatches.length > 0) {
-                const matchIds = currentMatches.topMatches.slice(0, 5).map((m: any) => m.opportunityId);
-                const oppIds = allOpps.slice(0, 5).map((o: Opportunity) => o.id);
-                console.log(`🔍 [MATCHING] Sample match IDs:`, matchIds);
-                console.log(`🔍 [MATCHING] Sample opportunity IDs:`, oppIds);
-              }
-              
-              // Map eligible matches (ONLY these go to main display)
-              matched = (currentMatches.topMatches || [])
-                .map((match: any) => {
-                  const opp = allOpps.find((o: Opportunity) => o.id === match.opportunityId);
-                  if (!opp) {
-                    console.warn(`⚠️ [MATCHING] Opportunity not found in allOpps: ${match.opportunityId}`);
-                    return null;
-                  }
-                  
-                  // Handle eligibilityNotes - can be array or string
-                  const eligibilityNotes = Array.isArray(match.notes?.eligibilityNotes)
-                    ? match.notes.eligibilityNotes
-                    : (match.notes?.eligibilityNotes ? [match.notes.eligibilityNotes] : []);
-                  
-                  // Use new eligibility structure if available
-                  const eligibility = match.eligibility || match.eligibilityGate;
-                  
-                  return {
-                    ...opp,
-                    winRate: match.scores?.rankingScore || match.scores?.fitScore * 100 || 0,
-                    matchScore: match.scores?.rankingScore || match.scores?.fitScore * 100 || 0,
-                    eligibilityNotes: eligibilityNotes.length > 0 ? eligibilityNotes : undefined,
-                    matchReasoning: {
-                      summary: match.notes?.matchSummary || '',
-                      strengths: [],
-                      concerns: [],
-                      specificReasons: eligibility?.reasons || match.eligibilityGate?.reasons || [],
-                      eligibilityHighlights: eligibilityNotes,
-                      confidenceScore: match.confidenceScore || 0,
-                    },
-                    // Add eligibility status fields
-                    eligibilityStatus: eligibility?.status || (match.eligibilityGate?.eligible ? 'eligible' : 'unknown'),
-                    eligibilityBlockers: eligibility?.blockers || [],
-                    eligibilityEvidence: eligibility?.evidence || [],
-                  };
-                })
-                .filter(Boolean) as Opportunity[];
-              
-              // Sort by ranking score (AI-refined scores should be highest)
-              matched.sort((a, b) => (b.matchScore || b.winRate || 0) - (a.matchScore || a.winRate || 0));
-              
+            // CRITICAL FIX: Use the data directly from the API response first!
+            // The API already returns the full opportunity objects with all match data
+            if (runData.opportunities && runData.opportunities.length > 0) {
+              console.log(`✅ [MATCHING] Using opportunities directly from API response: ${runData.opportunities.length} eligible`);
+              matched = runData.opportunities;
               setMatchedOpportunities(matched);
               
-              // Load unknown eligibility matches if available
-              if (currentMatches.unknownEligibilityMatches && currentMatches.unknownEligibilityMatches.length > 0) {
-                const unknownMatched = currentMatches.unknownEligibilityMatches
+              // Set unknown opportunities if available
+              if (runData.unknownOpportunities && runData.unknownOpportunities.length > 0) {
+                console.log(`✅ [MATCHING] Using unknown opportunities from API response: ${runData.unknownOpportunities.length}`);
+                setUnknownEligibilityOpportunities(runData.unknownOpportunities);
+              } else {
+                setUnknownEligibilityOpportunities([]);
+              }
+              
+              // Data is already set, we can continue
+            } else {
+              // Fallback: Try to load from Firestore if API didn't return data
+              console.log(`⚠️ [MATCHING] API response had no opportunities, trying Firestore...`);
+              
+              // Wait a bit for Firestore to propagate the saved matches
+              await new Promise(resolve => setTimeout(resolve, 1500));
+              
+              // Try to load from profiles collection first (primary location) with retry
+              let currentMatches: any = null;
+              let retries = 5;
+              
+              while (retries > 0 && !currentMatches) {
+                try {
+                  const profileRef = doc(db, 'profiles', profile.uid);
+                  const profileDoc = await getDoc(profileRef);
+                  
+                  if (profileDoc.exists()) {
+                    const profileData = profileDoc.data();
+                    if (profileData?.currentMatches) {
+                      currentMatches = profileData.currentMatches;
+                      console.log(`✅ [MATCHING] Loaded matches from profiles collection: ${currentMatches.topMatches?.length || 0} eligible, ${currentMatches.unknownEligibilityMatches?.length || 0} unknown`);
+                    }
+                  }
+                  
+                  // Fallback to userMatches collection if not found in profiles
+                  if (!currentMatches) {
+                    const currentMatchesRef = doc(db, 'userMatches', profile.uid, 'current', 'latest');
+                    const currentMatchesDoc = await getDoc(currentMatchesRef);
+                    if (currentMatchesDoc.exists()) {
+                      currentMatches = currentMatchesDoc.data();
+                      console.log(`✅ [MATCHING] Loaded matches from userMatches collection: ${currentMatches.topMatches?.length || 0} eligible`);
+                    }
+                  }
+                } catch (err: any) {
+                  console.error(`❌ [MATCHING] Error loading matches (attempt ${6 - retries}):`, err.message);
+                }
+                
+                if (!currentMatches && retries > 1) {
+                  console.log(`⏳ [MATCHING] Matches not found, retrying in 1s... (${retries - 1} attempts left)`);
+                  await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+                retries--;
+              }
+              
+              if (currentMatches && currentMatches.topMatches) {
+                console.log(`📊 [MATCHING] Processing ${currentMatches.topMatches.length} top matches from Firestore`);
+                
+                // Map eligible matches
+                matched = (currentMatches.topMatches || [])
                   .map((match: any) => {
                     const opp = allOpps.find((o: Opportunity) => o.id === match.opportunityId);
-                    if (!opp) return null;
+                    if (!opp) {
+                      console.warn(`⚠️ [MATCHING] Opportunity not found in allOpps: ${match.opportunityId}`);
+                      return null;
+                    }
                     
                     const eligibilityNotes = Array.isArray(match.notes?.eligibilityNotes)
                       ? match.notes.eligibilityNotes
@@ -386,34 +348,73 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
                     
                     return {
                       ...opp,
-                      winRate: match.scores?.rankingScore || 0,
-                      matchScore: match.scores?.rankingScore || 0,
+                      winRate: match.scores?.rankingScore || match.scores?.fitScore * 100 || 0,
+                      matchScore: match.scores?.rankingScore || match.scores?.fitScore * 100 || 0,
                       eligibilityNotes: eligibilityNotes.length > 0 ? eligibilityNotes : undefined,
                       matchReasoning: {
                         summary: match.notes?.matchSummary || '',
                         strengths: [],
                         concerns: [],
-                        specificReasons: eligibility?.reasons || [],
+                        specificReasons: eligibility?.reasons || match.eligibilityGate?.reasons || [],
                         eligibilityHighlights: eligibilityNotes,
                         confidenceScore: match.confidenceScore || 0,
                       },
-                      eligibilityStatus: eligibility?.status || 'unknown',
+                      eligibilityStatus: eligibility?.status || (match.eligibilityGate?.eligible ? 'eligible' : 'unknown'),
                       eligibilityBlockers: eligibility?.blockers || [],
                       eligibilityEvidence: eligibility?.evidence || [],
                     };
                   })
                   .filter(Boolean) as Opportunity[];
                 
-                unknownMatched.sort((a, b) => (b.matchScore || b.winRate || 0) - (a.matchScore || a.winRate || 0));
-                setUnknownEligibilityOpportunities(unknownMatched);
+                matched.sort((a, b) => (b.matchScore || b.winRate || 0) - (a.matchScore || a.winRate || 0));
+                setMatchedOpportunities(matched);
+                
+                // Load unknown eligibility matches
+                if (currentMatches.unknownEligibilityMatches && currentMatches.unknownEligibilityMatches.length > 0) {
+                  const unknownMatched = currentMatches.unknownEligibilityMatches
+                    .map((match: any) => {
+                      const opp = allOpps.find((o: Opportunity) => o.id === match.opportunityId);
+                      if (!opp) return null;
+                      
+                      const eligibilityNotes = Array.isArray(match.notes?.eligibilityNotes)
+                        ? match.notes.eligibilityNotes
+                        : (match.notes?.eligibilityNotes ? [match.notes.eligibilityNotes] : []);
+                      
+                      const eligibility = match.eligibility || match.eligibilityGate;
+                      
+                      return {
+                        ...opp,
+                        winRate: match.scores?.rankingScore || 0,
+                        matchScore: match.scores?.rankingScore || 0,
+                        eligibilityNotes: eligibilityNotes.length > 0 ? eligibilityNotes : undefined,
+                        matchReasoning: {
+                          summary: match.notes?.matchSummary || '',
+                          strengths: [],
+                          concerns: [],
+                          specificReasons: eligibility?.reasons || [],
+                          eligibilityHighlights: eligibilityNotes,
+                          confidenceScore: match.confidenceScore || 0,
+                        },
+                        eligibilityStatus: eligibility?.status || 'unknown',
+                        eligibilityBlockers: eligibility?.blockers || [],
+                        eligibilityEvidence: eligibility?.evidence || [],
+                      };
+                    })
+                    .filter(Boolean) as Opportunity[];
+                  
+                  unknownMatched.sort((a, b) => (b.matchScore || b.winRate || 0) - (a.matchScore || a.winRate || 0));
+                  setUnknownEligibilityOpportunities(unknownMatched);
+                } else {
+                  setUnknownEligibilityOpportunities([]);
+                }
+              } else {
+                // Final fallback to old system
+                console.warn('⚠️  [FALLBACK] No matches found in API response or Firestore, using old system');
+                const matchedResults = await intelligentMatchOpportunities(allOpps, enrichedProfile, profile.uid, true);
+                matched = matchedResults.filter(opp => (opp.matchScore || opp.winRate || 0) >= 35);
+                setMatchedOpportunities(matched);
+                setUnknownEligibilityOpportunities([]);
               }
-            } else {
-              // Fallback to old system if new system didn't save matches
-              console.warn('⚠️  [FALLBACK] New system completed but no matches found, using old system');
-              const matchedResults = await intelligentMatchOpportunities(allOpps, enrichedProfile, profile.uid, true);
-              matched = matchedResults.filter(opp => (opp.matchScore || opp.winRate || 0) >= 35);
-              setMatchedOpportunities(matched);
-              setUnknownEligibilityOpportunities([]);
             }
           } else {
             // Fallback to old system on error
