@@ -175,6 +175,71 @@ export async function handleOpportunityApplied(
 }
 
 /**
+ * Opportunity passed webhook
+ */
+export async function handleOpportunityPassed(
+  userId: string,
+  opportunityId: string,
+  opportunityData: any
+): Promise<void> {
+  const payload = {
+    userId,
+    opportunityId: opportunityId,
+    opportunity: opportunityData, // Opportunity data from passed document
+    passedAt: opportunityData.passedAt || new Date().toISOString(),
+  };
+
+  await emitWebhook('opportunity.passed', payload, {
+    userId,
+    opportunityId: opportunityId,
+  });
+}
+
+/**
+ * Opportunity outcome recorded webhook (won/lost)
+ */
+export async function handleOpportunityOutcomeRecorded(
+  userId: string,
+  opportunityId: string,
+  opportunity: any
+): Promise<void> {
+  const payload = {
+    userId,
+    opportunityId: opportunityId,
+    outcome: opportunity.outcome, // 'won' | 'lost'
+    opportunity: opportunity, // Full opportunity object
+    recordedAt: opportunity.outcomeRecordedAt || new Date().toISOString(),
+    notes: opportunity.outcomeNotes || '',
+  };
+
+  await emitWebhook('opportunity.outcome_recorded', payload, {
+    userId,
+    opportunityId: opportunityId,
+  });
+}
+
+/**
+ * Opportunity viewed webhook
+ */
+export async function handleOpportunityViewed(
+  userId: string,
+  opportunityId: string,
+  opportunityData: any
+): Promise<void> {
+  const payload = {
+    userId,
+    opportunityId: opportunityId,
+    opportunity: opportunityData.opportunity || {}, // Opportunity object
+    viewedAt: opportunityData.viewedAt || new Date().toISOString(),
+  };
+
+  await emitWebhook('opportunity.viewed', payload, {
+    userId,
+    opportunityId: opportunityId,
+  });
+}
+
+/**
  * Opportunities recommended webhook (chunked)
  * Note: opportunities parameter contains TopMatch objects, not full Opportunity objects
  * We need to fetch full opportunity data from source collections

@@ -9,7 +9,7 @@ import {
   onAuthStateChanged,
   updateProfile
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { UserProfile } from '@/types';
 import { auth, db } from '@/lib/firebase';
 import { UserProfile } from '@/types';
@@ -94,32 +94,126 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Update user profile in Firestore
   const updateUserProfile = async (profile: Partial<UserProfile>) => {
-    if (!user) throw new Error('No user logged in');
+    console.log('=== updateUserProfile CALLED ===');
+    console.log('Input profile data:', profile);
+    
+    if (!user) {
+      const error = new Error('No user logged in');
+      console.error('❌ updateUserProfile ERROR:', error.message);
+      console.error('User state:', { user: null, userProfile });
+      throw error;
+    }
 
+    console.log('✅ User authenticated:', { uid: user.uid, email: user.email });
     console.log('🔄 Updating user profile in Firestore...', { uid: user.uid, profile });
     
-    const profileRef = doc(db, 'profiles', user.uid);
-    const existingProfile = await getDoc(profileRef);
-    const currentProfileVersion = existingProfile.exists() 
-      ? (existingProfile.data()?.profileVersion || 1) 
-      : 1;
+    if (!db) {
+      const error = new Error('Firestore database not initialized');
+      console.error('❌ updateUserProfile ERROR:', error.message);
+      console.error('Database state:', { db: null });
+      throw error;
+    }
     
-    const updatedProfile = {
-      ...profile,
-      uid: user.uid,
-      email: user.email!,
-      updatedAt: new Date(),
-      profileVersion: currentProfileVersion + 1, // Increment version on profile update
-    };
-
-    await setDoc(profileRef, updatedProfile, { merge: true });
+    let currentProfileVersion: number;
     
-    // Also update users collection for new matching system
-    const userRef = doc(db, 'users', user.uid);
-    await setDoc(userRef, {
-      profileVersion: currentProfileVersion + 1,
-      updatedAt: new Date().toISOString(),
-    }, { merge: true });
+    try {
+      // Refresh auth token to ensure it's valid
+      try {
+        const authToken = await user.getIdToken(true); // Force refresh
+        console.log('🔑 Auth token refreshed:', authToken ? 'present' : 'missing');
+      } catch (tokenError: any) {
+        console.warn('⚠️ Could not refresh auth token:', tokenError?.message);
+      }
+      
+      const profileRef = doc(db, 'profiles', user.uid);
+      console.log('📄 Profile reference created:', profileRef.path);
+      console.log('📄 Profile reference ID:', profileRef.id);
+      console.log('📄 User UID for path match:', user.uid);
+      
+      console.log('📖 Reading existing profile...');
+      const existingProfile = await getDoc(profileRef);
+      console.log('📖 Profile read result:', {
+        exists: existingProfile.exists(),
+        hasData: !!existingProfile.data(),
+      });
+      
+      const isNewProfile = !existingProfile.exists();
+      
+      if (isNewProfile) {
+        console.log('📝 Profile does not exist - will CREATE new profile (triggers webhook)');
+      } else {
+        console.log('📝 Profile exists - will UPDATE existing profile');
+      }
+      
+      currentProfileVersion = existingProfile.exists() 
+        ? (existingProfile.data()?.profileVersion || 1) 
+        : 1;
+      console.log('📊 Current profile version:', currentProfileVersion);
+      
+      const now = Timestamp.now();
+      const updatedProfile: any = {
+        ...profile,
+        uid: user.uid,
+        email: user.email!,
+        updatedAt: now,
+        profileVersion: currentProfileVersion + 1, // Increment version on profile update
+      };
+      
+      // For new profiles, set createdAt as Firestore Timestamp to trigger webhook
+      if (isNewProfile) {
+        updatedProfile.createdAt = now;
+        console.log('📅 Setting createdAt timestamp for new profile');
+      } else {
+        // Preserve existing createdAt if it exists
+        const existingData = existingProfile.data();
+        if (existingData?.createdAt) {
+          updatedProfile.createdAt = existingData.createdAt;
+          console.log('📅 Preserving existing createdAt timestamp');
+        }
+      }
+      
+      console.log('💾 Profile data to save:', updatedProfile);
+      console.log('💾 Writing to Firestore...');
+      
+      // Use setDoc without merge for new profiles to ensure onCreate trigger fires
+      // Use merge for updates to preserve other fields
+      if (isNewProfile) {
+        await setDoc(profileRef, updatedProfile);
+        console.log('✅ New profile created (will trigger onUserCreated webhook)');
+      } else {
+        await setDoc(profileRef, updatedProfile, { merge: true });
+        console.log('✅ Profile updated');
+      }
+      
+      console.log('✅ Profile written to Firestore successfully');
+      
+      // Also update users collection for new matching system (non-blocking)
+      try {
+        const userRef = doc(db, 'users', user.uid);
+        await setDoc(userRef, {
+          profileVersion: currentProfileVersion + 1,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+        console.log('✅ Users collection updated');
+      } catch (usersError: any) {
+        // Don't fail the whole operation if users collection write fails
+        console.warn('⚠️ Failed to update users collection (non-critical):', usersError?.message);
+        // Continue - the profile was saved successfully
+      }
+    } catch (firestoreError: any) {
+      console.error('❌ FIRESTORE ERROR IN updateUserProfile');
+      console.error('Error code:', firestoreError?.code);
+      console.error('Error message:', firestoreError?.message);
+      console.error('Error name:', firestoreError?.name);
+      console.error('Error stack:', firestoreError?.stack);
+      console.error('Full error object:', firestoreError);
+      console.error('Context:', {
+        userId: user.uid,
+        profilePath: `profiles/${user.uid}`,
+        profileData: profile,
+      });
+      throw firestoreError;
+    }
     
     console.log('✅ Profile saved to Firestore (version incremented)');
     

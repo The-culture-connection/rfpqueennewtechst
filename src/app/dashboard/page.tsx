@@ -160,6 +160,21 @@ export default function DashboardPage() {
         !!(currentOpportunity.closeDate || currentOpportunity.deadline)
       );
 
+      // Track opportunity view for webhook
+      try {
+        await fetch('/api/opportunity-viewed', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.uid,
+            opportunityId: currentOpportunity.id,
+            opportunity: currentOpportunity,
+          }),
+        });
+      } catch (err) {
+        console.error('Error tracking opportunity view:', err);
+      }
+
       if (!db) return;
 
       try {

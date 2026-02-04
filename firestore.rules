@@ -6,6 +6,7 @@ service cloud.firestore {
     // User profiles - requires authentication
     match /profiles/{userId} {
       // Users can read and write their own profile
+      // This covers both create and update operations
       allow read, write: if request.auth != null && request.auth.uid == userId;
       
       // Dashboard subcollection - all documents (progress, passed, etc.)
@@ -44,6 +45,11 @@ service cloud.firestore {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
       
+      // Opportunity views - tracks when opportunities are viewed (for webhooks)
+      match /opportunityViews/{opportunityId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
       // Opportunity cache - allows users to read/write their cached opportunities
       // Cache metadata (stores cache info and profile hash)
       // Path: profiles/{userId}/cache/metadata
@@ -56,6 +62,12 @@ service cloud.firestore {
       match /cacheChunks/{chunkId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
+    }
+    
+    // Users collection - for matching system version tracking
+    match /users/{userId} {
+      // Users can read and write their own user document
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
     
     // User Feedback collection - authenticated users can write their own feedback
