@@ -125,7 +125,10 @@ export async function POST(request: Request) {
         const existing = passedDoc.data() || {};
         // Only add if not already passed
         if (!existing[opportunityId]) {
-          await passedRef.update(passedData);
+          await passedRef.set({
+            ...existing,
+            ...passedData
+          }, { merge: true });
           console.log(`[user-signal] Saved to legacy dashboard/passed for webhook`);
         }
       } else {
