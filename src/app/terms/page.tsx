@@ -3,8 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getFirebaseAuth } from '@/lib/firebase';
 
 export default function TermsPage() {
   const { user, userProfile, updateUserProfile } = useAuth();
@@ -107,9 +106,51 @@ By clicking "Accept & Continue", you acknowledge that you have read, understood,
 
     setLoading(true);
     try {
-      // Save terms acceptance to user profile
-      const profileRef = doc(db, 'profiles', user.uid);
-      const profileDoc = await getDoc(profileRef);
+      // Ensure user is authenticated
+      if (!user || !user.uid) {
+        console.error('User not authenticated:', { user, uid: user?.uid });
+        throw new Error('User not authenticated. Please log in and try again.');
+      }
+
+      // Verify auth state with Firebase directly
+      const auth = getFirebaseAuth();
+      const currentUser = auth.currentUser;
+      console.log('Auth state check:', {
+        contextUser: user?.uid,
+        authCurrentUser: currentUser?.uid,
+        tokensMatch: user?.uid === currentUser?.uid,
+      });
+
+      if (!currentUser || currentUser.uid !== user.uid) {
+        console.error('Auth mismatch - waiting for auth state...');
+        // Wait a moment for auth to sync
+        await new Promise(resolve => setTimeout(resolve, 500));
+        const updatedUser = auth.currentUser;
+        if (!updatedUser || updatedUser.uid !== user.uid) {
+          throw new Error('Authentication state mismatch. Please refresh the page and try again.');
+        }
+      }
+
+      // Wait for auth token to be ready
+      try {
+        const token = await currentUser.getIdToken();
+        console.log('Auth token obtained:', token ? 'present' : 'missing');
+      } catch (tokenError: any) {
+        console.warn('Could not get auth token:', tokenError?.message);
+        // Don't fail - token might still work
+      }
+
+      console.log('Starting terms acceptance...', {
+        userId: user.uid,
+        userEmail: user.email,
+        authToken: currentUser ? 'present' : 'missing',
+        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      });
+
+      // Check if Firebase config is available
+      if (!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) {
+        throw new Error('Firebase configuration missing. Please check your .env.local file has NEXT_PUBLIC_FIREBASE_PROJECT_ID set.');
+      }
       
       const termsData = {
         termsAccepted: true,
@@ -117,28 +158,176 @@ By clicking "Accept & Continue", you acknowledge that you have read, understood,
         termsVersion: '2025-11-25', // Version from the terms document
       };
 
-      if (profileDoc.exists()) {
-        await setDoc(profileRef, termsData, { merge: true });
-      } else {
-        await setDoc(profileRef, {
-          uid: user.uid,
-          email: user.email,
-          ...termsData,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+      console.log('=== TERMS ACCEPTANCE FLOW ===');
+      console.log('Step 1: Preparing terms data:', termsData);
+      console.log('Step 2: Checking updateUserProfile availability:', {
+        updateUserProfileExists: !!updateUserProfile,
+        updateUserProfileType: typeof updateUserProfile,
+      });
+
+      // Use updateUserProfile from AuthProvider - it handles Firestore writes properly
+      // This is the same method used in onboarding and other parts of the app
+      // It automatically handles both create and update cases
+      if (!updateUserProfile) {
+        const error = new Error('updateUserProfile function not available from AuthProvider');
+        console.error('❌ CRITICAL ERROR:', error.message);
+        console.error('AuthProvider state:', {
+          user: !!user,
+          userProfile: !!userProfile,
+          updateUserProfile: updateUserProfile,
         });
+        throw error;
       }
 
-      // Update local profile state
-      if (updateUserProfile) {
-        await updateUserProfile(termsData as any);
+      console.log('Step 3: Calling updateUserProfile with terms data...');
+      console.log('Terms data being sent:', JSON.stringify(termsData, null, 2));
+      
+      try {
+        // updateUserProfile handles both create and update, and includes uid/email automatically
+        console.log('Step 4: Executing updateUserProfile...');
+        const updatePromise = updateUserProfile(termsData as any);
+        console.log('Step 5: Waiting for updateUserProfile promise...');
+        
+        await updatePromise;
+        
+        console.log('✅ Step 6: Terms acceptance saved successfully via updateUserProfile');
+        console.log('✅ All steps completed successfully');
+      } catch (writeError: any) {
+        console.error('❌ ERROR IN updateUserProfile CALL');
+        console.error('Error object:', writeError);
+        console.error('Error type:', typeof writeError);
+        console.error('Error constructor:', writeError?.constructor?.name);
+        console.error('Error instanceof Error:', writeError instanceof Error);
+        
+        // Extract all possible error information
+        const errorInfo: any = {
+          // Standard error properties
+          code: writeError?.code,
+          message: writeError?.message,
+          name: writeError?.name,
+          stack: writeError?.stack,
+          
+          // Firebase-specific properties
+          serverResponse: writeError?.serverResponse,
+          status: writeError?.status,
+          statusCode: writeError?.statusCode,
+          
+          // Context
+          userId: user?.uid,
+          userEmail: user?.email,
+          termsData: termsData,
+        };
+        
+        // Try to get all enumerable properties
+        if (writeError && typeof writeError === 'object') {
+          try {
+            Object.keys(writeError).forEach(key => {
+              errorInfo[`error_${key}`] = writeError[key];
+            });
+          } catch (e) {
+            console.warn('Could not enumerate all error properties');
+          }
+        }
+        
+        // Try string conversion
+        try {
+          errorInfo.errorString = String(writeError);
+        } catch (e) {
+          errorInfo.errorString = '[Could not convert to string]';
+        }
+        
+        // Try JSON serialization
+        try {
+          errorInfo.errorJSON = JSON.stringify(writeError, (key, value) => {
+            if (value instanceof Error) {
+              return {
+                name: value.name,
+                message: value.message,
+                stack: value.stack,
+              };
+            }
+            return value;
+          }, 2);
+        } catch (e) {
+          errorInfo.errorJSON = '[Could not serialize]';
+        }
+        
+        console.error('Complete error information:', errorInfo);
+        console.error('Error details formatted:', JSON.stringify(errorInfo, null, 2));
+        
+        throw writeError;
       }
 
       // Redirect to onboarding
       router.replace('/onboarding');
-    } catch (error) {
-      console.error('Error accepting terms:', error);
-      alert('Failed to save terms acceptance. Please try again.');
+    } catch (error: any) {
+      // Comprehensive error logging
+      console.error('=== ERROR ACCEPTING TERMS ===');
+      console.error('Error object:', error);
+      console.error('Error type:', typeof error);
+      console.error('Error constructor:', error?.constructor?.name);
+      console.error('Error instanceof Error:', error instanceof Error);
+      
+      // Try to extract all possible error properties
+      const errorDetails: any = {
+        code: error?.code,
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+        userId: user?.uid,
+        userEmail: user?.email,
+        isAuthenticated: !!user,
+      };
+      
+      // Try to get all enumerable properties
+      if (error && typeof error === 'object') {
+        try {
+          Object.keys(error).forEach(key => {
+            errorDetails[`error_${key}`] = error[key];
+          });
+        } catch (e) {
+          console.warn('Could not enumerate error properties');
+        }
+      }
+      
+      // Try string conversion
+      try {
+        errorDetails.errorString = String(error);
+      } catch (e) {
+        errorDetails.errorString = '[Could not convert to string]';
+      }
+      
+      // Try JSON serialization with replacer
+      try {
+        errorDetails.errorJSON = JSON.stringify(error, (key, value) => {
+          if (value instanceof Error) {
+            return {
+              name: value.name,
+              message: value.message,
+              stack: value.stack,
+            };
+          }
+          return value;
+        });
+      } catch (e) {
+        errorDetails.errorJSON = '[Could not serialize]';
+      }
+      
+      console.error('Error details:', errorDetails);
+      
+      // More specific error messages
+      const errorMessage = error?.message || String(error) || 'Unknown error';
+      const errorCode = error?.code;
+      
+      if (errorCode === 'permission-denied' || errorCode === 'PERMISSION_DENIED' || errorMessage.includes('permission')) {
+        alert('Permission denied. Please make sure you are logged in and try again. If the problem persists, try logging out and logging back in.');
+      } else if (errorCode === 'unavailable' || errorMessage.includes('network') || errorMessage.includes('unavailable')) {
+        alert('Network error. Please check your internet connection and try again.');
+      } else if (errorMessage.includes('not initialized') || errorMessage.includes('Database not initialized')) {
+        alert('Database connection error. Please refresh the page and try again.');
+      } else {
+        alert(`Failed to save terms acceptance: ${errorMessage}. Please check the console for more details.`);
+      }
       setLoading(false);
     }
   };

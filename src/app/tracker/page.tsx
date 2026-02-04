@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Opportunity } from '@/types';
 import { trackTrackerViewed, trackTrackerTabSwitched } from '@/lib/analytics';
@@ -13,6 +13,9 @@ interface TrackedOpportunity extends Opportunity {
   savedAt?: string;
   appliedAt?: string;
   status: 'saved' | 'applied';
+  outcome?: 'won' | 'lost';
+  outcomeRecordedAt?: string;
+  outcomeNotes?: string;
 }
 
 export default function TrackerPage() {
@@ -22,6 +25,8 @@ export default function TrackerPage() {
   const [appliedOpps, setAppliedOpps] = useState<TrackedOpportunity[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'saved' | 'applied'>('saved');
+  const [recordingOutcome, setRecordingOutcome] = useState<string | null>(null);
+  const [outcomeModal, setOutcomeModal] = useState<{ oppId: string; opp: TrackedOpportunity } | null>(null);
 
   const handleTabSwitch = (tab: 'saved' | 'applied') => {
     setActiveTab(tab);
@@ -84,6 +89,53 @@ export default function TrackerPage() {
       });
     } catch {
       return dateString;
+    }
+  };
+
+  const handleRecordOutcome = async (oppId: string, outcome: 'won' | 'lost', notes?: string) => {
+    if (!user || !db) return;
+
+    setRecordingOutcome(oppId);
+    try {
+      const appliedRef = doc(db, 'profiles', user.uid, 'tracker', 'applied');
+      const appliedDoc = await getDoc(appliedRef);
+      
+      if (!appliedDoc.exists()) {
+        alert('Applied opportunities document not found');
+        return;
+      }
+
+      const data = appliedDoc.data();
+      const opportunities = (data.opportunities || []) as TrackedOpportunity[];
+      
+      // Find and update the opportunity
+      const updatedOpportunities = opportunities.map((opp) => {
+        if (opp.id === oppId) {
+          return {
+            ...opp,
+            outcome,
+            outcomeRecordedAt: new Date().toISOString(),
+            outcomeNotes: notes || '',
+          };
+        }
+        return opp;
+      });
+
+      // Update Firestore
+      await setDoc(appliedRef, {
+        opportunities: updatedOpportunities,
+      }, { merge: false });
+
+      // Update local state
+      setAppliedOpps(updatedOpportunities);
+      
+      alert(`Outcome recorded: ${outcome === 'won' ? 'Won' : 'Lost'}`);
+      setOutcomeModal(null);
+    } catch (error: any) {
+      console.error('Error recording outcome:', error);
+      alert('Failed to record outcome. Please try again.');
+    } finally {
+      setRecordingOutcome(null);
     }
   };
 
@@ -276,6 +328,42 @@ export default function TrackerPage() {
                         </svg>
                       </a>
                     )}
+
+                    {/* Outcome recording for applied opportunities */}
+                    {activeTab === 'applied' && (
+                      <div className="mt-4 pt-4 border-t border-primary/20">
+                        {opp.outcome ? (
+                          <div className="flex items-center gap-2">
+                            <span className={`px-3 py-1 rounded-full text-sm font-primary border ${
+                              opp.outcome === 'won'
+                                ? 'bg-green-500/20 text-green-400 border-green-400/50'
+                                : 'bg-red-500/20 text-red-400 border-red-400/50'
+                            }`}>
+                              {opp.outcome === 'won' ? '✓ Won' : '✗ Lost'}
+                            </span>
+                            {opp.outcomeRecordedAt && (
+                              <span className="text-xs font-secondary text-foreground/60">
+                                Recorded {formatDate(opp.outcomeRecordedAt)}
+                              </span>
+                            )}
+                            <button
+                              onClick={() => setOutcomeModal({ oppId: opp.id, opp })}
+                              className="text-xs text-primary hover:text-primary-light font-secondary"
+                            >
+                              Change
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setOutcomeModal({ oppId: opp.id, opp })}
+                            disabled={recordingOutcome === opp.id}
+                            className="btn-secondary text-sm w-full"
+                          >
+                            {recordingOutcome === opp.id ? 'Recording...' : 'Record Outcome (Won/Lost)'}
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -283,6 +371,47 @@ export default function TrackerPage() {
           </div>
         </div>
       </div>
+
+      {/* Outcome Recording Modal */}
+      {outcomeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-surface border border-primary/30 rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-primary gradient-text mb-4">
+              Record Outcome
+            </h3>
+            <p className="text-sm font-secondary text-foreground/70 mb-4">
+              Did you win or lose this opportunity?
+            </p>
+            <p className="text-sm font-secondary text-foreground/60 mb-6">
+              <strong>{outcomeModal.opp.title}</strong>
+            </p>
+            
+            <div className="flex gap-3 mb-4">
+              <button
+                onClick={() => handleRecordOutcome(outcomeModal.oppId, 'won')}
+                disabled={recordingOutcome === outcomeModal.oppId}
+                className="flex-1 btn-primary bg-green-500 hover:bg-green-600"
+              >
+                ✓ Won
+              </button>
+              <button
+                onClick={() => handleRecordOutcome(outcomeModal.oppId, 'lost')}
+                disabled={recordingOutcome === outcomeModal.oppId}
+                className="flex-1 btn-primary bg-red-500 hover:bg-red-600"
+              >
+                ✗ Lost
+              </button>
+            </div>
+
+            <button
+              onClick={() => setOutcomeModal(null)}
+              className="w-full btn-secondary"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -12,6 +12,9 @@ import {
   handleDocumentUploaded,
   handleOpportunitySaved,
   handleOpportunityApplied,
+  handleOpportunityPassed,
+  handleOpportunityViewed,
+  handleOpportunityOutcomeRecorded,
   handleOpportunitiesRecommended,
   emitWebhook,
 } from './webhook/triggers';
@@ -162,38 +165,105 @@ export const onOpportunityApplied = onDocumentUpdated('profiles/{userId}/tracker
 });
 
 /**
- * Opportunity outcome recorded trigger
- * TODO: Implement when outcome tracking is added to the app
- * Expected path: profiles/{uid}/tracker/outcomes/{opportunityId}
- * or profiles/{uid}/opportunities/{opportunityId} with outcome field
- * 
- * ⚠️ NOT EXPORTED - Do not include in deployment commands
- * This function is commented out and not available for deployment
+ * Opportunity passed trigger
+ * Fires when profiles/{uid}/dashboard/passed document is updated with new opportunities
  */
-// export const onOpportunityOutcomeRecorded = functions.firestore
-//   .document('profiles/{userId}/tracker/outcomes/{opportunityId}')
-//   .onCreate(async (snapshot, context) => {
-//     const userId = context.params.userId;
-//     const opportunityId = context.params.opportunityId;
-//     const outcomeData = snapshot.data();
-//
-//     logger.info(
-//       `[Webhook] Opportunity outcome recorded: ${userId}/${opportunityId}`
-//     );
-//
-//     const payload = {
-//       userId,
-//       opportunityId,
-//       outcome: outcomeData.outcome, // 'won' | 'lost'
-//       recordedAt: outcomeData.recordedAt || new Date().toISOString(),
-//       notes: outcomeData.notes || '',
-//     };
-//
-//     await emitWebhook('opportunity.outcome_recorded', payload, {
-//       userId,
-//       opportunityId,
-//     });
-//   });
+export const onOpportunityPassed = onDocumentUpdated('profiles/{userId}/dashboard/passed', async (event) => {
+  const userId = event.params.userId;
+  
+  if (!event.data) {
+    return;
+  }
+
+  const before = event.data.before.data();
+  const after = event.data.after.data();
+
+  // Get all opportunity IDs from before and after
+  const beforeIds = new Set<string>(Object.keys(before || {}));
+  const afterIds = new Set<string>(Object.keys(after || {}));
+
+  // Find newly added opportunities (in after but not in before)
+  const newOpportunityIds = Array.from(afterIds).filter((id) => !beforeIds.has(id));
+
+  for (const oppId of newOpportunityIds) {
+    const oppData = after[oppId];
+    if (oppData) {
+      logger.info(
+        `[Webhook] Opportunity passed: ${userId}/${oppId}`
+      );
+      await handleOpportunityPassed(userId, oppId, oppData);
+    }
+  }
+});
+
+/**
+ * Opportunity viewed trigger
+ * Fires when profiles/{uid}/opportunityViews/{opportunityId} is created
+ */
+export const onOpportunityViewed = onDocumentCreated('profiles/{userId}/opportunityViews/{opportunityId}', async (event) => {
+  const userId = event.params.userId;
+  const opportunityId = event.params.opportunityId;
+  const snapshot = event.data;
+  
+  if (!snapshot) {
+    return;
+  }
+
+  const data = snapshot.data();
+  
+  logger.info(
+    `[Webhook] Opportunity viewed: ${userId}/${opportunityId}`
+  );
+  
+  await handleOpportunityViewed(userId, opportunityId, data);
+});
+
+/**
+ * Opportunity outcome recorded trigger
+ * Fires when profiles/{uid}/tracker/applied opportunities are updated with outcome field
+ * Tracks when user records if they won or lost an opportunity
+ */
+export const onOpportunityOutcomeRecorded = onDocumentUpdated('profiles/{userId}/tracker/applied', async (event) => {
+  const userId = event.params.userId;
+  
+  if (!event.data) {
+    return;
+  }
+
+  const before = event.data.before.data();
+  const after = event.data.after.data();
+
+  type OpportunityRef = { id: string; outcome?: 'won' | 'lost'; [k: string]: any };
+  const beforeOpps: OpportunityRef[] = (before[FIELDS.OPPORTUNITIES] ?? []) as OpportunityRef[];
+  const afterOpps: OpportunityRef[] = (after[FIELDS.OPPORTUNITIES] ?? []) as OpportunityRef[];
+
+  // Find opportunities where outcome was just added or changed
+  const beforeMap = new Map<string, OpportunityRef>();
+  beforeOpps.forEach((opp) => {
+    if (opp.id) {
+      beforeMap.set(opp.id, opp);
+    }
+  });
+
+  for (const afterOpp of afterOpps) {
+    if (!afterOpp.id) continue;
+
+    const beforeOpp = beforeMap.get(afterOpp.id);
+    const beforeOutcome = beforeOpp?.outcome;
+    const afterOutcome = afterOpp.outcome;
+
+    // Emit webhook if outcome was just set (was undefined/null, now is 'won' or 'lost')
+    // or if outcome changed
+    if (afterOutcome === 'won' || afterOutcome === 'lost') {
+      if (beforeOutcome !== afterOutcome) {
+        logger.info(
+          `[Webhook] Opportunity outcome recorded: ${userId}/${afterOpp.id} - ${afterOutcome}`
+        );
+        await handleOpportunityOutcomeRecorded(userId, afterOpp.id, afterOpp);
+      }
+    }
+  }
+});
 
 /**
  * Opportunity analyzed trigger

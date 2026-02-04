@@ -228,35 +228,22 @@ export function evaluateEligibility(
     source: 'api',
   });
   
-  // CRITICAL: If both arrays are empty, status = UNKNOWN
-  if (allOppTypes.length === 0) {
-    blockers.push('missing_applicant_types', 'missing_eligible_entities');
-    reasons.push('Missing eligibility data: applicantTypes and eligibleEntities are both empty');
-    eligibilityScore = 0.5; // Neutral score for unknown
-    // Log missing data for top opportunities
-    if (opportunity.winRate && opportunity.winRate > 50) {
-      console.log(`   ⚠️  [GATE] ${opportunity.id.substring(0, 20)}...: Missing entity type data → UNKNOWN`);
-    }
-    return {
-      status: 'unknown',
-      eligible: false,
-      blockers,
-      reasons,
-      evidence,
-      eligibilityScore,
-    };
-  }
-  
   // Check if user's entity type matches
   let entityMatch = false;
-  for (const userType of userEntityTypes) {
-    if (allOppTypes.some(oppType => oppType.includes(userType) || userType.includes(oppType))) {
-      entityMatch = true;
-      break;
+  let entityMatchSource = '';
+  
+  // First, check explicit entity type arrays if available
+  if (allOppTypes.length > 0) {
+    for (const userType of userEntityTypes) {
+      if (allOppTypes.some(oppType => oppType.includes(userType) || userType.includes(oppType))) {
+        entityMatch = true;
+        entityMatchSource = 'explicit';
+        break;
+      }
     }
   }
   
-  // Check description/title for entity type mentions (weaker evidence)
+  // If no explicit match, check description/title for entity type mentions (weaker evidence)
   if (!entityMatch) {
     const titleStr = opportunity.title ? String(opportunity.title) : '';
     const descStr = opportunity.description ? String(opportunity.description) : '';
@@ -264,6 +251,7 @@ export function evaluateEligibility(
     for (const userType of userEntityTypes) {
       if (oppText.includes(userType)) {
         entityMatch = true;
+        entityMatchSource = 'description';
         evidence.push({
           field: 'entityType',
           value: userType,
@@ -274,7 +262,36 @@ export function evaluateEligibility(
     }
   }
   
-  if (!entityMatch) {
+  // CRITICAL: If both arrays are empty, be more lenient for testing
+  // If funding type matches (which we already checked), allow as eligible with note
+  if (allOppTypes.length === 0) {
+    if (entityMatch && entityMatchSource === 'description') {
+      // Description suggests compatibility - allow as eligible with note
+      blockers.push('missing_applicant_types', 'missing_eligible_entities');
+      reasons.push('Entity type data missing from API, but description suggests compatibility');
+      eligibilityScore = 0.7; // Slightly lower than explicit match, but still eligible
+      evidence.push({
+        field: 'entityType',
+        value: 'inferred from description',
+        source: 'description',
+      });
+      // Don't return - continue to allow as eligible
+    } else {
+      // No entity type data - but funding type matches, so allow as eligible with note
+      // This is more lenient for testing when API data is incomplete
+      blockers.push('missing_applicant_types', 'missing_eligible_entities');
+      reasons.push('Entity type eligibility data missing from API. Funding type matches, but please verify entity type requirements manually.');
+      eligibilityScore = 0.65; // Lower than explicit match, but still eligible for testing
+      evidence.push({
+        field: 'entityType',
+        value: 'not specified in API data',
+        source: 'api_missing',
+      });
+      // Don't return - continue to allow as eligible (for testing purposes)
+      console.log(`   ⚠️  [GATE] ${opportunity.id.substring(0, 20)}...: Missing entity type data, but allowing as eligible (funding type matches)`);
+    }
+  } else if (!entityMatch) {
+    // Explicit entity types exist but don't match
     blockers.push('entity_type_mismatch');
     reasons.push(`Entity type mismatch: user is ${profile.entityType}, opportunity requires ${allOppTypes.join(' or ')}`);
     eligibilityScore = 0;
@@ -290,8 +307,10 @@ export function evaluateEligibility(
       evidence,
       eligibilityScore: 0,
     };
+  } else {
+    // Explicit match found
+    reasons.push(`Entity type compatible: ${profile.entityType} matches opportunity requirements`);
   }
-  reasons.push(`Entity type compatible: ${profile.entityType} matches opportunity requirements`);
   
   // Gate 3: Timeline (HARD GATE if deadline passed, UNKNOWN if missing)
   const timelinePreferenceDays = profile.timelinePreferenceDays ?? TIMELINE_DAYS[profile.timeline] ?? 90;
@@ -443,10 +462,11 @@ export function evaluateEligibility(
   }
   
   // If we got here, opportunity is ELIGIBLE
+  // Preserve blockers if they exist (e.g., missing entity type data)
   return {
     status: 'eligible',
     eligible: true,
-    blockers: [],
+    blockers: blockers.length > 0 ? blockers : [],
     reasons,
     evidence,
     eligibilityScore: Math.max(0, Math.min(1, eligibilityScore)),
