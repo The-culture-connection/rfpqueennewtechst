@@ -141,11 +141,22 @@ export async function handleOpportunitySaved(
   userId: string,
   opportunity: any
 ): Promise<void> {
+  // Extract analysis scores from opportunity object
+  const analysisScores = {
+    winRate: opportunity.winRate || 0,
+    matchScore: opportunity.matchScore || 0,
+    rankingScore: opportunity.matchScore || opportunity.winRate || 0,
+    confidenceScore: opportunity.matchReasoning?.confidenceScore || 0,
+    eligibilityStatus: opportunity.eligibilityStatus || 'unknown',
+    eligibilityBlockers: opportunity.eligibilityBlockers || [],
+  };
+
   const payload = {
     userId,
     opportunityId: opportunity.id || '',
     opportunity: opportunity, // Full opportunity object (UI schema)
     savedAt: opportunity.savedAt || new Date().toISOString(),
+    analysisScores: analysisScores, // Explicitly include analysis scores
   };
 
   await emitWebhook('opportunity.saved', payload, {
@@ -161,11 +172,22 @@ export async function handleOpportunityApplied(
   userId: string,
   opportunity: any
 ): Promise<void> {
+  // Extract analysis scores from opportunity object
+  const analysisScores = {
+    winRate: opportunity.winRate || 0,
+    matchScore: opportunity.matchScore || 0,
+    rankingScore: opportunity.matchScore || opportunity.winRate || 0,
+    confidenceScore: opportunity.matchReasoning?.confidenceScore || 0,
+    eligibilityStatus: opportunity.eligibilityStatus || 'unknown',
+    eligibilityBlockers: opportunity.eligibilityBlockers || [],
+  };
+
   const payload = {
     userId,
     opportunityId: opportunity.id || '',
     opportunity: opportunity, // Full opportunity object (UI schema)
     appliedAt: opportunity.appliedAt || new Date().toISOString(),
+    analysisScores: analysisScores, // Explicitly include analysis scores
   };
 
   await emitWebhook('opportunity.applied', payload, {
@@ -203,6 +225,16 @@ export async function handleOpportunityOutcomeRecorded(
   opportunityId: string,
   opportunity: any
 ): Promise<void> {
+  // Extract analysis scores from opportunity object
+  const analysisScores = {
+    winRate: opportunity.winRate || 0,
+    matchScore: opportunity.matchScore || 0,
+    rankingScore: opportunity.matchScore || opportunity.winRate || 0,
+    confidenceScore: opportunity.matchReasoning?.confidenceScore || 0,
+    eligibilityStatus: opportunity.eligibilityStatus || 'unknown',
+    eligibilityBlockers: opportunity.eligibilityBlockers || [],
+  };
+
   const payload = {
     userId,
     opportunityId: opportunityId,
@@ -210,6 +242,7 @@ export async function handleOpportunityOutcomeRecorded(
     opportunity: opportunity, // Full opportunity object
     recordedAt: opportunity.outcomeRecordedAt || new Date().toISOString(),
     notes: opportunity.outcomeNotes || '',
+    analysisScores: analysisScores, // Explicitly include analysis scores
   };
 
   await emitWebhook('opportunity.outcome_recorded', payload, {

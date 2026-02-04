@@ -7,10 +7,11 @@ export type WebhookEventType =
   | 'document.uploaded'
   | 'opportunity.saved'
   | 'opportunity.applied'
+  | 'opportunity.passed'
+  | 'opportunity.viewed'
   | 'opportunity.outcome_recorded'
   | 'opportunity.analyzed'
-  | 'opportunities.recommended'
-  | 'opportunity.viewed';
+  | 'opportunities.recommended';
 
 export interface WebhookEvent {
   id: string;

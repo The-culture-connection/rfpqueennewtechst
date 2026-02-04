@@ -177,14 +177,19 @@ export async function saveMatchRun(
   await db.collection('profiles').doc(userId).set(updateData, { merge: true });
   
   // Also save the current matches to profiles collection for easy access
-  await db.collection('profiles').doc(userId).set({
+  // Use merge: true to preserve other profile fields
+  const profileUpdate = {
     currentMatches: currentMatches,
     lastMatchRun: updateData.lastMatchRun,
     lastMatchProfileVersion: updateData.lastMatchProfileVersion,
     lastMatchDocsVersion: updateData.lastMatchDocsVersion,
-  }, { merge: true });
+  };
+  await db.collection('profiles').doc(userId).set(profileUpdate, { merge: true });
   
+  // Ensure the data is properly saved by also updating userMatches (primary location)
+  // This ensures both locations have the data for redundancy
   console.log(`[saveMatchRun] Saved match run ${runId} for user ${userId}`);
+  console.log(`[saveMatchRun] Saved currentMatches with ${topMatches.length} eligible, ${unknownMatches?.length || 0} unknown matches`);
 }
 
 /**

@@ -269,34 +269,52 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
             console.log(`✅ [MATCHING] Complete: ${runData.matchesCount} eligible, ${runData.unknownOpportunities?.length || 0} unknown`);
             
             // Wait a bit for Firestore to propagate the saved matches
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, 1500));
             
             // Try to load from profiles collection first (primary location) with retry
             let currentMatches: any = null;
-            let retries = 3;
+            let retries = 5; // Increased retries
             
             while (retries > 0 && !currentMatches) {
-              const profileRef = doc(db, 'profiles', profile.uid);
-              const profileDoc = await getDoc(profileRef);
-              
-              if (profileDoc.exists() && profileDoc.data()?.currentMatches) {
-                currentMatches = profileDoc.data()?.currentMatches;
-                console.log(`✅ [MATCHING] Loaded matches from profiles collection: ${currentMatches.topMatches?.length || 0} eligible`);
-              } else {
-                // Fallback to userMatches collection
-                const currentMatchesRef = doc(db, 'userMatches', profile.uid, 'current', 'latest');
-                const currentMatchesDoc = await getDoc(currentMatchesRef);
-                if (currentMatchesDoc.exists()) {
-                  currentMatches = currentMatchesDoc.data();
-                  console.log(`✅ [MATCHING] Loaded matches from userMatches collection: ${currentMatches.topMatches?.length || 0} eligible`);
+              try {
+                const profileRef = doc(db, 'profiles', profile.uid);
+                const profileDoc = await getDoc(profileRef);
+                
+                if (profileDoc.exists()) {
+                  const profileData = profileDoc.data();
+                  if (profileData?.currentMatches) {
+                    currentMatches = profileData.currentMatches;
+                    console.log(`✅ [MATCHING] Loaded matches from profiles collection: ${currentMatches.topMatches?.length || 0} eligible, ${currentMatches.unknownEligibilityMatches?.length || 0} unknown`);
+                  } else {
+                    console.log(`⚠️ [MATCHING] Profile exists but no currentMatches field found`);
+                  }
                 }
+                
+                // Fallback to userMatches collection if not found in profiles
+                if (!currentMatches) {
+                  const currentMatchesRef = doc(db, 'userMatches', profile.uid, 'current', 'latest');
+                  const currentMatchesDoc = await getDoc(currentMatchesRef);
+                  if (currentMatchesDoc.exists()) {
+                    currentMatches = currentMatchesDoc.data();
+                    console.log(`✅ [MATCHING] Loaded matches from userMatches collection: ${currentMatches.topMatches?.length || 0} eligible, ${currentMatches.unknownEligibilityMatches?.length || 0} unknown`);
+                  } else {
+                    console.log(`⚠️ [MATCHING] userMatches document does not exist yet`);
+                  }
+                }
+              } catch (err: any) {
+                console.error(`❌ [MATCHING] Error loading matches (attempt ${6 - retries}):`, err.message);
               }
               
               if (!currentMatches && retries > 1) {
-                console.log(`⏳ [MATCHING] Matches not found, retrying... (${retries - 1} attempts left)`);
-                await new Promise(resolve => setTimeout(resolve, 500));
+                console.log(`⏳ [MATCHING] Matches not found, retrying in 1s... (${retries - 1} attempts left)`);
+                await new Promise(resolve => setTimeout(resolve, 1000));
               }
               retries--;
+            }
+            
+            if (!currentMatches) {
+              console.error(`❌ [MATCHING] Failed to load matches after all retries. Run completed but data not found in Firestore.`);
+              // Don't throw error, just log and continue - will fall back to old system
             }
             
             if (currentMatches && currentMatches.topMatches) {

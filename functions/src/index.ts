@@ -292,11 +292,25 @@ export const onOpportunityAnalyzed = onDocumentUpdated('userMatches/{userId}/cur
       `[Webhook] Opportunity analyzed: ${userId} (scores updated)`
     );
 
+    // Include analysis scores for each match
+    const analysisScores = afterMatches.map((match: any) => ({
+      opportunityId: match.opportunityId || '',
+      rankingScore: match.scores?.rankingScore || 0,
+      fitScore: match.scores?.fitScore || 0,
+      eligibilityScore: match.scores?.eligibilityScore || 0,
+      keywordScore: match.scores?.keywordScore || 0,
+      confidenceScore: match.confidenceScore || 0,
+      eligibilityStatus: match.eligibility?.status || 'unknown',
+      eligibilityBlockers: match.eligibility?.blockers || [],
+    }));
+
     const payload = {
       userId,
       runId: after[FIELDS.RUN_ID],
       updatedAt: after[FIELDS.UPDATED_AT] || new Date().toISOString(),
       matchCount: afterMatches.length,
+      analysisScores: analysisScores, // Include all analysis scores
+      runStats: after.runStats || null, // Include run statistics if available
     };
 
     await emitWebhook('opportunity.analyzed', payload, { userId });
