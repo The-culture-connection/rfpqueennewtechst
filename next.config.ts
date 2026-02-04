@@ -2,6 +2,12 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   webpack: (config, { isServer }) => {
+    // Exclude functions directory from Next.js build
+    config.watchOptions = {
+      ...config.watchOptions,
+      ignored: ['**/functions/**', '**/node_modules/**'],
+    };
+    
     if (isServer) {
       // Externalize canvas to avoid webpack bundling issues
       config.externals.push('canvas');
