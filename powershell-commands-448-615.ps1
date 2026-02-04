@@ -65,7 +65,7 @@ if ($env -match "production|therfpqueen-f11fd") {
 Write-Host "`n[451] Verifying production functions..." -ForegroundColor Cyan
 try {
     $prodFunctions = firebase functions:list 2>&1
-    $webhookFunctions = @("onUserCreated", "onDocumentUploaded", "onOpportunitySaved", 
+    $webhookFunctions = @("onUserCreated", "onDocumentUploadedCreate", "onDocumentUploadedUpdate", "onOpportunitySaved", 
                           "onOpportunityApplied", "onOpportunitiesRecommended", 
                           "onOpportunityAnalyzed", "persistRecommendations")
     

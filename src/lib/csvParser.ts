@@ -1,4 +1,5 @@
 import { Opportunity } from '@/types';
+import { stableOpportunityId, stableOpportunityIdFromFields } from '@/lib/stableOpportunityId';
 
 // Parse CSV string into array of objects
 export function parseCSV(csvText: string): Record<string, string>[] {
@@ -218,8 +219,30 @@ export function normalizeOpportunity(row: Record<string, string>, source: string
     }
   }
   
+  // Generate stable ID based on source
+  let stableId: string;
+  if (source === 'SAM' || source.toLowerCase().includes('sam')) {
+    // SAM.gov CSV should have noticeId or similar
+    const noticeId = findValue(['Notice ID', 'noticeId', 'notice_id', 'NoticeID', 'NOTICE ID']);
+    if (noticeId) {
+      stableId = stableOpportunityId('SAM.gov', noticeId);
+    } else {
+      // Fallback to hash if no noticeId
+      stableId = stableOpportunityIdFromFields(source, title, url, agency);
+    }
+  } else {
+    // For grants.gov CSV, try to find opportunity number
+    const oppNumber = cleanedRfpNumber || findValue(['OPPORTUNITY NUMBER', 'Opportunity Number', 'opportunityNumber']);
+    if (oppNumber) {
+      stableId = stableOpportunityId('Grants.gov', oppNumber);
+    } else {
+      // Fallback to hash
+      stableId = stableOpportunityIdFromFields(source, title, url, agency);
+    }
+  }
+  
   return {
-    id: `${source}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    id: stableId,
     source,
     title,
     agency,

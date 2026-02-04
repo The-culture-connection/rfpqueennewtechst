@@ -82,7 +82,11 @@ firebase deploy --only functions
 **Or deploy specific functions:**
 ```powershell
 # Deploy only webhook functions
+<<<<<<< HEAD
 firebase deploy --only functions:onUserCreated,functions:onDocumentUploadedCreate,functions:onDocumentUploadedUpdate,functions:onOpportunitySaved,functions:onOpportunityApplied,functions:onOpportunitiesRecommended,functions:onOpportunityAnalyzed,functions:persistRecommendations
+=======
+firebase deploy --only functions:onUserCreated,functions:onDocumentUploadedCreate,functions:onDocumentUploadedUpdate,functions:onOpportunitySaved,functions:onOpportunityApplied,functions:onOpportunityAnalyzed,functions:onOpportunitiesRecommended,functions:persistRecommendations
+>>>>>>> 4c7cd94d72177eb8a65e54639296abb8b213483f
 ```
 
 **⚠️ Important:** Do NOT include these in deployment commands:

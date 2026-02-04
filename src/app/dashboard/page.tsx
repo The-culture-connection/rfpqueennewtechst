@@ -259,6 +259,19 @@ export default function DashboardPage() {
   
   const availableOpportunities = displayedOpportunities;
   const currentOpportunity = availableOpportunities[currentIndex];
+  
+  // Debug logging
+  useEffect(() => {
+    if (!loading) {
+      console.log(`[DASHBOARD][DEBUG] matchedOpportunities.length: ${matchedOpportunities.length}`);
+      console.log(`[DASHBOARD][DEBUG] passedIds.length: ${passedIds.length}, savedIds.length: ${savedIds.length}`);
+      console.log(`[DASHBOARD][DEBUG] displayedOpportunities.length: ${displayedOpportunities.length}`);
+      console.log(`[DASHBOARD][DEBUG] currentIndex: ${currentIndex}`);
+      if (matchedOpportunities.length > 0) {
+        console.log(`[DASHBOARD][DEBUG] Sample matched opportunity IDs:`, matchedOpportunities.slice(0, 3).map(o => o.id));
+      }
+    }
+  }, [loading, matchedOpportunities.length, passedIds.length, savedIds.length, displayedOpportunities.length, currentIndex]);
 
   // Reset progress and start over
   const handleStartOver = async () => {

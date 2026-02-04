@@ -280,9 +280,14 @@ export async function POST(request: Request) {
     console.log(`\n💡 View full results: GET /api/debug-matches?userId=${userId}\n`);
     
     // Convert TopMatch back to Opportunity format for frontend (eligible only)
+    // CRITICAL: Use the opportunityId from match to find the original opportunity
     const matchedOpportunities = finalMatches.slice(0, 50).map(match => {
       const opp = allOpportunities.find(o => o.id === match.opportunityId);
-      if (!opp) return null;
+      if (!opp) {
+        console.warn(`[run-matching] Opportunity not found for match.opportunityId: ${match.opportunityId}`);
+        console.warn(`[run-matching] Available opportunity IDs (first 5):`, allOpportunities.slice(0, 5).map(o => o.id));
+        return null;
+      }
       
       return {
         ...opp,
@@ -307,7 +312,10 @@ export async function POST(request: Request) {
     // Convert unknown matches for frontend (if needed)
     const unknownOpportunities = (unknownMatches || []).slice(0, 50).map(match => {
       const opp = allOpportunities.find(o => o.id === match.opportunityId);
-      if (!opp) return null;
+      if (!opp) {
+        console.warn(`[run-matching] Unknown opportunity not found for match.opportunityId: ${match.opportunityId}`);
+        return null;
+      }
       
       return {
         ...opp,
