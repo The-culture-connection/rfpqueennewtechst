@@ -3,6 +3,7 @@ import { getAdminFirestore } from '@/lib/firebaseAdmin';
 import { extractTextFromFile } from '@/lib/extraction/textExtractors';
 import { extractFieldsWithAI, AIExtractedFields } from '@/lib/extraction/aiExtractor';
 import { DocumentType } from '@/types/documents';
+import { incrementDocsVersion } from '@/lib/matchDataAccess';
 
 /**
  * Merge all profile fragments into a master business profile
@@ -185,7 +186,7 @@ async function processDocument(
 
     // Step 3: Extract fields using AI
     console.log(`🤖 Extracting fields with AI...`);
-    const extractedFields = await extractFieldsWithAI(rawText, documentType);
+    const extractedFields = await extractFieldsWithAI(rawText, documentType, userId);
     console.log(`✅ AI extraction complete. Extracted ${Object.keys(extractedFields).filter(k => extractedFields[k as keyof typeof extractedFields] !== null).length} fields`);
 
     // Step 4: Store profile fragment in Firestore (Admin SDK)
@@ -230,6 +231,11 @@ async function processDocument(
     mergeProfileFragments(userId).catch(err => {
       console.error('Error merging profile fragments:', err);
     });
+    
+    // Step 7: Increment docs version to trigger matching on next dashboard load
+    console.log(`📝 Incrementing docs version for user ${userId}...`);
+    await incrementDocsVersion(userId);
+    console.log(`✅ Docs version incremented - matching will run on next dashboard load`);
     
     console.log(`✅ Document ${documentId} processed successfully${isReplacement ? ' (REPLACED)' : ''}`);
     

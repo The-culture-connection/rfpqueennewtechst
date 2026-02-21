@@ -732,12 +732,14 @@ function matchesTimeline(opportunity: Opportunity, timeline: Timeline): number {
 }
 
 // Match and score all opportunities, return sorted by win rate
-export function matchOpportunities(
+export async function matchOpportunities(
   opportunities: Opportunity[], 
   profile: UserProfile,
   minWinRate: number = 0,
-  excludeIds?: string[] // IDs of opportunities to exclude (passed/saved)
-): Opportunity[] {
+  excludeIds?: string[], // IDs of opportunities to exclude (passed/saved)
+  userId?: string, // For AI audit logging
+  useAIRefinement: boolean = true // Enable AI refinement layer
+): Promise<Opportunity[]> {
   // Get negative keywords for hard filtering
   const negativeKeywords = profile.negativeKeywords && profile.negativeKeywords.length > 0
     ? profile.negativeKeywords
@@ -795,13 +797,48 @@ export function matchOpportunities(
   // STEP 4: Sort by win rate descending
   filtered.sort((a, b) => (b.winRate || 0) - (a.winRate || 0));
   
-  // Log top 5 results
+  // Log top 5 results before AI refinement
   const top5 = filtered.slice(0, 5).map(o => ({
     title: o.title?.substring(0, 50),
     winRate: o.winRate,
     type: o.type,
   }));
-  console.log('[matchOpportunities] Top 5 results:', top5);
+  console.log('[matchOpportunities] Top 5 results (before AI refinement):', top5);
+  
+  // STEP 5: AI Refinement Layer (Final step)
+  // NOTE: AI refinement requires server-side execution (OpenAI API + Firestore Admin)
+  // Skip on client-side to avoid build errors
+  if (useAIRefinement && filtered.length > 0 && typeof window === 'undefined' && process.env.OPENAI_API_KEY) {
+    try {
+      console.log('[matchOpportunities] Applying AI refinement layer...');
+      const { refineMatchesWithAI } = await import('@/lib/aiMatchRefinement');
+      const aiRefined = await refineMatchesWithAI(filtered, profile, userId, 50);
+      
+      // Log top 5 after AI refinement
+      const top5After = aiRefined.slice(0, 5).map(o => ({
+        title: o.title?.substring(0, 50),
+        winRate: o.winRate,
+        matchScore: o.matchScore,
+        type: o.type,
+        hasAIRefinement: !!o.matchReasoning,
+      }));
+      console.log('[matchOpportunities] Top 5 results (after AI refinement):', top5After);
+      
+      return aiRefined;
+    } catch (error: any) {
+      console.error('[matchOpportunities] AI refinement failed, using code-based results:', error.message);
+      // Fall back to code-based results if AI fails
+      return filtered;
+    }
+  } else {
+    if (typeof window !== 'undefined') {
+      console.log('[matchOpportunities] Client-side execution - skipping AI refinement (server-side only)');
+    } else if (!useAIRefinement) {
+      console.log('[matchOpportunities] AI refinement disabled');
+    } else if (!process.env.OPENAI_API_KEY) {
+      console.log('[matchOpportunities] OpenAI API key not set, skipping AI refinement');
+    }
+  }
   
   return filtered;
 }

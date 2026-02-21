@@ -10,6 +10,7 @@ import {
   updateProfile
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { UserProfile } from '@/types';
 import { auth, db } from '@/lib/firebase';
 import { UserProfile } from '@/types';
 import { 
@@ -98,15 +99,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log('🔄 Updating user profile in Firestore...', { uid: user.uid, profile });
     
     const profileRef = doc(db, 'profiles', user.uid);
+    const existingProfile = await getDoc(profileRef);
+    const currentProfileVersion = existingProfile.exists() 
+      ? (existingProfile.data()?.profileVersion || 1) 
+      : 1;
+    
     const updatedProfile = {
       ...profile,
       uid: user.uid,
       email: user.email!,
       updatedAt: new Date(),
+      profileVersion: currentProfileVersion + 1, // Increment version on profile update
     };
 
     await setDoc(profileRef, updatedProfile, { merge: true });
-    console.log('✅ Profile saved to Firestore');
+    
+    // Also update users collection for new matching system
+    const userRef = doc(db, 'users', user.uid);
+    await setDoc(userRef, {
+      profileVersion: currentProfileVersion + 1,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+    
+    console.log('✅ Profile saved to Firestore (version incremented)');
     
     // Don't clear cache immediately - let it expire naturally or be cleared on next load
     // This preserves user progress (passed opportunities, current position)

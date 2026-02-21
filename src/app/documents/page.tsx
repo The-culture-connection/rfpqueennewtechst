@@ -20,6 +20,8 @@ import {
 } from '@/lib/analytics';
 
 export default function DocumentsPage() {
+  console.log('🎬 [Documents Page] Component rendering/mounting - VERSION 2.0 (FIXED)');
+  
   const { user, userProfile } = useAuth();
   const router = useRouter();
   
@@ -29,33 +31,80 @@ export default function DocumentsPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMessage, setProcessingMessage] = useState('');
   const [redirecting, setRedirecting] = useState(false);
+  const [hasCheckedInitialState, setHasCheckedInitialState] = useState(false);
+  const [initialCompletedDocs, setInitialCompletedDocs] = useState<Set<string>>(new Set());
+  
+  console.log('🎬 [Documents Page] State initialized', {
+    hasCheckedInitialState,
+    initialCompletedDocsSize: initialCompletedDocs.size,
+  });
   
   // Redirect if not authenticated
   useEffect(() => {
+    console.log('🔐 [Documents Page] Auth check useEffect', {
+      loading,
+      hasUser: !!user,
+      userId: user?.uid,
+    });
+    
     if (!loading && !user) {
+      console.log('🚨 [Documents Page] No user and not loading, redirecting to /login');
       router.push('/login');
+    } else {
+      console.log('✅ [Documents Page] Auth check passed');
     }
   }, [user, loading, router]);
 
   // Load user's documents
   useEffect(() => {
+    console.log('🔄 [Documents Page] Load documents useEffect triggered', {
+      hasUser: !!user,
+      userId: user?.uid,
+    });
+    
     if (user) {
+      console.log('✅ [Documents Page] User found, calling loadDocuments and trackDocumentsPageViewed');
       loadDocuments();
       trackDocumentsPageViewed();
+    } else {
+      console.log('⏳ [Documents Page] No user yet, waiting...');
     }
   }, [user]);
 
   // Monitor document processing status and redirect when complete
   useEffect(() => {
-    if (!user || !db) return;
+    console.log('🔍 [Documents Page] useEffect #1 triggered', {
+      hasUser: !!user,
+      hasDb: !!db,
+      userId: user?.uid,
+      uploadingFilesCount: Object.keys(uploadingFiles).length,
+      redirecting,
+    });
+
+    if (!user || !db) {
+      console.log('❌ [Documents Page] useEffect #1: Missing user or db, returning early');
+      return;
+    }
 
     // Set up real-time listener for documents
     const docsRef = collection(db, 'profiles', user.uid, 'documents');
+    console.log('📡 [Documents Page] useEffect #1: Setting up onSnapshot listener');
+    
     const unsubscribe = onSnapshot(docsRef, (snapshot) => {
       const docs = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       } as DocumentMetadata));
+      
+      console.log('📄 [Documents Page] useEffect #1: onSnapshot fired', {
+        documentsCount: docs.length,
+        documents: docs.map(d => ({
+          id: d.id,
+          type: d.documentType,
+          status: d.processingStatus,
+          fileName: d.fileName,
+        })),
+      });
       
       setDocuments(docs);
 
@@ -69,8 +118,24 @@ export default function DocumentsPage() {
         d.processingStatus === 'completed' || d.processingStatus === 'failed'
       );
 
+      console.log('🔍 [Documents Page] useEffect #1: Status checks', {
+        hasUploading,
+        hasProcessing,
+        hasCompleted,
+        allCompleted,
+        redirecting,
+        documentsLength: docs.length,
+        statusBreakdown: {
+          completed: docs.filter(d => d.processingStatus === 'completed').length,
+          processing: docs.filter(d => d.processingStatus === 'processing').length,
+          pending: docs.filter(d => d.processingStatus === 'pending').length,
+          failed: docs.filter(d => d.processingStatus === 'failed').length,
+        },
+      });
+
       // Update processing state
       if (hasUploading || hasProcessing) {
+        console.log('⏳ [Documents Page] useEffect #1: Setting processing state');
         setIsProcessing(true);
         if (hasUploading) {
           setProcessingMessage('Uploading documents...');
@@ -78,33 +143,107 @@ export default function DocumentsPage() {
           setProcessingMessage('Processing documents with AI...');
         }
       } else if (hasCompleted && allCompleted && !redirecting) {
-        // All documents are processed, redirect to profile
-        setIsProcessing(false);
-        setRedirecting(true);
-        setProcessingMessage('Documents processed! Redirecting to approve keywords...');
+        // Check if documents were just completed (new completion) vs already completed
+        const completedDocIds = new Set(
+          docs.filter(d => d.processingStatus === 'completed').map(d => d.id)
+        );
         
-        setTimeout(() => {
-          router.push('/profile?message=Approve keywords');
-        }, 2000);
+        console.log('🔍 [Documents Page] useEffect #1: Checking redirect conditions', {
+          hasCompleted,
+          allCompleted,
+          redirecting,
+          hasCheckedInitialState,
+          completedDocIds: Array.from(completedDocIds),
+          initialCompletedDocs: Array.from(initialCompletedDocs),
+          completedDocIdsSize: completedDocIds.size,
+          initialCompletedDocsSize: initialCompletedDocs.size,
+        });
+        
+        // First time checking - store initial state and NEVER redirect
+        if (!hasCheckedInitialState) {
+          console.log('📝 [Documents Page] useEffect #1: FIRST CHECK - Storing initial document state (NO REDIRECT)', {
+            completedDocIds: Array.from(completedDocIds),
+            reason: 'This is the initial page load - documents were already completed',
+          });
+          setInitialCompletedDocs(completedDocIds);
+          setHasCheckedInitialState(true);
+          setIsProcessing(false);
+        } else {
+          // Subsequent checks - only redirect if NEW documents were completed
+          const isNewCompletion = completedDocIds.size > initialCompletedDocs.size ||
+            Array.from(completedDocIds).some(id => !initialCompletedDocs.has(id));
+          
+          console.log('🔍 [Documents Page] useEffect #1: SUBSEQUENT CHECK', {
+            isNewCompletion,
+            completedDocIds: Array.from(completedDocIds),
+            initialCompletedDocs: Array.from(initialCompletedDocs),
+          });
+          
+          if (isNewCompletion) {
+            console.log('🚨 [Documents Page] useEffect #1: TRIGGERING REDIRECT (NEW completion detected)', {
+              reason: 'New documents were completed after initial page load',
+            });
+            setIsProcessing(false);
+            setRedirecting(true);
+            setProcessingMessage('Documents processed! Redirecting to approve keywords...');
+            
+            setTimeout(() => {
+              console.log('➡️ [Documents Page] useEffect #1: Executing redirect to /profile');
+              router.push('/profile?message=Approve keywords');
+            }, 2000);
+          } else {
+            console.log('✅ [Documents Page] useEffect #1: NO REDIRECT - Documents already completed on initial load', {
+              reason: 'User is revisiting page with already-completed documents',
+            });
+            setIsProcessing(false);
+          }
+        }
       } else {
+        console.log('✅ [Documents Page] useEffect #1: No redirect needed, setting processing to false');
         setIsProcessing(false);
       }
     });
 
-    return () => unsubscribe();
-  }, [user, db, uploadingFiles, redirecting, router]);
+    return () => {
+      console.log('🧹 [Documents Page] useEffect #1: Cleaning up onSnapshot listener');
+      unsubscribe();
+    };
+  }, [user, db, uploadingFiles, redirecting, router, hasCheckedInitialState, initialCompletedDocs]);
 
-  // Monitor document processing status and redirect when complete
+  // Monitor document processing status and redirect when complete (DUPLICATE - REMOVE THIS)
   useEffect(() => {
-    if (!user || !db) return;
+    console.log('🔍 [Documents Page] useEffect #2 triggered (DUPLICATE)', {
+      hasUser: !!user,
+      hasDb: !!db,
+      userId: user?.uid,
+      uploadingFilesCount: Object.keys(uploadingFiles).length,
+      redirecting,
+    });
+
+    if (!user || !db) {
+      console.log('❌ [Documents Page] useEffect #2: Missing user or db, returning early');
+      return;
+    }
 
     // Set up real-time listener for documents
     const docsRef = collection(db, 'profiles', user.uid, 'documents');
+    console.log('📡 [Documents Page] useEffect #2: Setting up onSnapshot listener (DUPLICATE)');
+    
     const unsubscribe = onSnapshot(docsRef, (snapshot) => {
       const docs = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       } as DocumentMetadata));
+      
+      console.log('📄 [Documents Page] useEffect #2: onSnapshot fired (DUPLICATE)', {
+        documentsCount: docs.length,
+        documents: docs.map(d => ({
+          id: d.id,
+          type: d.documentType,
+          status: d.processingStatus,
+          fileName: d.fileName,
+        })),
+      });
       
       setDocuments(docs);
 
@@ -118,8 +257,24 @@ export default function DocumentsPage() {
         d.processingStatus === 'completed' || d.processingStatus === 'failed'
       );
 
+      console.log('🔍 [Documents Page] useEffect #2: Status checks (DUPLICATE)', {
+        hasUploading,
+        hasProcessing,
+        hasCompleted,
+        allCompleted,
+        redirecting,
+        documentsLength: docs.length,
+        statusBreakdown: {
+          completed: docs.filter(d => d.processingStatus === 'completed').length,
+          processing: docs.filter(d => d.processingStatus === 'processing').length,
+          pending: docs.filter(d => d.processingStatus === 'pending').length,
+          failed: docs.filter(d => d.processingStatus === 'failed').length,
+        },
+      });
+
       // Update processing state
       if (hasUploading || hasProcessing) {
+        console.log('⏳ [Documents Page] useEffect #2: Setting processing state (DUPLICATE)');
         setIsProcessing(true);
         if (hasUploading) {
           setProcessingMessage('Uploading documents...');
@@ -127,39 +282,96 @@ export default function DocumentsPage() {
           setProcessingMessage('Processing documents with AI...');
         }
       } else if (hasCompleted && allCompleted && !redirecting) {
-        // All documents are processed, redirect to profile
-        setIsProcessing(false);
-        setRedirecting(true);
-        setProcessingMessage('Documents processed! Redirecting to approve keywords...');
+        // Check if documents were just completed (new completion) vs already completed
+        const completedDocIds = new Set(
+          docs.filter(d => d.processingStatus === 'completed').map(d => d.id)
+        );
         
-        setTimeout(() => {
-          router.push('/profile?message=Approve keywords');
-        }, 2000);
+        console.log('🔍 [Documents Page] useEffect #2: Checking redirect conditions (DUPLICATE)', {
+          hasCompleted,
+          allCompleted,
+          redirecting,
+          hasCheckedInitialState,
+          completedDocIds: Array.from(completedDocIds),
+          initialCompletedDocs: Array.from(initialCompletedDocs),
+        });
+        
+        // First time checking - store initial state and NEVER redirect
+        if (!hasCheckedInitialState) {
+          console.log('📝 [Documents Page] useEffect #2: FIRST CHECK - Storing initial state (DUPLICATE - NO REDIRECT)');
+          setInitialCompletedDocs(completedDocIds);
+          setHasCheckedInitialState(true);
+          setIsProcessing(false);
+        } else {
+          // Subsequent checks - only redirect if NEW documents were completed
+          const isNewCompletion = completedDocIds.size > initialCompletedDocs.size ||
+            Array.from(completedDocIds).some(id => !initialCompletedDocs.has(id));
+          
+          if (isNewCompletion) {
+            console.log('🚨 [Documents Page] useEffect #2: TRIGGERING REDIRECT (DUPLICATE - NEW completion)');
+            setIsProcessing(false);
+            setRedirecting(true);
+            setProcessingMessage('Documents processed! Redirecting to approve keywords...');
+            
+            setTimeout(() => {
+              console.log('➡️ [Documents Page] useEffect #2: Executing redirect to /profile (DUPLICATE)');
+              router.push('/profile?message=Approve keywords');
+            }, 2000);
+          } else {
+            console.log('✅ [Documents Page] useEffect #2: NO REDIRECT - Already completed (DUPLICATE)');
+            setIsProcessing(false);
+          }
+        }
       } else {
+        console.log('✅ [Documents Page] useEffect #2: No redirect needed (DUPLICATE)');
         setIsProcessing(false);
       }
     });
 
-    return () => unsubscribe();
-  }, [user, db, uploadingFiles, redirecting, router]);
+    return () => {
+      console.log('🧹 [Documents Page] useEffect #2: Cleaning up onSnapshot listener (DUPLICATE)');
+      unsubscribe();
+    };
+  }, [user, db, uploadingFiles, redirecting, router, hasCheckedInitialState, initialCompletedDocs]);
 
   const loadDocuments = async () => {
-    if (!user || !db) return;
+    console.log('📥 [Documents Page] loadDocuments called', {
+      hasUser: !!user,
+      hasDb: !!db,
+      userId: user?.uid,
+    });
+
+    if (!user || !db) {
+      console.log('❌ [Documents Page] loadDocuments: Missing user or db, returning early');
+      return;
+    }
 
     try {
       // Documents are now nested under: profiles/{userId}/documents
       const docsRef = collection(db, 'profiles', user.uid, 'documents');
+      console.log('📡 [Documents Page] loadDocuments: Fetching documents from Firestore');
       const querySnapshot = await getDocs(docsRef);
       const docs = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       } as DocumentMetadata));
       
+      console.log('✅ [Documents Page] loadDocuments: Documents loaded', {
+        count: docs.length,
+        documents: docs.map(d => ({
+          id: d.id,
+          type: d.documentType,
+          status: d.processingStatus,
+          fileName: d.fileName,
+        })),
+      });
+      
       setDocuments(docs);
     } catch (error) {
-      console.error('Error loading documents:', error);
+      console.error('❌ [Documents Page] loadDocuments: Error loading documents:', error);
     } finally {
       setLoading(false);
+      console.log('🏁 [Documents Page] loadDocuments: Loading complete, setLoading(false)');
     }
   };
 

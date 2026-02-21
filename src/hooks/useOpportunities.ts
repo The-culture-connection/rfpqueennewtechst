@@ -43,6 +43,71 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
         return;
       }
 
+      // NEW: Check if matching should run using new system
+      if (!forceReload) {
+        try {
+          const shouldRunResponse = await fetch(`/api/should-run-matching?userId=${profile.uid}`);
+          const shouldRunData = await shouldRunResponse.json();
+          
+          if (shouldRunData.shouldRun) {
+            console.log(`[useOpportunities] Matching should run (reason: ${shouldRunData.reason})`);
+            // Will run matching below
+          } else {
+            // Try to load current matches from new system
+            console.log('[useOpportunities] Matching not needed, loading current matches...');
+            try {
+              const currentMatchesRef = doc(db, 'userMatches', profile.uid, 'current', 'latest');
+              const currentMatchesDoc = await getDoc(currentMatchesRef);
+              
+              if (currentMatchesDoc.exists()) {
+                const currentMatches = currentMatchesDoc.data();
+                console.log(`[useOpportunities] Found ${currentMatches?.topMatches?.length || 0} current matches`);
+                
+                // Load full opportunity data
+                const opportunitiesResponse = await fetch(
+                  `/api/opportunities?limit=1000&hasDeadline=false&fundingTypes=${(profile.fundingType || []).join(',')}`
+                );
+                const opportunitiesData = await opportunitiesResponse.json();
+                const allOpps = opportunitiesData.opportunities || [];
+                
+                // Map matches to opportunities
+                const matched = (currentMatches.topMatches || [])
+                  .map((match: any) => {
+                    const opp = allOpps.find((o: Opportunity) => o.id === match.opportunityId);
+                    if (!opp) return null;
+                    return {
+                      ...opp,
+                      winRate: match.scores.rankingScore,
+                      matchScore: match.scores.rankingScore,
+                      eligibilityNotes: match.notes.eligibilityNotes,
+                      matchReasoning: {
+                        summary: match.notes.matchSummary,
+                        strengths: [],
+                        concerns: [],
+                        specificReasons: match.eligibilityGate.reasons,
+                        eligibilityHighlights: match.notes.eligibilityNotes,
+                        confidenceScore: match.confidenceScore,
+                      },
+                    };
+                  })
+                  .filter(Boolean) as Opportunity[];
+                
+                setOpportunities(allOpps);
+                setMatchedOpportunities(matched);
+                setLoading(false);
+                setLastProfileHash(profileHash);
+                console.log(`✅ Loaded ${matched.length} matches from new system`);
+                return;
+              }
+            } catch (err) {
+              console.warn('[useOpportunities] Error loading current matches, falling back to old system:', err);
+            }
+          }
+        } catch (err) {
+          console.warn('[useOpportunities] Error checking shouldRunMatching, using old system:', err);
+        }
+      }
+
       // Skip if profile hasn't changed and this isn't a forced reload or manual refresh
       // This prevents rerunning when navigating back to the dashboard
       if (profileHash === lastProfileHash && !forceReload && refreshTrigger === 0 && opportunities.length > 0) {
@@ -51,7 +116,7 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
         return;
       }
 
-      // Check Firestore cache first (unless force reload)
+      // Check Firestore cache first (unless force reload) - OLD SYSTEM
       if (!forceReload) {
         try {
           const cached = await getCachedOpportunities(profile.uid, profile);
@@ -60,7 +125,7 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
             setMatchedOpportunities(cached.matchedOpportunities);
             setLoading(false);
             setLastProfileHash(profileHash);
-            console.log('✅ Using Firestore cached opportunities');
+            console.log('✅ Using Firestore cached opportunities (old system)');
             return;
           }
         } catch (err) {
@@ -171,13 +236,83 @@ export function useOpportunities(profile: UserProfile | null, forceReload: boole
           }
         }
 
-        console.log('🧠 Starting intelligent AI-powered opportunity matching...');
-        // Use intelligent matching algorithm with personalized descriptions
-        const matched = intelligentMatchOpportunities(allOpps, enrichedProfile)
-          .filter(opp => (opp.matchScore || 0) >= 35); // 35% minimum score
-        console.log(`✅ Matched ${matched.length} opportunities (35%+ score) with intelligent analysis`);
+        // NEW: Check if we should use new matching system
+        const shouldRunResponse = await fetch(`/api/should-run-matching?userId=${profile.uid}`);
+        const shouldRunData = await shouldRunResponse.json();
         
-        setMatchedOpportunities(matched);
+        // Declare matched at higher scope so it's available for caching
+        let matched: Opportunity[] = [];
+        
+        if (shouldRunData.shouldRun || forceReload) {
+          // Use new production matching system
+          console.log('🚀 [useOpportunities] Using NEW production matching system...');
+          setLoading(true);
+          
+          const runResponse = await fetch('/api/run-matching', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: profile.uid,
+              trigger: shouldRunData.reason || 'FIRST_DASHBOARD',
+              forceRun: forceReload,
+            }),
+          });
+          
+          if (runResponse.ok) {
+            const runData = await runResponse.json();
+            console.log(`✅ [useOpportunities] New matching complete: ${runData.matchesCount} matches`);
+            
+            // Load the matched opportunities
+            const currentMatchesRef = doc(db, 'userMatches', profile.uid, 'current', 'latest');
+            const currentMatchesDoc = await getDoc(currentMatchesRef);
+            
+            if (currentMatchesDoc.exists()) {
+              const currentMatches = currentMatchesDoc.data();
+              matched = (currentMatches.topMatches || [])
+                .map((match: any) => {
+                  const opp = allOpps.find((o: Opportunity) => o.id === match.opportunityId);
+                  if (!opp) return null;
+                  return {
+                    ...opp,
+                    winRate: match.scores.rankingScore,
+                    matchScore: match.scores.rankingScore,
+                    eligibilityNotes: match.notes.eligibilityNotes,
+                    matchReasoning: {
+                      summary: match.notes.matchSummary,
+                      strengths: [],
+                      concerns: [],
+                      specificReasons: match.eligibilityGate.reasons,
+                      eligibilityHighlights: match.notes.eligibilityNotes,
+                      confidenceScore: match.confidenceScore,
+                    },
+                  };
+                })
+                .filter(Boolean) as Opportunity[];
+              
+              setMatchedOpportunities(matched);
+              console.log(`✅ [useOpportunities] Loaded ${matched.length} matches from new system`);
+            } else {
+              // Fallback to old system if new system didn't save matches
+              console.warn('[useOpportunities] New system completed but no matches found, using old system');
+              const matchedResults = await intelligentMatchOpportunities(allOpps, enrichedProfile, profile.uid, true);
+              matched = matchedResults.filter(opp => (opp.matchScore || opp.winRate || 0) >= 35);
+              setMatchedOpportunities(matched);
+            }
+          } else {
+            // Fallback to old system on error
+            console.warn('[useOpportunities] New matching system failed, using old system');
+            const matchedResults = await intelligentMatchOpportunities(allOpps, enrichedProfile, profile.uid, true);
+            matched = matchedResults.filter(opp => (opp.matchScore || opp.winRate || 0) >= 35);
+            setMatchedOpportunities(matched);
+          }
+        } else {
+          // Use old intelligent matching system (backward compatibility)
+          console.log('🧠 [useOpportunities] Using OLD intelligent matching system...');
+          const matchedResults = await intelligentMatchOpportunities(allOpps, enrichedProfile, profile.uid, true);
+          matched = matchedResults.filter(opp => (opp.matchScore || opp.winRate || 0) >= 35);
+          console.log(`✅ Matched ${matched.length} opportunities (35%+ score) with intelligent analysis and AI refinement`);
+          setMatchedOpportunities(matched);
+        }
 
         // Cache the results in Firestore (primary cache)
         if (profile.uid) {
