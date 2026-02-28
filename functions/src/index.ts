@@ -430,6 +430,16 @@ export const persistRecommendations = onDocumentCreated('userMatches/{userId}/cu
   });
 
 // ============================================================================
+// OPPORTUNITY INGESTION
+// ============================================================================
+
+export {
+  ingestOpportunitiesDaily,
+  ingestOpportunitiesNow,
+  ingestOpportunitiesHttp,
+} from './opportunityIngest';
+
+// ============================================================================
 // EXISTING FUNCTIONS
 // ============================================================================
 // 
